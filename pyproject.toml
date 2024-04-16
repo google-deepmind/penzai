@@ -1,0 +1,89 @@
+[project]
+# Project metadata. Available keys are documented at:
+# https://packaging.python.org/en/latest/specifications/declaring-project-metadata
+name = "penzai"
+description = "Penzai: A JAX research toolkit for inspecting, patching, and visualizing neural networks."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [{name = "The Penzai Authors", email="penzai-dev@google.com"}]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: Apache Software License",
+    "Intended Audience :: Science/Research",
+]
+keywords = []
+
+# Pip dependencies of the project.
+# Note: Penzai depends on JAX, which depends on `jaxlib`, but the version of
+# `jaxlib` needed depends on the user's hardware, so we cannot install it here.
+dependencies = [
+    "absl-py>=1.4.0",
+    "equinox>=0.11.3",
+    "jax>=0.4.23",
+    "numpy>=1.25.2",
+    "ordered_set>=4.1.0",
+    "typing_extensions>=4.2",
+]
+
+# This is set automatically by flit using `penzai.__version__`
+dynamic = ["version"]
+
+[project.urls]
+homepage = "https://github.com/google-deepmind/penzai"
+repository = "https://github.com/google-deepmind/penzai"
+
+[project.optional-dependencies]
+# Extra dependencies for some toolshed modules and tests, but not
+# required to use the core functionality.
+# Installed through `pip install .[extras]`
+extras = [
+    "ipython",
+    "flax>=0.8.2",
+    "optax",
+]
+# Extra dependencies for some notebook demos.
+notebook = [
+    "ipython",
+    "flax>=0.8.2",
+    "optax",
+    "orbax-checkpoint",
+    "gemma @ git+https://www.github.com/google-deepmind/gemma.git",
+    "palettable",
+]
+# Development deps (unittest, linting, formating,...)
+# Installed through `pip install .[dev]`
+dev = [
+    "pylint>=2.6.0",
+    "pyink>=24.3.0",
+    "ipython",
+    "jupyter",
+]
+# Requirements for building documentation.
+docs = [
+    "ipython",
+    "flax>=0.8.2",
+    "optax",
+    "sphinx>=6.0.0",
+    "sphinx-book-theme>=1.0.1",
+    "sphinxcontrib-katex",
+    "ipython>=8.8.0",
+    "myst-nb>=1.0.0",
+    "matplotlib>=3.5.0",
+    "sphinx-collections>=0.0.1",
+    "sphinx_contributors",
+    "jax[cpu]>=0.4.23",
+    "furo>=2024.1.29"
+]
+
+[tool.pyink]
+# Formatting configuration to follow Google style-guide
+line-length = 80
+unstable = true
+pyink-indentation = 2
+pyink-use-majority-quotes = true
+
+[build-system]
+requires = ["flit_core >=3.8,<4"]
+build-backend = "flit_core.buildapi"

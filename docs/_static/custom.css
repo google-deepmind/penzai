@@ -1,0 +1,29 @@
+.cell_output .output.text_html, .glued-cell-output .output.text_html {
+  background-color: white;
+  line-height: 1.24;
+}
+
+iframe.cell_output_frame {
+  width: 100%;
+  border: 1px solid #7f7f7f2e;
+  width: 100%;
+  min-width: 100%;
+  max-height: 50em;
+  overflow: scroll;
+  background-color: white;
+  position: relative;
+}
+
+html {
+  scroll-behavior: auto !important;
+}
+
+.sidebar-brand-text {
+  font-family:monospace;
+}
+.sidebar-brand-text::before {
+  color: #cccccc;
+  position: relative;
+  left: -0.5ch;
+  content: '▼';
+}
