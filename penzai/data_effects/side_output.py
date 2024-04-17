@@ -223,13 +223,13 @@ class CollectingSideOutputs(effect_base.EffectHandler):
 class TellIntermediate(layer_base.Layer):
   """Helper layer that writes its intermediate value to a side output."""
 
-  side_out: SideOutputEffect
+  side_out: SideOutputEffect = SideOutputRequest(tag="intermediate")
 
   def __call__(self, intermediate_value):
     self.side_out.tell(intermediate_value)
     return intermediate_value
 
   @classmethod
-  def from_config(cls, tag: SideOutputTag = "intermediate") -> TellIntermediate:
+  def from_config(cls, tag: SideOutputTag) -> TellIntermediate:
     """Builds a TellIntermediate layer that writes to the given tag."""
     return cls(side_out=SideOutputRequest(tag=tag))
