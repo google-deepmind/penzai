@@ -18,6 +18,9 @@ poetry.lock
 # Type checking
 .pytype/
 
+# Virtual env
+.venv/
+
 # Other
 *.DS_Store
 

@@ -2,7 +2,7 @@
 # Project metadata. Available keys are documented at:
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata
 name = "penzai"
-description = "Penzai: A JAX research toolkit for inspecting, patching, and visualizing neural networks."
+description = "Penzai: A JAX research toolkit for building, editing, and visualizing neural networks."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
@@ -49,7 +49,6 @@ notebook = [
     "flax>=0.8.2",
     "optax",
     "orbax-checkpoint",
-    "gemma @ git+https://www.github.com/google-deepmind/gemma.git",
     "palettable",
 ]
 # Development deps (unittest, linting, formating,...)

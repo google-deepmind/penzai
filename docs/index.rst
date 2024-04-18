@@ -9,10 +9,25 @@ Penzai
   Japanese art of bonsai.*
 
 Penzai is a JAX library for writing models as legible, functional pytree data
-structures, with tools that make it easy to visualize, edit, and analyze them
-both before and after they are trained.
+structures, along with tools for visualizing, modifying, and analyzing them.
+Penzai focuses on **making it easy to do stuff with models after they have been
+trained**, making it a great choice for research involving reverse-engineering
+or ablating model components, inspecting and probing internal activations,
+performing model surgery, debugging architectures, and more. (But if you just
+want to build and train a model, you can do that too!)
 
-It is structured as a collection of modular tools, designed together but each
+With Penzai, your neural networks could look like this:
+
+.. container:: glued-cell-output
+
+  .. glue:any:: penzai_teaser
+    :doc: _include/_glue_figures.ipynb
+
+This is an interactive visualization; try clicking the `▶` buttons to expand
+layers and look at their parameters! (You can also hold shift while scrolling to
+scroll horizontally instead of vertically.)
+
+Penzai is structured as a collection of modular tools, designed together but each
 useable independently:
 
 * `penzai.nn` (``pz.nn``): A declarative combinator-based neural network
@@ -43,18 +58,8 @@ useable independently:
   numbers, and state variables that is built on pytree traversal and puts you
   in control, without getting in the way of writing or using your model.
 
-
-With Penzai, your neural networks could look like this:
-
-.. container:: glued-cell-output
-
-  .. glue:any:: penzai_teaser
-    :doc: _include/_glue_figures.ipynb
-
-This is an interactive visualization; try clicking the `▶` buttons to expand
-layers and look at their parameters! (You can also hold shift while scrolling to
-scroll horizontally instead of vertically.)
-
+These components are described in more detail in the guides in the left
+sidebar.
 
 Getting Started
 ---------------
@@ -87,21 +92,31 @@ interactive use::
   pz.ts.register_autovisualize_magic()
   pz.enable_interactive_context()
 
-
-You can then automatically visualize arrays by using the ``%%autovisualize``
-IPython cell magic. Alternatively, you can turn on array autovisualization
-by default using ::
-
+  # Optional: enables automatic array visualization
   pz.ts.active_autovisualizer.set_interactive(pz.ts.ArrayAutovisualizer())
 
+Here's how you could initialize and visualize a simple neural network::
 
-We recommend starting with the
+  from penzai.example_models import simple_mlp
+  mlp = pz.nn.initialize_parameters(
+      simple_mlp.MLP.from_config([8, 32, 32, 8]),
+      jax.random.key(42),
+  )
+
+  # Models and arrays are visualized automatically when you output them from a
+  # Colab/IPython notebook cell:
+  mlp
+
+To learn more about how to build and manipulate neural networks with Penzai,
+we recommend starting with the
 :doc:`"How to Think in Penzai" <notebooks/how_to_think_in_penzai>`
 notebook, which gives a high-level overview of how to think about and use Penzai
 models. Afterward, you coould:
 
-* Take a look at one of the example notebooks to see how you can use Penzai to visualize and modify pretrained models.
-* Or, read through the guides in the left sidebar to learn more about each of Penzai's components.
+* Take a look at one of the example notebooks to see how you can use Penzai to
+  visualize and modify pretrained models.
+* Or, read through the guides in the left sidebar to learn more about each of
+  Penzai's components.
 
 
 .. toctree::
