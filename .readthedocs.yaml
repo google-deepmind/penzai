@@ -7,6 +7,9 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.11"
+  jobs:
+    post_checkout:
+      - bash docs/scripts/readthedocs_fetch_notebook_outputs.sh
 
 sphinx:
   builder: html

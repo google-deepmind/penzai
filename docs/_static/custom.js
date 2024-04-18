@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-(() => {
+document.addEventListener('DOMContentLoaded', () => {
   // Move cell outputs into iframes to avoid JS/CSS conflicts and improve
   // responsiveness of the main page.
   const frameTpls = document.querySelectorAll('template.cell_output_frame_src');
@@ -47,7 +47,7 @@
 
   // Add zero-width spaces to sidebar identifiers to improve word breaking.
   const sidebarNodes = document.querySelectorAll(
-      '.sidebar-tree .reference, .sidebar-tree .reference *');
+      '.bd-docs-nav .reference, .bd-docs-nav .reference *');
   for (let parent of sidebarNodes) {
     for (let elt of parent.childNodes) {
       if (elt instanceof Text) {
@@ -58,4 +58,4 @@
       }
     }
   }
-})();
+});

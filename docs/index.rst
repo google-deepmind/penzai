@@ -4,8 +4,6 @@
 Penzai
 ======
 
-.. epigraph::
-
   **盆 ("pen", tray) 栽 ("zai", planting)** - *an ancient Chinese art of forming
   trees and landscapes in miniature, also called penjing and an ancestor of the
   Japanese art of bonsai.*

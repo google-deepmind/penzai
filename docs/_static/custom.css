@@ -18,12 +18,16 @@ html {
   scroll-behavior: auto !important;
 }
 
-.sidebar-brand-text {
+.title.logo__title {
   font-family:monospace;
 }
-.sidebar-brand-text::before {
+.title.logo__title::before {
   color: #cccccc;
   position: relative;
-  left: -0.5ch;
+  left: -0.75ch;
   content: '▼';
+}
+
+html[data-theme=light], html[data-theme=dark] {
+  --pst-color-inline-code: var(--pst-color-text-base) !important;
 }

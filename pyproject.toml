@@ -65,7 +65,7 @@ docs = [
     "ipython",
     "flax>=0.8.2",
     "optax",
-    "sphinx>=6.0.0",
+    "sphinx>=6.0.0,<7.3.0",
     "sphinx-book-theme>=1.0.1",
     "sphinxcontrib-katex",
     "ipython>=8.8.0",
@@ -74,7 +74,6 @@ docs = [
     "sphinx-collections>=0.0.1",
     "sphinx_contributors",
     "jax[cpu]>=0.4.23",
-    "furo>=2024.1.29"
 ]
 
 [tool.pyink]
