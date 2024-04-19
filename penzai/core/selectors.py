@@ -837,7 +837,7 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
     arrays.
 
     Args:
-      template: The object to select occurences of.
+      template: The object to select occurrences of.
 
     Returns:
       A refined selection that selects instances of this class that compare
@@ -1356,7 +1356,7 @@ def _build_selection_from_boundary(tree_with_boundary: Any) -> Selection:
       will leak back into the returned selection.
 
   Returns:
-    A selection, such that each occurence of `_InProgressSelectionBoundary` is
+    A selection, such that each occurrence of `_InProgressSelectionBoundary` is
     transformed into a selected subtree.
   """
   selected_by_path = collections.OrderedDict()

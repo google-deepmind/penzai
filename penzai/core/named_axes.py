@@ -15,7 +15,7 @@
 """A lightweight and minimal implementation of named axes.
 
 As argued by "Tensors Considered Harmful", relying on axis indices for complex
-tensor operations can be brittile and difficult to read. This has led to a
+tensor operations can be brittle and difficult to read. This has led to a
 number of proposals for indexing axes by name instead of by position. However,
 due to the large API surface for NDArray manipulation, building a fully-featured
 named axis implementation requires making named-axis versions of many individual
@@ -767,7 +767,7 @@ class NamedArrayBase(abc.ABC):
 
       embedding_table.untag("vocab")[token_ids]
 
-    which first untagss the "vocab" named axis as positional, then indexes into
+    which first untags the "vocab" named axis as positional, then indexes into
     that axis using another array (which can be a `NamedArray` or an ordinary
     array).
 
@@ -1087,7 +1087,7 @@ class NamedArray(struct.Struct, NamedArrayBase):
 
     Returns:
       An equivalent ``NamedArray`` for the given array. If ``names`` is
-      provided, the resuling array will have those names assigned to the
+      provided, the resulting array will have those names assigned to the
       corresponding axes. Otherwise, the resulting array will have a positional
       shape.
     """
@@ -1524,7 +1524,7 @@ def arange(
   Args:
     name: Name for the resulting axis.
     start: Start of the range. If ``stop`` is not provided, this is instead
-      interpreted as ``stop``, with ``start`` implicity set to 0, following
+      interpreted as ``stop``, with ``start`` implicitly set to 0, following
       `jnp.arange`.
     stop: End of the range.
     step: Step size (defaults to 1).

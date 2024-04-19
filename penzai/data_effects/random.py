@@ -270,7 +270,7 @@ class WithFrozenRandomState(effect_base.EffectHandler):
   ``WithFrozenRandomState`` can be used to freeze the random state of a model
   at a given point in time, allowing it to be deterministic and reproducible.
   It is most useful for debugging the behavior of a stochastic model while
-  holding the random seed constent.
+  holding the random seed constant.
 
   Attributes:
     handler_id: The ID of this handler.

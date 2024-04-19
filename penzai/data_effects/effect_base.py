@@ -394,7 +394,7 @@ class EffectRuntimeImpl(abc.ABC):
 
   Subclasses of ``EffectRuntimeImpl`` are created by effect handlers and are
   inserted into any layer that needs access to the effect while the model is
-  actually being called at runtime. They are reponsible for providing the
+  actually being called at runtime. They are responsible for providing the
   implementation of the effect protocol according to the handler's
   configuration.
 
