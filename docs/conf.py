@@ -232,10 +232,10 @@ def linkcode_resolve(domain, info):
   except OSError:
     return None
 
-  return 'https://github.com/deepmind/penzai/tree/master/penzai/%s#L%d#L%d' % (
-      os.path.relpath(filename, start=os.path.dirname(penzai.__file__)),
-      lineno,
-      lineno + len(source) - 1,
+  relpath = os.path.relpath(filename, start=os.path.dirname(penzai.__file__))
+  return (
+      'https://github.com/google-deepmind/penzai/tree/main/penzai/'
+      f'{relpath}#L{lineno}#L{lineno + len(source) - 1}'
   )
 
 

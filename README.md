@@ -12,6 +12,10 @@ or ablating model components, inspecting and probing internal activations,
 performing model surgery, debugging architectures, and more. (But if you just
 want to build and train a model, you can do that too!)
 
+With Penzai, your neural networks could look like this:
+
+![Screenshot of the Gemma model in Penzai](docs/_static/readme_teaser.png)
+
 Penzai is structured as a collection of modular tools, designed together but
 each useable independently:
 

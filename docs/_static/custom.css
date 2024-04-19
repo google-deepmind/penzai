@@ -31,3 +31,12 @@ html {
 html[data-theme=light], html[data-theme=dark] {
   --pst-color-inline-code: var(--pst-color-text-base) !important;
 }
+
+@media (min-width: 992px) {
+  .bd-page-width {
+      max-width: 100% !important;
+  }
+  .bd-sidebar-primary {
+      flex-basis: calc(min(20%, 25em)) !important;
+  }
+}
