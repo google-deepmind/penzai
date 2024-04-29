@@ -643,6 +643,10 @@ class NamedAxesTest(parameterized.TestCase):
       array_a_as_np = np.array(array_a)
       self.assertEqual(array_a_as_np.shape, (6,))
 
+    with self.subTest("convert_positional_to_jax"):
+      array_a_as_jax = jnp.array(array_a)
+      self.assertEqual(array_a_as_jax.shape, (6,))
+
     with self.subTest("conversion_failure_with_names"):
       with self.assertRaisesRegex(
           ValueError,
@@ -652,6 +656,16 @@ class NamedAxesTest(parameterized.TestCase):
           ),
       ):
         _ = np.array(array_a.tag("foo"))
+
+    with self.subTest("conversion_failure_with_names_jax"):
+      with self.assertRaisesRegex(
+          ValueError,
+          re.escape(
+              "Only NamedArray(View)s with no named axes can be converted to"
+              " JAX arrays"
+          ),
+      ):
+        _ = jnp.array(array_a.tag("foo"))
 
   def test_convenience_constructors(self):
     with self.subTest("zeros"):
