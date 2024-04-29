@@ -317,7 +317,7 @@ def hoist_constant_side_inputs(
   submodel you want, and then re-bind the shared parameters of that subtree
   alone.
 
-  Calling `hoist_constant_side_inputs` on a layer and then immediatelly calling
+  Calling `hoist_constant_side_inputs` on a layer and then immediately calling
   `WithConstantSideInputs.handling` on the results will usually produce a layer
   with the same observable behavior, although the tree structure may differ.
   However, if ``scoped`` is False, it is possible that this function will raise

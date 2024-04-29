@@ -111,7 +111,7 @@ To learn more about how to build and manipulate neural networks with Penzai,
 we recommend starting with the
 :doc:`"How to Think in Penzai" <notebooks/how_to_think_in_penzai>`
 notebook, which gives a high-level overview of how to think about and use Penzai
-models. Afterward, you coould:
+models. Afterward, you could:
 
 * Take a look at one of the example notebooks to see how you can use Penzai to
   visualize and modify pretrained models.

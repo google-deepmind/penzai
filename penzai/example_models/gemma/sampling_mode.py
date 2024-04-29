@@ -140,7 +140,7 @@ class GemmaKVCachingInputs(pz.Struct):
     offset.
 
     Args:
-      tokens: Subsquence of tokens, as an integer named array with a "seq" axis
+      tokens: Subsequence of tokens, as an integer named array with a "seq" axis
         and possibly batch axes. When pre-filling, the "seq" axis can be the
         length of the prompt. When sampling, the "seq" instance will usually
         have length 1.

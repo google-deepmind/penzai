@@ -1009,7 +1009,7 @@ def check_structure(
           )
       )
 
-  # No more constraints, which means this was a sucessful match. We need to
+  # No more constraints, which means this was a successful match. We need to
   # re-associate any variables whose values were tuples.
   final_matches = {}
   match_errors = []
@@ -1065,7 +1065,7 @@ class DimensionVariableSubstitution:
 
   The substitutions are allowed to contain other dimension variables. For
   instance, you can set `mapping_variables["foo"] = {"bar":1, **var("baz")}` to
-  map the original unpacked mapping varialbe "foo" to the new composite mapping.
+  map the original unpacked mapping variable "foo" to the new composite mapping.
   This can be used to e.g. rename variables.
 
   Attributes:
