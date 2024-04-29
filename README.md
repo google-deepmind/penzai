@@ -58,13 +58,13 @@ installation process depends on your platform. You can find instructions in the
 [JAX documentation](https://jax.readthedocs.io/en/latest/installation.html).
 Afterward, you can install Penzai using
 
-```
+```python
 pip install penzai
 ```
 
 and import it using
 
-```
+```python
 import penzai
 from penzai import pz
 ```
@@ -76,7 +76,7 @@ When working in an Colab or IPython notebook, we recommend also configuring
 Penzai as the default pretty printer, and enabling some utilities for
 interactive use:
 
-```
+```python
 pz.ts.register_as_default()
 pz.ts.register_autovisualize_magic()
 pz.enable_interactive_context()
@@ -87,7 +87,7 @@ pz.ts.active_autovisualizer.set_interactive(pz.ts.ArrayAutovisualizer())
 
 Here's how you could initialize and visualize a simple neural network:
 
-```
+```python
 from penzai.example_models import simple_mlp
 mlp = pz.nn.initialize_parameters(
     simple_mlp.MLP.from_config([8, 32, 32, 8]),
@@ -102,7 +102,7 @@ mlp
 Here's how you could capture and extract the activations after the elementwise
 nonlinearities:
 
-```
+```python
 mlp_with_captured_activations = pz.de.CollectingSideOutputs.handling(
     pz.select(mlp)
     .at_instances_of(pz.nn.Elementwise)
