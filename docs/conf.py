@@ -28,6 +28,7 @@
 import inspect
 import logging
 import os
+import subprocess
 import sys
 import typing
 
@@ -79,6 +80,13 @@ sphinx_logging.getLogger('sphinx.highlighting').logger.addFilter(
     IgnoreBangWarningFilter()
 )
 
+try:
+  # Look up the current git hash so we can link to it.
+  git_hash_bytes = subprocess.check_output(['git', 'rev-parse', 'HEAD'])
+  source_git_hash = git_hash_bytes.decode().strip()
+except Exception:  # pylint: disable=broad-exception-caught
+  source_git_hash = None
+
 # -- Project information -----------------------------------------------------
 
 project = 'Penzai'
@@ -106,6 +114,7 @@ extensions = [
     'sphinx_contributors',
     'pz_alias_rewrite',
     'nb_output_cell_to_iframe',
+    'hoverxref.extension',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -200,6 +209,16 @@ katex_options = 'macros: {' + katex_macros + '}'
 # Add LaTeX macros for LATEX builder
 latex_elements = {'preamble': latex_macros}
 
+# -- Hover cross-references ----------------------------------------------------
+
+hoverxref_domains = [
+    'py',
+]
+hoverxref_role_types = {
+    'obj': 'tooltip',
+    'class': 'tooltip',
+}
+
 # -- Source code links -------------------------------------------------------
 
 
@@ -232,9 +251,13 @@ def linkcode_resolve(domain, info):
   except OSError:
     return None
 
+  if source_git_hash is not None:
+    git_identifier = source_git_hash
+  else:
+    git_identifier = 'main'
   relpath = os.path.relpath(filename, start=os.path.dirname(penzai.__file__))
   return (
-      'https://github.com/google-deepmind/penzai/tree/main/penzai/'
+      f'https://github.com/google-deepmind/penzai/blob/{git_identifier}/penzai/'
       f'{relpath}#L{lineno}#L{lineno + len(source) - 1}'
   )
 

@@ -40,7 +40,7 @@ set -x
 # Figure out where we are, likely a branch or tag.
 # - When building a tag, this will produce something like "tags/tagname^0"
 # - When building a branch, it will be like "remotes/origin/branchname"
-curref=$(git name-rev --name-only --no-undefined HEAD || true)
+curref=$(git name-rev --name-only --no-undefined --exclude='main' --exclude='HEAD' HEAD || true)
 
 if [[ "${curref}" =~ ^tags/(.*)"^0"$ ]]; then
   # Looks like a tag.
