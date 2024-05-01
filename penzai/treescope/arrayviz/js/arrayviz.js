@@ -835,13 +835,16 @@ window['arrayviz'] = (() => {
         return null;
       }
 
+      // Compute positions along each named axis and the overall offset into
+      // the data array. We handle slider offsets first, then column and row
+      // offsets starting from the outermost in the rendering.
       const result = {};
-      for (const spec of slicedAxisSpecs) {
-        result[spec.name] = spec.start + activeSliceOffsets[spec.name];
-      }
-      // Compute positions along each named axis, starting with the outermost
-      // in the rendering.
       let dataIndex = 0;
+      for (const spec of slicedAxisSpecs) {
+        const index = spec.start + activeSliceOffsets[spec.name];
+        result[spec.name] = index;
+        dataIndex += dataStrides[spec.name] * index;
+      }
       let colRemainder = col;
       for (let i = xAxisSpecs.length - 1; i >= 0; i--) {
         const spec = xAxisSpecs[i];
