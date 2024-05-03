@@ -50,6 +50,19 @@ each useable independently:
 Documentation on Penzai can be found at
 [https://penzai.readthedocs.io](https://penzai.readthedocs.io).
 
+> [!WARNING]
+> Penzai's API is currently unstable and may change in future releases.
+>
+> In particular, the way Penzai handles parameter initialization, parameter
+> sharing, and local mutable state in `penzai.nn` and
+> `penzai.data_effects` is likely to be simplified in the future.
+> Some internal details of the `treescope` pretty-printer intermediate
+> representation may also change to make it easier to extend and configure.
+>
+> Projects that use Penzai's neural network components or model implementations,
+> or that define their own handlers for `treescope`, are encouraged to pin the
+> `0.1.x` release series (e.g. `penzai>=0.1,<0.2`) to avoid breaking changes.
+
 
 ## Getting Started
 
