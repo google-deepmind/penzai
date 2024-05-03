@@ -179,15 +179,19 @@ def register_as_default(
               )
           )
         if streaming:
-          foldable_impl.display_streaming_as_root(
+          output_stealer = foldable_impl.display_streaming_as_root(
               foldable_ir,
               deferreds,
               roundtrip=False,
               compressed=compress_html,
+              stealable=True,
           )
-          # Once we get here, we've displayed everything already so there's
-          # nothing else to render.
-          return ""
+          # Executing the above call will have already displayed the output,
+          # but it may be in the wrong place (e.g. it may appear before the
+          # actual "Out" marker in JupyterLab). By returning `output_stealer`
+          # as the rendering of the object, we can ensure that the output is
+          # moved to the right place.
+          return output_stealer
         else:
           assert deferreds is None
           return foldable_impl.render_to_html_as_root(

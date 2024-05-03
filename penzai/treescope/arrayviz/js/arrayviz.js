@@ -519,6 +519,26 @@ window['arrayviz'] = (() => {
    */
   let AxisSpec;
 
+  /* Delays an action until a destination element becomes visible. */
+  function _delayUntilVisible(destinationId, action) {
+    // Trigger rendering as soon as the destination becomes visible.
+    const destination = /** @type {!Element} */
+        (document.getElementById(destinationId));
+    const visiblityObserver = new IntersectionObserver((entries) => {
+      if (entries[0].intersectionRatio > 0) {
+        const loadingMarkers = destination.querySelectorAll('.loading_message');
+        action();
+        for (let elt of loadingMarkers) {
+          elt.remove();
+        }
+        visiblityObserver.disconnect();
+      }
+    }, {});
+    requestAnimationFrame(() => {
+      visiblityObserver.observe(destination);
+    });
+  }
+
   /**
    * Renders an array to a destination object.
    *  config.destinationId: ID of the HTML element to render into.
@@ -557,20 +577,8 @@ window['arrayviz'] = (() => {
    * }} config Configuration for the setup.
    */
   function buildArrayvizFigure(config) {
-    // Trigger rendering as soon as the destination becomes visible.
-    const destination = /** @type {!Element} */
-        (document.getElementById(config.destinationId));
-    const visiblityObserver = new IntersectionObserver((entries) => {
-      if (entries[0].intersectionRatio > 0) {
-        _buildArrayvizFigure(config);
-        for (let elt of destination.querySelectorAll('.loading_message')) {
-          elt.remove();
-        }
-        visiblityObserver.disconnect();
-      }
-    }, {});
-    requestAnimationFrame(() => {
-      visiblityObserver.observe(destination);
+    _delayUntilVisible(config.destinationId, () => {
+      _buildArrayvizFigure(config);
     });
   }
   function _buildArrayvizFigure(config) {
@@ -1210,76 +1218,79 @@ window['arrayviz'] = (() => {
    *  config.value: Integer value to render.
    *  config.labelTop: Label to draw above the box.
    *  config.labelBottom: Label to draw below the box.
+   *  config.destinationId: ID of the element to render into.
    * @param {{
    *    value: number,
    *    labelTop: string,
    *    labelBottom: string,
+   *    destinationId: string,
    * }} config Configuration for the digitbox.
-   * @returns {!HTMLElement} The rendered element.
    */
   function renderOneDigitbox(config) {
-    const value = config.value;
-    const labelTop = config.labelTop;
-    const labelBottom = config.labelBottom;
+    _delayUntilVisible(config.destinationId, () => {
+      const destination = document.getElementById(config.destinationId);
+      const value = config.value;
+      const labelTop = config.labelTop;
+      const labelBottom = config.labelBottom;
 
-    const canvas =
-        /** @type {!HTMLCanvasElement} */ (document.createElement('canvas'));
-    canvas.width = cellSize;
-    canvas.height = cellSize;
-    const ctx =
-        /** @type {!CanvasRenderingContext2D} */ (canvas.getContext('2d'));
-    drawOneCell(ctx, 0, 0, value, true, {type: 'digitbox'}, null);
+      const canvas =
+          /** @type {!HTMLCanvasElement} */ (document.createElement('canvas'));
+      canvas.width = cellSize;
+      canvas.height = cellSize;
+      const ctx =
+          /** @type {!CanvasRenderingContext2D} */ (canvas.getContext('2d'));
+      drawOneCell(ctx, 0, 0, value, true, {type: 'digitbox'}, null);
 
-    const container =
-        /** @type {!HTMLDivElement} */ (document.createElement('div'));
-    container.style.width = '1cap';
-    container.style.height = '1cap';
-    container.style.marginTop = '0.75em';
-    container.style.display = 'inline-block';
-    container.style.position = 'relative';
-    container.style.overflow = 'visible';
-    container.style.fontFamily = 'monospace';
-    container.style.whiteSpace = 'pre';
-    container.style.lineHeight = '2.5';
-    container.style.setProperty('image-rendering', 'pixelated');
-
-    container.style.outline = '1px solid black';
-
-    container.appendChild(canvas);
-    canvas.style.width = '1cap';
-    canvas.style.height = '1cap';
-    canvas.style.position = 'absolute';
-
-    if (labelTop) {
-      const labelElt =
+      const container =
           /** @type {!HTMLDivElement} */ (document.createElement('div'));
-      container.appendChild(labelElt);
-      labelElt.style.width = '200%';
-      labelElt.style.fontSize =
-          `${0.75 * Math.min(1, 3.5 / labelTop.length)}em`;
-      labelElt.style.position = 'absolute';
-      labelElt.style.left = '-50%';
-      labelElt.style.bottom = '110%';
-      labelElt.style.textAlign = 'center';
-      labelElt.style.lineHeight = '1';
-      labelElt.textContent = labelTop;
-    }
-    if (labelBottom) {
-      const labelElt =
-          /** @type {!HTMLDivElement} */ (document.createElement('div'));
-      container.appendChild(labelElt);
-      labelElt.style.width = '200%';
-      labelElt.style.fontSize =
-          `${0.75 * Math.min(1, 3.5 / labelBottom.length)}em`;
-      labelElt.style.position = 'absolute';
-      labelElt.style.left = '-50%';
-      labelElt.style.top = '110%';
-      labelElt.style.textAlign = 'center';
-      labelElt.style.lineHeight = '1';
-      labelElt.textContent = labelBottom;
-    }
+      container.style.width = '1cap';
+      container.style.height = '1cap';
+      container.style.marginTop = '0.75em';
+      container.style.display = 'inline-block';
+      container.style.position = 'relative';
+      container.style.overflow = 'visible';
+      container.style.fontFamily = 'monospace';
+      container.style.whiteSpace = 'pre';
+      container.style.lineHeight = '2.5';
+      container.style.setProperty('image-rendering', 'pixelated');
 
-    return container;
+      container.style.outline = '1px solid black';
+
+      container.appendChild(canvas);
+      canvas.style.width = '1cap';
+      canvas.style.height = '1cap';
+      canvas.style.position = 'absolute';
+
+      if (labelTop) {
+        const labelElt =
+            /** @type {!HTMLDivElement} */ (document.createElement('div'));
+        container.appendChild(labelElt);
+        labelElt.style.width = '200%';
+        labelElt.style.fontSize =
+            `${0.75 * Math.min(1, 3.5 / labelTop.length)}em`;
+        labelElt.style.position = 'absolute';
+        labelElt.style.left = '-50%';
+        labelElt.style.bottom = '110%';
+        labelElt.style.textAlign = 'center';
+        labelElt.style.lineHeight = '1';
+        labelElt.textContent = labelTop;
+      }
+      if (labelBottom) {
+        const labelElt =
+            /** @type {!HTMLDivElement} */ (document.createElement('div'));
+        container.appendChild(labelElt);
+        labelElt.style.width = '200%';
+        labelElt.style.fontSize =
+            `${0.75 * Math.min(1, 3.5 / labelBottom.length)}em`;
+        labelElt.style.position = 'absolute';
+        labelElt.style.left = '-50%';
+        labelElt.style.top = '110%';
+        labelElt.style.textAlign = 'center';
+        labelElt.style.lineHeight = '1';
+        labelElt.textContent = labelBottom;
+      }
+      destination.appendChild(container);
+    });
   }
 
   return {

@@ -27,22 +27,25 @@ document.addEventListener('DOMContentLoaded', () => {
       'allow-storage-access-by-user-activation',
       'allow-popups-to-escape-sandbox'
     ].join(' ');
-    frameTpl.parentNode.replaceChild(frame, frameTpl);
-    frame.contentDocument.body.appendChild(frameTpl.content.cloneNode(true));
-    frame.contentDocument.body.style.height = 'fit-content';
-    frame.contentDocument.body.style.margin = '0';
-    frame.contentDocument.body.style.padding = '0.5em 1ch 0.5em 1ch';
-    const observer = new ResizeObserver(() => {
-      const frameBounds = frame.getBoundingClientRect();
-      const bounds = frame.contentDocument.body.getBoundingClientRect();
-      if (frame.contentDocument.body.scrollWidth > frameBounds.width) {
-        // Make room for the scrollbar.
-        frame.style.height = `calc(1em + ${bounds.height}px)`;
-      } else {
-        frame.style.height = `${bounds.height}px`;
-      }
+    frame.addEventListener("load", () => {
+      frame.contentDocument.body.appendChild(frameTpl.content.cloneNode(true));
+      frame.contentDocument.body.style.height = 'fit-content';
+      frame.contentDocument.body.style.margin = '0';
+      frame.contentDocument.body.style.padding = '0.5em 1ch 0.5em 1ch';
+      const observer = new ResizeObserver(() => {
+        const frameBounds = frame.getBoundingClientRect();
+        const bounds = frame.contentDocument.body.getBoundingClientRect();
+        if (frame.contentDocument.body.scrollWidth > frameBounds.width) {
+          // Make room for the scrollbar.
+          frame.style.height = `calc(1em + ${bounds.height}px)`;
+        } else {
+          frame.style.height = `${bounds.height}px`;
+        }
+      });
+      observer.observe(frame.contentDocument.body);
     });
-    observer.observe(frame.contentDocument.body);
+    frame.src = "about:blank";
+    frameTpl.parentNode.replaceChild(frame, frameTpl);
   }
 
   // Add zero-width spaces to sidebar identifiers to improve word breaking.

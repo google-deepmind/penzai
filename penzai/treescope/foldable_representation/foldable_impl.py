@@ -137,12 +137,12 @@ class FoldableTreeNodeImpl(FoldableTreeNode):
         .foldable_node:not({setup_context.collapsed_selector} *)
           > label:has(>.foldable_node_toggle:checked)::before
         {{
-            content: '▼';
+            content: '\\25bc';
         }}
         .foldable_node:not({setup_context.collapsed_selector} *)
           > label:has(>.foldable_node_toggle:not(:checked))::before
         {{
-            content: '▶';
+            content: '\\25b6';
         }}
 
         .foldable_node:not({setup_context.collapsed_selector} *) > label:hover
@@ -307,17 +307,6 @@ class NodeHyperlink(basic_parts.DeferringToChild):
     rules = {
         JavaScriptDefn(html_escaping.without_repeated_whitespace("""
         (()=>{
-          const _get_root = (relative_to) => {
-            /* Look for the root node. */
-            let root = relative_to;
-            while (
-              root != document.body
-              && !root.classList.contains("treescope_root")
-            ) {
-              root = root.parentElement;
-            }
-            return root;
-          };
           const _get_target = (root, target_path) => {
             /* Look for the requested path string. */
             let target = root.querySelector(
@@ -333,7 +322,7 @@ class NodeHyperlink(basic_parts.DeferringToChild):
 
           window.treescope.expand_and_scroll_to = (
             (linkelement, target_path) => {
-              const root = _get_root(linkelement);
+              const root = window.treescope.get_treescope_root(linkelement);
               const target = _get_target(root, target_path);
               /* Expand all of its parents. */
               let may_need_expand = target.parentElement;
@@ -363,7 +352,7 @@ class NodeHyperlink(basic_parts.DeferringToChild):
 
           window.treescope.handle_hyperlink_mouse = (
             (linkelement, event, target_path) => {
-              const root = _get_root(linkelement);
+              const root = window.treescope.get_treescope_root(linkelement);
               const target = _get_target(root, target_path);
               if (event.type == "mouseover") {
                 target.classList.add("hyperlink_remote_hover");
@@ -487,6 +476,8 @@ class StringCopyButton(RenderableTreePart):
   def html_setup_parts(
       self, setup_context: HtmlContextForSetup
   ) -> set[CSSStyleRule | JavaScriptDefn]:
+    # https://github.com/google/material-design-icons/blob/master/symbols/web/content_copy/materialsymbolsoutlined/content_copy_grad200_20px.svg
+    font_data_url = "data:font/woff2;base64,d09GMgABAAAAAAIQAAoAAAAABRwAAAHFAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmAAgkoKdIEBCwYAATYCJAMIBCAFgxIHLhtsBMieg3FDX2LI6YvSpuiPM5T1JXIRVMvWMztPyFFC+WgkTiBD0hiDQuJEdGj0Hb/fvIdpqK6hqWiiQuMnGhHfUtAU6BNr4AFInkE6cUuun+R5qcskwvfFl/qxgEo8gbJwG81HA/nAR5LrrJ1R+gz0Rd0AJf1gN7CwGj2g0oyuR77mE16wHX9OggpeTky4eIbz5cbrOGtaAgQINwDasysQuIIXWEFwAPQpIYdU//+g7T7X3t0fKPqAv52g0LAN7AMwAmgzRS+uZSeEXx2f6czN4RHy5uBAKzBjpFp3iHQCE0ZuP4S7nfBLEHFMmAi+8vE2hn1h7+bVwXjwHrvDGUCnjfEEgt+OcZll759CJwB8h94MMGS3GZAgmI5jBQ9tTGeH9EBBIG3Dg4R/YcybAGEAAVK/AQGaAeMClAHzEOgZtg6BPgOOIDBkiQ5eFBXCBFci0phropnQAApZED1z1kSfCfthyKnHdaFsHf0NmGEN6BdAqVVpatsSZmddai92fz94Uijq6pmr6OoYCSirGmvJG3SWS3FE2cBQfT+HlopG4Fsw5agq68iZeSNlpWnBHIedMreuWqGCm1WFrkSSx526WWswAQAA"
     rules = {
         JavaScriptDefn(html_escaping.without_repeated_whitespace("""
           window.treescope.handle_copy_click = async (button) => {
@@ -507,29 +498,24 @@ class StringCopyButton(RenderableTreePart):
         """)),
         CSSStyleRule(html_escaping.without_repeated_whitespace(f"""
           @font-face {{
-              font-family: 'Material Symbols Outlined';
+              font-family: 'Material Symbols Outlined Content Copy';
               font-style: normal;
-              font-weight: 100 700;
-              src: url(https://fonts.gstatic.com/s/materialsymbolsoutlined/v114/kJEhBvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oFsLjBuVY.woff2) format('woff2');
+              font-weight: 400;
+              src: url({font_data_url}) format('woff2');
           }}
           {setup_context.collapsed_selector} .copybutton {{
               display: none;
           }}
+          .copybutton::before {{
+              content: " ";
+          }}
           .copybutton > span::before {{
-              content: " content_copy";
-              font-family: 'Material Symbols Outlined';
-              -webkit-font-feature-settings: 'liga';
+              content: "\\e14d";
+              font-family: 'Material Symbols Outlined Content Copy';
               -webkit-font-smoothing: antialiased;
-              font-variation-settings:
-                'FILL' 0,
-                'wght' 400,
-                'GRAD' 200,
-                'opsz' 20;
-              position: relative;
-              top: 0.1em;
               color: #e0e0e0;
               cursor: pointer;
-              font-size: 0.8em;
+              font-size: 0.9em;
           }}
           .copybutton:hover > span::before {{
               color: darkseagreen;
@@ -827,6 +813,17 @@ def _render_to_html_as_root_streaming(
       window.treescope = {};
       window.treescope._pendingActions = [];
       window.treescope._pendingActionHandle = null;
+      window.treescope.get_treescope_root = (relative_to) => {
+        /* Look for the root node. */
+        let root = relative_to;
+        while (
+          root != document.body
+          && !root.classList.contains("treescope_root")
+        ) {
+          root = root.parentElement;
+        }
+        return root;
+      };
       window.treescope.runSoon = (work) => {
           const doWork = () => {
               const tick = performance.now();
@@ -914,12 +911,17 @@ def _render_to_html_as_root_streaming(
     all_ids = [deferred.placeholder.replacement_id for deferred in deferreds]
     stream.write(f"const targetIds = {json.dumps(all_ids)};")
     stream.write(html_escaping.without_repeated_whitespace("""
+        const root = window.treescope.get_treescope_root(
+            document.getElementById(targetIds[0]));
+        const fragment = document.createDocumentFragment();
+        const rootClone = fragment.appendChild(root.cloneNode(true));
         for (let i = 0; i < targetIds.length; i++) {
-            let target = document.getElementById(targetIds[i]);
+            let target = fragment.getElementById(targetIds[i]);
             let sourceDiv = document.getElementById("for_" + targetIds[i]);
-            target.parentNode.replaceChild(sourceDiv.firstElementChild, target);
+            target.replaceWith(sourceDiv.firstElementChild);
             sourceDiv.remove();
         }
+        root.replaceWith(rootClone);
       })();
       </script>
     """))
@@ -960,7 +962,8 @@ def display_streaming_as_root(
     deferreds: Sequence[DeferredWithThunk],
     roundtrip: bool = False,
     compressed: bool = True,
-):
+    stealable: bool = False,
+) -> str | None:
   """Displays a root node in an IPython notebook in a streaming fashion.
 
   Args:
@@ -968,18 +971,42 @@ def display_streaming_as_root(
     deferreds: Deferred objects to render and splice in.
     roundtrip: Whether to render in roundtrip mode.
     compressed: Whether to compress the HTML for display.
+    stealable: Whether to return an extra HTML snippet that allows the streaming
+      rendering to be relocated after it is shown.
+
+  Returns:
+    If ``stealable`` is True, a final HTML snippet which, if inserted into a
+    document, will "steal" the root node rendering, moving the DOM nodes for it
+    into itself. In particular, using this as the HTML rendering of the root
+    node during pretty printing will correctly associate the rendering with the
+    IPython "cell output", which is visible in some IPython backends (e.g.
+    JupyterLab). If ``stealable`` is False, returns None.
   """
   import IPython.display  # pylint: disable=g-import-not-at-top
 
   render_iterator = _render_to_html_as_root_streaming(
       root_node, roundtrip, deferreds
   )
+  steal_id = uuid.uuid4().hex
   for i, step in enumerate(render_iterator):
     if compressed:
       if i == 0:
         step = html_compression.compress_html(
             step, include_preamble=True, loading_message="(Loading...)"
         )
+        if stealable:
+          step = f'<div id="output_{steal_id}">{step}</div>'
       else:
         step = html_compression.compress_html(step, include_preamble=False)
     IPython.display.display(IPython.display.HTML(step))
+
+  if stealable:
+    return html_escaping.without_repeated_whitespace(
+        """<div id="output_dest_{__STEAL_ID__}"><script>
+        (()=>{
+          const output = document.getElementById("output_{__STEAL_ID__}");
+          const dest = document.getElementById("output_dest_{__STEAL_ID__}");
+          dest.parentNode.replaceChild(output, dest);
+        })();
+        </script></div>""".replace("{__STEAL_ID__}", steal_id)
+    )

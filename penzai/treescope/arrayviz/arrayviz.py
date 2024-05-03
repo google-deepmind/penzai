@@ -1476,14 +1476,14 @@ def integer_digitbox(
       "value": value,
       "labelTop": label_top,
       "labelBottom": label_bottom,
+      "destinationId": fresh_id,
   })
   size_attr = html_escaping.escape_html_attribute(size)
   src = (
       f'<span id="{fresh_id}" class="inline_digitbox"'
       f' style="font-size: {size_attr}"></span>'
       '<template class="treescope_run_soon">'
-      f'<script>document.querySelector("#{fresh_id}").appendChild('
-      f"arrayviz.renderOneDigitbox({render_args}));</script></template>"
+      f"<script>arrayviz.renderOneDigitbox({render_args});</script></template>"
   )
   return ArrayvizRendering(src)
 
