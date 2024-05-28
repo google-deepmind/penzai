@@ -26,6 +26,7 @@ from penzai.treescope import autovisualize
 from penzai.treescope import default_renderer
 from penzai.treescope import figures
 from penzai.treescope import html_compression
+from penzai.treescope import object_inspection
 from penzai.treescope import selection_rendering
 from penzai.treescope.arrayviz import array_autovisualizer
 from penzai.treescope.foldable_representation import basic_parts
@@ -148,10 +149,14 @@ def register_as_default(
   ipython_display = IPython.display
 
   def _render_for_ipython(value):
-    if hasattr(value, "_repr_html_"):
-      return value._repr_html_()  # pylint: disable=protected-access
+    repr_html_method = object_inspection.safely_get_real_method(
+        value, "_repr_html_"
+    )
+    if repr_html_method:
+      return repr_html_method()  # pylint: disable=protected-access
     elif isinstance(value, ipython_display.DisplayObject) or (
-        hasattr(value, "_repr_pretty_") and not isinstance(value, struct.Struct)
+        object_inspection.safely_get_real_method(value, "_repr_pretty_")
+        and not isinstance(value, struct.Struct)
     ):
       # Don't render this to HTML.
       return None

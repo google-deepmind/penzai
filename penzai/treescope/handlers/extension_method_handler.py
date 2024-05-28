@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from penzai.treescope import object_inspection
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import part_interface
 
@@ -55,11 +56,10 @@ def handle_via_penzai_repr_method(
     A rendering of this node, if it implements the __penzai_repr__ extension
     method.
   """
-  if (
-      not isinstance(node, type)
-      and hasattr(node, "__penzai_repr__")
-      and callable(node.__penzai_repr__)
-  ):
-    return node.__penzai_repr__(path, subtree_renderer)
+  penzai_repr_method = object_inspection.safely_get_real_method(
+      node, "__penzai_repr__"
+  )
+  if penzai_repr_method:
+    return penzai_repr_method(path, subtree_renderer)
   else:
     return NotImplemented

@@ -77,12 +77,18 @@ def append_repr_html_when_present(
     node_rendering = node_renderer(node, path=path)
 
   def _thunk(_):
-    return embedded_iframe.EmbeddedIFrame(
-        embedded_html=embedded_iframe.to_html(node),
-        fallback_in_text_mode=common_styles.AbbreviationColor(
-            basic_parts.Text("# (not shown in text mode)")
-        ),
-    )
+    html_rendering = embedded_iframe.to_html(node)
+    if html_rendering:
+      return embedded_iframe.EmbeddedIFrame(
+          embedded_html=html_rendering,
+          fallback_in_text_mode=common_styles.AbbreviationColor(
+              basic_parts.Text("# (not shown in text mode)")
+          ),
+      )
+    else:
+      return common_styles.ErrorColor(
+          "# (couldn't compute HTML representation)"
+      )
 
   iframe_rendering = foldable_impl.maybe_defer_rendering(
       main_thunk=_thunk,

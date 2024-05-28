@@ -114,15 +114,17 @@ def wrap_as_treescope_figure(value: Any) -> part_interface.RenderableTreePart:
     return value
   elif isinstance(value, str):
     return basic_parts.Text(value)
-  elif isinstance(value, embedded_iframe.HasReprHtml):
-    return InlineBlock(
-        embedded_iframe.EmbeddedIFrame(
-            embedded_iframe.to_html(value),
-            fallback_in_text_mode=basic_parts.Text(object.__repr__(value)),
-        )
-    )
   else:
-    return default_renderer.build_foldable_representation(value).renderable
+    maybe_html = embedded_iframe.to_html(value)
+    if maybe_html:
+      return InlineBlock(
+          embedded_iframe.EmbeddedIFrame(
+              maybe_html,
+              fallback_in_text_mode=basic_parts.Text(object.__repr__(value)),
+          )
+      )
+    else:
+      return default_renderer.build_foldable_representation(value).renderable
 
 
 class AllowWordWrap(basic_parts.BaseSpanGroup):

@@ -18,10 +18,10 @@ from __future__ import annotations
 import abc
 import dataclasses
 import io
-import typing
-from typing import Any, Protocol, Sequence
+from typing import Any, Sequence
 
 from penzai.treescope import html_escaping
+from penzai.treescope import object_inspection
 from penzai.treescope.foldable_representation import part_interface
 
 CSSStyleRule = part_interface.CSSStyleRule
@@ -32,19 +32,28 @@ ExpandState = part_interface.ExpandState
 FoldableTreeNode = part_interface.FoldableTreeNode
 
 
-@typing.runtime_checkable
-class HasReprHtml(Protocol):
-  """Protocol for rich-display objects in IPython."""
+class HasReprHtml(abc.ABC):
+  """Abstract base class for rich-display objects in IPython."""
 
   @abc.abstractmethod
   def _repr_html_(self) -> str | tuple[str, Any]:
     """Returns a rich HTML representation of an object."""
     ...
 
+  @classmethod
+  def __subclasshook__(cls, subclass, /):
+    """Checks if a class is a subclass of HasReprHtml."""
+    return hasattr(subclass, '_repr_html_') and callable(subclass._repr_html_)  # pylint: disable=protected-access
 
-def to_html(node: HasReprHtml) -> str:
+
+def to_html(node: Any) -> str | None:
   """Extracts a rich HTML representation of node using _repr_html_."""
-  html_for_node_and_maybe_metadata = node._repr_html_()  # pylint: disable=protected-access
+  repr_html_method = object_inspection.safely_get_real_method(
+      node, '_repr_html_'
+  )
+  if repr_html_method is None:
+    return None
+  html_for_node_and_maybe_metadata = repr_html_method()
   if isinstance(html_for_node_and_maybe_metadata, tuple):
     html_for_node, _ = html_for_node_and_maybe_metadata
   else:

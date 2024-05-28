@@ -169,12 +169,21 @@ def use_autovisualizer_if_present(
         obj = result.display_object
 
         def _thunk(_):
-          return embedded_iframe.EmbeddedIFrame(
-              embedded_html=embedded_iframe.to_html(obj),
-              fallback_in_text_mode=common_styles.AbbreviationColor(
-                  basic_parts.Text("<rich HTML visualization>")
-              ),
-          )
+          html_rendering = embedded_iframe.to_html(obj)
+          if html_rendering:
+            return embedded_iframe.EmbeddedIFrame(
+                embedded_html=html_rendering,
+                fallback_in_text_mode=common_styles.AbbreviationColor(
+                    basic_parts.Text("<rich HTML visualization>")
+                ),
+            )
+          else:
+            return common_styles.ErrorColor(
+                basic_parts.Text(
+                    "<Autovisualizer returned a Visualization with an invalid"
+                    f" display object {result.display_object}>"
+                )
+            )
 
         ipy_rendering = foldable_impl.maybe_defer_rendering(
             _thunk,
@@ -184,8 +193,10 @@ def use_autovisualizer_if_present(
         # Bad display object
         ipy_rendering = common_structures.build_one_line_tree_node(
             line=common_styles.ErrorColor(
-                "<Autovisualizer returned a Visualization with an invalid"
-                f" display object {result.display_object}>"
+                basic_parts.Text(
+                    "<Autovisualizer returned a Visualization with an invalid"
+                    f" display object {result.display_object}>"
+                )
             ),
             path=path,
         )

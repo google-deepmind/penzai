@@ -16,6 +16,7 @@
 
 import ast
 import collections
+import dataclasses
 import functools
 import textwrap
 import types
@@ -39,6 +40,14 @@ from penzai.treescope.foldable_representation import foldable_impl
 from penzai.treescope.foldable_representation import layout_algorithms
 from penzai.treescope.foldable_representation import part_interface
 from penzai.treescope.handlers import function_reflection_handlers
+
+
+@dataclasses.dataclass
+class CustomReprHTMLObject:
+  repr_html: str
+
+  def _repr_html_(self):
+    return self.repr_html
 
 
 class TreescopeRendererTest(parameterized.TestCase):
@@ -931,12 +940,12 @@ class TreescopeRendererTest(parameterized.TestCase):
         )
       elif path == (jax.tree_util.SequenceKey(4),):
         return autovisualize.IPythonVisualization(
-            types.SimpleNamespace(_repr_html_=lambda: "(html rendering)"),
+            CustomReprHTMLObject(lambda: "(html rendering)"),
             replace=True,
         )
       elif path == (jax.tree_util.SequenceKey(5),):
         return autovisualize.IPythonVisualization(
-            types.SimpleNamespace(_repr_html_=lambda: "(html rendering)"),
+            CustomReprHTMLObject(lambda: "(html rendering)"),
             replace=False,
         )
       elif path == (jax.tree_util.SequenceKey(6),):
