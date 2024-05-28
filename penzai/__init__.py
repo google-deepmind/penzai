@@ -14,4 +14,4 @@
 
 """A JAX research toolkit for building, editing, and visualizing neural networks."""
 
-__version__ = '0.1.1'
+__version__ = '0.1.2'
