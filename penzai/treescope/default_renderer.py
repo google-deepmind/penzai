@@ -31,6 +31,7 @@ from penzai.treescope.foldable_representation import part_interface
 from penzai.treescope.handlers import builtin_atom_handler
 from penzai.treescope.handlers import builtin_structure_handler
 from penzai.treescope.handlers import canonical_alias_postprocessor
+from penzai.treescope.handlers import extension_method_handler
 from penzai.treescope.handlers import function_reflection_handlers
 from penzai.treescope.handlers import generic_pytree_handler
 from penzai.treescope.handlers import generic_repr_handler
@@ -77,6 +78,8 @@ active_renderer: context.ContextualValue[renderer.TreescopeRenderer] = (
                 layer_handler.handle_layers,
                 # Other pz.Struct instances.
                 struct_handler.handle_structs,
+                # Objects with their own handlers.
+                extension_method_handler.handle_via_penzai_repr_method,
                 # NDArrays.
                 ndarray_handler.handle_ndarrays,
                 # Reflection of functions and classes.
