@@ -175,6 +175,7 @@ html_theme_options = {
     'repository_url': 'https://github.com/google-deepmind/penzai',
     'use_repository_button': True,
     'use_issues_button': True,
+    'show_toc_level': 4,
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -217,6 +218,7 @@ hoverxref_domains = [
 hoverxref_role_types = {
     'obj': 'tooltip',
     'class': 'tooltip',
+    'exc': 'tooltip',
 }
 
 # -- Source code links -------------------------------------------------------
