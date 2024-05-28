@@ -37,7 +37,8 @@ RenderableAndLineAnnotations = basic_parts.RenderableAndLineAnnotations
 
 
 def build_copy_button(path: tuple[Any, ...] | None) -> RenderableTreePart:
-  if path is None:
+  """Builds a copy-path button, if `path` is provided and not empty."""
+  if not path:
     return basic_parts.EmptyPart()
   else:
     return foldable_impl.StringCopyButton(
@@ -186,16 +187,7 @@ def build_foldable_tree_node_from_children(
         background_color=background_color,
     )
 
-  if path is None:
-    maybe_copy_button = basic_parts.EmptyPart()
-  else:
-    maybe_copy_button = foldable_impl.StringCopyButton(
-        annotation="Copy path: ",
-        copy_string=(
-            "(lambda root: root" + "".join(str(key) for key in path) + ")"
-        ),
-    )
-
+  maybe_copy_button = build_copy_button(path)
   if isinstance(prefix, str):
     prefix = basic_parts.Text(prefix)
 
