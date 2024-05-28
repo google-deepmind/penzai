@@ -16,9 +16,11 @@
 
 You can configure treescope as the default IPython pretty-printer using ::
 
-  pz.ts.register_as_default()
+  pz.ts.basic_interactive_setup()
 
-  # Optional:
+or, for more control: ::
+
+  pz.ts.register_as_default()
   pz.ts.register_autovisualize_magic()
   pz.enable_interactive_context()
   pz.ts.active_autovisualizer.set_interactive(pz.ts.ArrayAutovisualizer())

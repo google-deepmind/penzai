@@ -20,7 +20,7 @@ import dataclasses
 import enum
 import functools
 import io
-from typing import Any, Sequence
+from typing import Any, Sequence, TypeAlias
 
 ################################################################################
 # Common structure types
@@ -371,3 +371,7 @@ class RenderableAndLineAnnotations:
 
   renderable: RenderableTreePart
   annotations: RenderableTreePart | None = None
+
+
+NodePath: TypeAlias = tuple[Any, ...]
+Rendering: TypeAlias = RenderableTreePart | RenderableAndLineAnnotations

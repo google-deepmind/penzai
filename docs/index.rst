@@ -162,7 +162,7 @@ models. Afterward, you could:
    _autosummary/penzai.core
    _autosummary/penzai.nn
    _autosummary/penzai.data_effects
-   _autosummary/penzai.treescope
+   api/treescope
 
 .. toctree::
    :hidden:

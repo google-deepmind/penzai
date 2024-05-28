@@ -38,14 +38,11 @@ from penzai.treescope.foldable_representation import part_interface
 def render_object_constructor(
     object_type: type[Any],
     attributes: Mapping[str, Any],
-    path: tuple[Any, ...] | None,
+    path: part_interface.NodePath | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
     roundtrippable: bool = False,
     color: str | None = None,
-) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
-):
+) -> part_interface.Rendering:
   """Renders an object in "constructor format", similar to a dataclass.
 
   This produces a rendering like `Foo(bar=1, baz=2)`, where Foo identifies the
@@ -138,14 +135,11 @@ def render_object_constructor(
 def render_dictionary_wrapper(
     object_type: type[Any],
     wrapped_dict: Mapping[str, Any],
-    path: tuple[Any, ...] | None,
+    path: part_interface.NodePath | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
     roundtrippable: bool = False,
     color: str | None = None,
-) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
-):
+) -> part_interface.Rendering:
   """Renders an object in "wrapped dictionary format".
 
   This produces a rendering like `Foo({"bar": 1, "baz": 2})`, where Foo

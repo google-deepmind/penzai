@@ -16,8 +16,15 @@
   penzai.nn
   penzai.data_effects
   penzai.example_models
-  penzai.treescope
   penzai.toolshed
+
+  penzai.treescope.arrayviz
+  penzai.treescope.autovisualize
+  penzai.treescope.copypaste_fallback
+  penzai.treescope.default_renderer
+  penzai.treescope.figures
+  penzai.treescope.repr_lib
+  penzai.treescope.treescope_ipython
 
 .. toctree::
   :hidden:
