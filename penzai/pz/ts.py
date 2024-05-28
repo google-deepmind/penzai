@@ -59,6 +59,7 @@ from penzai.treescope.treescope_ipython import (
     register_as_default,
     register_autovisualize_magic,
     register_context_manager_magic,
+    basic_interactive_setup,
 )
 
 vocab_autovisualizer = ArrayAutovisualizer.for_tokenizer

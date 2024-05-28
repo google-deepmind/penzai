@@ -10,6 +10,7 @@ Using Treescope in IPython Notebooks
 
 .. autosummary::
 
+  pz.ts.basic_interactive_setup
   pz.ts.register_as_default
   pz.ts.register_autovisualize_magic
   pz.ts.register_context_manager_magic
