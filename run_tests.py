@@ -13,11 +13,12 @@
 # limitations under the License.
 """Entry point executable to run all tests."""
 
-import sys
-from absl.testing import absltest
+import subprocess
 
 if __name__ == "__main__":
-  absltest.main(
-      module=None,
-      argv=[sys.argv[0], "discover", "-s", "tests", "-p", "*_test.py"],
+  subprocess.check_call(
+      ["python", "-m", "pytest", "tests", "-k", "not ShardingUtilTest"]
+  )
+  subprocess.check_call(
+      ["python", "-m", "pytest", "tests", "-k", "ShardingUtilTest"]
   )

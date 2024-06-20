@@ -69,6 +69,7 @@ class PyTreeDataclassSafetyError(Exception):
 
 @dataclass_transform(
     frozen_default=True,  # pylint: disable=unexpected-keyword-arg  # pytype: disable=not-supported-yet
+    field_specifiers=(dataclasses.field,),
 )
 def pytree_dataclass(
     cls: type[Any] | None = None,

@@ -56,6 +56,7 @@ notebook = [
 dev = [
     "pylint>=2.6.0",
     "pyink>=24.3.0",
+    "pytest>=8.2.2",
     "ipython",
     "jupyter",
 ]

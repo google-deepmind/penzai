@@ -538,7 +538,11 @@ def populate_from_public_api(
     ]
 
   for name in public_names:
-    value = getattr(module, name)
+    try:
+      value = getattr(module, name)
+    except AttributeError:
+      # Possibly a misspecified __all__?
+      continue
     path = ModuleAttributePath(module.__name__, (name,))
     if isinstance(value, types.ModuleType):
       if (
@@ -552,21 +556,23 @@ def populate_from_public_api(
       add_alias(value, path, on_conflict="ignore")
 
 
-def prefix_filter(prefix: str):
+def prefix_filter(include: str, excludes: tuple[str, ...] = ()):
   """Builds a filter that only defines aliases within a given prefix."""
 
-  def module_is_under_prefix(module_name: str):
-    return module_name == prefix or module_name.startswith(prefix + ".")
+  def is_under_prefix(path: str, prefix: str):
+    return path == prefix or path.startswith(prefix + ".")
 
   def predicate(the_object: Any, path: ModuleAttributePath) -> bool:
     if not default_well_known_filter(the_object, path):
       return False
-    if not module_is_under_prefix(path.module_name):
+    if not is_under_prefix(str(path), include):
+      return False
+    if any(is_under_prefix(str(path), exclude) for exclude in excludes):
       return False
     if (
         hasattr(the_object, "__module__")
         and the_object.__module__
-        and not module_is_under_prefix(the_object.__module__)
+        and not is_under_prefix(the_object.__module__, include)
     ):
       return False
     return True
@@ -578,7 +584,7 @@ def prefix_filter(prefix: str):
 # they are likely to be used in penzai code.
 _alias_environment.get().lazy_populate_if_imported.extend([
     # Third-party libraries with useful APIs:
-    ("numpy", prefix_filter("numpy")),
+    ("numpy", prefix_filter("numpy", excludes=("numpy.core",))),
     ("jax.lax", prefix_filter("jax")),
     ("jax.numpy", prefix_filter("jax")),
     ("jax.scipy", prefix_filter("jax")),

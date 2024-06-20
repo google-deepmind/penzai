@@ -12,12 +12,11 @@
     "[python]": {
         "editor.rulers": [80],
         "editor.tabSize": 2,
-        "editor.defaultFormatter": "ms-python.black-formatter",
         "editor.formatOnSave": true,
         "editor.detectIndentation": false
     },
-    "python.formatting.provider": "none",
-    "black-formatter.path": ["pyink"],
+    "python.formatting.provider": "black",
+    "python.formatting.blackPath": "pyink",
     "files.watcherExclude": {
         "**/.git/**": true
     },
