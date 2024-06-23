@@ -22,367 +22,13 @@ https://github.com/google-deepmind/gemma.
 
 from __future__ import annotations
 
-import dataclasses
 import itertools
 from typing import Any
 
-import jax
 import jax.numpy as jnp
 from penzai.experimental.v2 import pz
 from penzai.experimental.v2.models.transformer import model_parts
-
-
-@dataclasses.dataclass
-class GemmaTransformerConfig:
-  """Common configuration parameters for the Gemma transformer architecture.
-
-  These are held in a single configuration object to simplify argument passing
-  during construction of the model.
-
-  Attributes:
-    num_heads: The number of attention heads to use.
-    embedding_dim: Dimension of the embedding vectors and residual stream.
-    projection_dim: Dimension of the query, key, and value projections. Usually
-      ``embedding_dim // num_heads``.
-    single_kv_head: Whether a single key head and value head should be shared
-      across all query heads.
-    mlp_hidden_dim: Dimensionality of the hidden layer of the MLP blocks in each
-      layer (the "neurons" axis).
-    num_decoder_blocks: Number of transformer decoder blocks in the model.
-    vocab_size: Number of tokens in the vocabulary.
-    parameter_dtype: Floating dtype to use for all parameters.
-    activation_dtype: Floating dtype to use for activations and KV cache tables.
-    use_layer_stack: Whether to stack the blocks together using a LayerStack.
-  """
-
-  num_heads: int
-  embedding_dim: int
-  projection_dim: int
-  single_kv_head: bool
-  mlp_hidden_dim: int
-  num_decoder_blocks: int
-  vocab_size: int
-  parameter_dtype: jax.typing.DTypeLike
-  activation_dtype: jax.typing.DTypeLike
-  use_layer_stack: bool = False
-
-
-def build_gemma_feedforward(
-    name: str, init_base_rng: jax.Array | None, config: GemmaTransformerConfig
-) -> model_parts.TransformerFeedForward:
-  """Creates a Gemma feedforward block.
-
-  Gemma's feedforward layer uses GELU-based gated linear units (GEGLU), as
-  proposed by Shazeer (2020). We represent this computation as a composition
-  of simpler Penzai primitives, to enable patching and post-processing of the
-  various internal activations.
-
-  Args:
-    name: Name of the feedforward block.
-    init_base_rng: Base RNG for initializing the parameters.
-    config: The configuration of the Gemma model.
-
-  Returns:
-    An instance of TransformerFeedForward containing the GELU MLP blocks.
-  """
-  return model_parts.TransformerFeedForward([
-      pz.nn.BranchAndMultiplyTogether(
-          branches=[
-              pz.nn.NamedGroup(
-                  "gate",
-                  [
-                      pz.nn.Linear.from_config(
-                          name=f"{name}/gating_linear",
-                          init_base_rng=init_base_rng,
-                          input_axes={"embedding": config.embedding_dim},
-                          output_axes={"neurons": config.mlp_hidden_dim},
-                          dtype=config.parameter_dtype,
-                      ),
-                      pz.nn.Elementwise(jax.nn.gelu),
-                  ],
-              ),
-              pz.nn.Linear.from_config(
-                  name=f"{name}/value_linear",
-                  init_base_rng=init_base_rng,
-                  input_axes={"embedding": config.embedding_dim},
-                  output_axes={"neurons": config.mlp_hidden_dim},
-                  dtype=config.parameter_dtype,
-              ),
-          ]
-      ),
-      pz.nn.Linear.from_config(
-          name=f"{name}/out_linear",
-          init_base_rng=init_base_rng,
-          input_axes={"neurons": config.mlp_hidden_dim},
-          output_axes={"embedding": config.embedding_dim},
-          dtype=config.parameter_dtype,
-      ),
-  ])
-
-
-def build_gemma_attention(
-    name: str, init_base_rng: jax.Array | None, config: GemmaTransformerConfig
-) -> pz.nn.Attention:
-  """Builds a GemmaAttention block from a configuration.
-
-  Args:
-    name: Name of the attention block.
-    init_base_rng: Base RNG for initializing the parameters.
-    config: The configuration of the Gemma model.
-
-  Returns:
-    An Attention block.
-  """
-  num_heads = config.num_heads
-  embedding_dim = config.embedding_dim
-  projection_dim = config.projection_dim
-  single_kv_head = config.single_kv_head
-
-  if single_kv_head:
-    common_head_axes = {}
-    common_head_einsum = {}
-    query_only_head_axes = {"query_heads": num_heads}
-    query_only_head_einsum = {"query_heads": "h"}
-  else:
-    common_head_axes = {"heads": num_heads}
-    common_head_einsum = {"heads": "h"}
-    query_only_head_axes = {}
-    query_only_head_einsum = {}
-
-  return pz.nn.Attention(
-      input_to_query=pz.nn.Sequential([
-          pz.nn.Linear.from_config(
-              name=f"{name}/query",
-              init_base_rng=init_base_rng,
-              input_axes={"embedding": embedding_dim},
-              output_axes={
-                  **common_head_axes,
-                  **query_only_head_axes,
-                  "projection": projection_dim,
-              },
-              dtype=config.parameter_dtype,
-          ),
-          pz.nn.ApplyRoPE(
-              positions_input_name="token_positions",
-              embedding_axis="projection",
-              max_wavelength=10_000,
-          ),
-          pz.nn.ConstantRescale(
-              by=jnp.array(projection_dim**-0.5, dtype=config.activation_dtype)
-          ),
-      ]),
-      input_to_key=pz.nn.Sequential([
-          pz.nn.Linear.from_config(
-              name=f"{name}/key",
-              init_base_rng=init_base_rng,
-              input_axes={"embedding": embedding_dim},
-              output_axes={**common_head_axes, "projection": projection_dim},
-              dtype=config.parameter_dtype,
-          ),
-          pz.nn.ApplyRoPE(
-              positions_input_name="token_positions",
-              embedding_axis="projection",
-              max_wavelength=10_000,
-          ),
-      ]),
-      input_to_value=pz.nn.Sequential([
-          pz.nn.Linear.from_config(
-              name=f"{name}/value",
-              init_base_rng=init_base_rng,
-              input_axes={"embedding": embedding_dim},
-              output_axes={**common_head_axes, "projection": projection_dim},
-              dtype=config.parameter_dtype,
-          ),
-      ]),
-      query_key_to_attn=pz.nn.Sequential([
-          pz.nn.NamedEinsum(
-              (
-                  {
-                      "seq": "tq",
-                      **common_head_einsum,
-                      **query_only_head_einsum,
-                      "projection": "p",
-                  },
-                  {
-                      "seq": "tkv",
-                      **common_head_einsum,
-                      "projection": "p",
-                  },
-              ),
-              {
-                  "seq": "tq",
-                  **common_head_einsum,
-                  **query_only_head_einsum,
-                  "kv_seq": "tkv",
-              },
-          ),
-          pz.nn.ApplyAttentionMask(
-              mask_input_name="attn_mask",
-              masked_out_value=jnp.array(
-                  -2.3819763e38, dtype=config.activation_dtype
-              ),
-          ),
-          pz.nn.Softmax("kv_seq"),
-      ]),
-      attn_value_to_output=pz.nn.Sequential([
-          pz.nn.NamedEinsum(
-              (
-                  {
-                      "seq": "tq",
-                      **common_head_einsum,
-                      **query_only_head_einsum,
-                      "kv_seq": "tkv",
-                  },
-                  {
-                      "seq": "tkv",
-                      **common_head_einsum,
-                      "projection": "p",
-                  },
-              ),
-              {
-                  "seq": "tq",
-                  **common_head_einsum,
-                  **query_only_head_einsum,
-                  "projection": "p",
-              },
-          ),
-          pz.nn.Linear.from_config(
-              name=f"{name}/output",
-              init_base_rng=init_base_rng,
-              input_axes={
-                  **common_head_axes,
-                  **query_only_head_axes,
-                  "projection": projection_dim,
-              },
-              output_axes={"embedding": embedding_dim},
-              dtype=config.parameter_dtype,
-          ),
-      ]),
-  )
-
-
-def build_gemma_block(
-    name: str, init_base_rng: jax.Array | None, config: GemmaTransformerConfig
-) -> model_parts.TransformerBlock:
-  """Builds a Gemma transformer block from a configuration.
-
-  Args:
-    name: Name of the block.
-    init_base_rng: Base RNG for initializing the parameters.
-    config: The configuration of the Gemma model.
-
-  Returns:
-    A full transformer block.
-  """
-  return model_parts.TransformerBlock(
-      sublayers=[
-          pz.nn.Residual(
-              pz.nn.Sequential([
-                  pz.nn.RMSLayerNorm.from_config(
-                      name=f"{name}/pre_attention_norm",
-                      init_base_rng=init_base_rng,
-                      across_axes={"embedding": config.embedding_dim},
-                      dtype=config.parameter_dtype,
-                  ),
-                  build_gemma_attention(
-                      f"{name}/attention", init_base_rng, config
-                  ),
-              ])
-          ),
-          pz.nn.Residual(
-              pz.nn.Sequential([
-                  pz.nn.RMSLayerNorm.from_config(
-                      name=f"{name}/pre_ffw_norm",
-                      init_base_rng=init_base_rng,
-                      across_axes={"embedding": config.embedding_dim},
-                      dtype=config.parameter_dtype,
-                  ),
-                  build_gemma_feedforward(f"{name}/mlp", init_base_rng, config),
-              ])
-          ),
-      ],
-  )
-
-
-def build_gemma_transformer(
-    config: GemmaTransformerConfig,
-    init_base_rng: jax.Array | None = None,
-    name: str = "transformer",
-) -> model_parts.Transformer:
-  """Builds a Gemma transformer model from a configuration.
-
-  Args:
-    config: The configuration of the Gemma model.
-    init_base_rng: Base RNG for initializing the parameters.
-    name: Name for the top-level model, used as a prefix for all parameters.
-
-  Returns:
-    A full transformer model.
-  """
-
-  # Embedding table is shared between first and last layers.
-  emb_table = pz.nn.EmbeddingTable.from_config(
-      name=f"{name}/embedder",
-      init_base_rng=init_base_rng,
-      vocab_size=config.vocab_size,
-      embedding_axes={"embedding": config.embedding_dim},
-      dtype=config.parameter_dtype,
-  )
-  sublayers = []
-  sublayers.append(pz.nn.EmbeddingLookup(emb_table))
-  if config.activation_dtype != config.parameter_dtype:
-    sublayers.append(pz.nn.CastToDType(config.activation_dtype))
-  sublayers.append(
-      pz.nn.ConstantRescale(
-          by=jnp.sqrt(config.embedding_dim).astype(config.activation_dtype)
-      )
-  )
-
-  if config.use_layer_stack:
-    sublayers.append(
-        pz.nn.LayerStack.from_sublayer_builder(
-            builder=build_gemma_block,
-            stack_axis="blocks",
-            stack_axis_size=config.num_decoder_blocks,
-            init_base_rng=init_base_rng,
-            builder_kwargs=dict(name=f"{name}/blocks", config=config),
-        )
-    )
-  else:
-    for i in range(config.num_decoder_blocks):
-      sublayers.append(
-          build_gemma_block(f"{name}/block_{i}", init_base_rng, config)
-      )
-
-  sublayers.extend([
-      pz.nn.RMSLayerNorm.from_config(
-          name=f"{name}/final_norm",
-          init_base_rng=init_base_rng,
-          across_axes={"embedding": config.embedding_dim},
-          dtype=config.parameter_dtype,
-      ),
-      pz.nn.EmbeddingDecode(emb_table),
-  ])
-
-  if config.single_kv_head:
-    common_head_axes = {}
-    query_only_head_axes = {"query_heads": config.num_heads}
-  else:
-    common_head_axes = {"heads": config.num_heads}
-    query_only_head_axes = {}
-
-  return model_parts.Transformer(
-      metadata=model_parts.TransformerMetadata(
-          common_head_axes=common_head_axes,
-          query_only_head_axes=query_only_head_axes,
-          embedding_dim=config.embedding_dim,
-          projection_dim=config.projection_dim,
-          mlp_hidden_dim=config.mlp_hidden_dim,
-          vocab_size=config.vocab_size,
-          activation_dtype=config.activation_dtype,
-      ),
-      body=pz.nn.Sequential(sublayers),
-  )
+from penzai.experimental.v2.models.transformer.variants import llamalike_common
 
 
 def gemma_from_pretrained_checkpoint(
@@ -407,8 +53,8 @@ def gemma_from_pretrained_checkpoint(
   Args:
     ckpt_params: Nested dictionary of weights from the Gemma checkpoint.
     upcast_activations_to_float32: Whether to cast activations to float32 when
-      the model runs. This is useful for doing interpretability research at
-      higher precision without consuming additional memory.
+      the model runs. This allows analyzing activations at higher precision
+      without consuming additional memory for parameters.
     use_layer_stack: Whether to use a layer stack for the decoder blocks.
 
   Returns:
@@ -431,19 +77,22 @@ def gemma_from_pretrained_checkpoint(
   else:
     activation_dtype = attn_0_einsum_param.dtype
 
-  config = GemmaTransformerConfig(
-      num_heads=num_heads,
+  config = llamalike_common.LLamalikeTransformerConfig(
+      num_kv_heads=1 if single_kv_head else num_heads,
+      query_head_multiplier=num_heads if single_kv_head else 1,
       embedding_dim=embed_dim,
       projection_dim=proj_dim,
-      single_kv_head=single_kv_head,
       mlp_hidden_dim=hidden_dim,
       num_decoder_blocks=num_layers,
       vocab_size=vocab_size,
       parameter_dtype=attn_0_einsum_param.dtype,
+      mlp_variant="geglu_approx",
+      rope_wavelength=10_000,
+      tie_embedder_and_logits=True,
       activation_dtype=activation_dtype,
       use_layer_stack=use_layer_stack,
   )
-  model_def = build_gemma_transformer(
+  model_def = llamalike_common.build_llamalike_transformer(
       config, init_base_rng=None, name="transformer"
   )
   parameter_mapping = {
@@ -455,94 +104,67 @@ def gemma_from_pretrained_checkpoint(
       ).tag("embedding"),
   }
 
-  def set_block_params(suffix, getter):
-    if use_layer_stack:
-      vals = [getter(i) for i in range(config.num_decoder_blocks)]
-      parameter_mapping[f"blocks/{suffix}"] = pz.nx.stack(vals, "blocks")
-    else:
-      for i in range(config.num_decoder_blocks):
-        parameter_mapping[f"block_{i}/{suffix}"] = getter(i)
+  all_block_params = []
 
-  set_block_params(
-      "pre_attention_norm/scale.weights",
-      lambda i: pz.nx.NamedArray.wrap(
-          1 + params[f"layer_{i}/pre_attention_norm"]["scale"]
-      ).tag("embedding"),
-  )
-  set_block_params(
-      "pre_ffw_norm/scale.weights",
-      lambda i: pz.nx.NamedArray.wrap(
-          1 + params[f"layer_{i}/pre_ffw_norm"]["scale"]
-      ).tag("embedding"),
-  )
-  set_block_params(
-      "mlp/gating_linear.weights",
-      lambda i: pz.nx.NamedArray.wrap(
-          params[f"layer_{i}/mlp/gating_einsum"]["w"][0]
-      ).tag("embedding", "neurons"),
-  )
-  set_block_params(
-      "mlp/value_linear.weights",
-      lambda i: pz.nx.NamedArray.wrap(
-          params[f"layer_{i}/mlp/gating_einsum"]["w"][1]
-      ).tag("embedding", "neurons"),
-  )
-  set_block_params(
-      "mlp/out_linear.weights",
-      lambda i: pz.nx.NamedArray.wrap(params[f"layer_{i}/mlp/linear"]["w"]).tag(
-          "neurons", "embedding"
-      ),
-  )
-  if config.single_kv_head:
-    set_block_params(
-        "attention/query.weights",
-        lambda i: pz.nx.NamedArray.wrap(
-            params[f"layer_{i}/attn/q_einsum"]["w"]
-        ).tag("query_heads", "embedding", "projection"),
+  for i in range(config.num_decoder_blocks):
+    cur_block_params = {}
+    all_block_params.append(cur_block_params)
+
+    cur_block_params["pre_attention_norm/scale.weights"] = (
+        pz.nx.NamedArray.wrap(
+            1 + params[f"layer_{i}/pre_attention_norm"]["scale"]
+        ).tag("embedding")
     )
-    set_block_params(
-        "attention/key.weights",
-        lambda i: pz.nx.NamedArray.wrap(
-            params[f"layer_{i}/attn/kv_einsum"]["w"][0].squeeze(0)
-        ).tag("embedding", "projection"),
-    )
-    set_block_params(
-        "attention/value.weights",
-        lambda i: pz.nx.NamedArray.wrap(
-            params[f"layer_{i}/attn/kv_einsum"]["w"][1].squeeze(0)
-        ).tag("embedding", "projection"),
-    )
-    set_block_params(
-        "attention/output.weights",
-        lambda i: pz.nx.NamedArray.wrap(
-            params[f"layer_{i}/attn/attn_vec_einsum"]["w"]
-        ).tag("query_heads", "projection", "embedding"),
-    )
+    cur_block_params["pre_ffw_norm/scale.weights"] = pz.nx.NamedArray.wrap(
+        1 + params[f"layer_{i}/pre_ffw_norm"]["scale"]
+    ).tag("embedding")
+    cur_block_params["mlp/gating_linear.weights"] = pz.nx.NamedArray.wrap(
+        params[f"layer_{i}/mlp/gating_einsum"]["w"][0]
+    ).tag("embedding", "neurons")
+    cur_block_params["mlp/value_linear.weights"] = pz.nx.NamedArray.wrap(
+        params[f"layer_{i}/mlp/gating_einsum"]["w"][1]
+    ).tag("embedding", "neurons")
+    cur_block_params["mlp/out_linear.weights"] = pz.nx.NamedArray.wrap(
+        params[f"layer_{i}/mlp/linear"]["w"]
+    ).tag("neurons", "embedding")
+
+    if single_kv_head:
+      cur_block_params["attention/query.weights"] = pz.nx.NamedArray.wrap(
+          params[f"layer_{i}/attn/q_einsum"]["w"]
+      ).tag("query_heads", "embedding", "projection")
+      cur_block_params["attention/key.weights"] = pz.nx.NamedArray.wrap(
+          params[f"layer_{i}/attn/kv_einsum"]["w"][0].squeeze(0)
+      ).tag("embedding", "projection")
+      cur_block_params["attention/value.weights"] = pz.nx.NamedArray.wrap(
+          params[f"layer_{i}/attn/kv_einsum"]["w"][1].squeeze(0)
+      ).tag("embedding", "projection")
+      cur_block_params["attention/output.weights"] = pz.nx.NamedArray.wrap(
+          params[f"layer_{i}/attn/attn_vec_einsum"]["w"]
+      ).tag("query_heads", "projection", "embedding")
+    else:
+      cur_block_params["attention/query.weights"] = pz.nx.NamedArray.wrap(
+          params[f"layer_{i}/attn/qkv_einsum"]["w"][0]
+      ).tag("heads", "embedding", "projection")
+      cur_block_params["attention/key.weights"] = pz.nx.NamedArray.wrap(
+          params[f"layer_{i}/attn/qkv_einsum"]["w"][1]
+      ).tag("heads", "embedding", "projection")
+      cur_block_params["attention/value.weights"] = pz.nx.NamedArray.wrap(
+          params[f"layer_{i}/attn/qkv_einsum"]["w"][2]
+      ).tag("heads", "embedding", "projection")
+      cur_block_params["attention/output.weights"] = pz.nx.NamedArray.wrap(
+          params[f"layer_{i}/attn/attn_vec_einsum"]["w"]
+      ).tag("heads", "projection", "embedding")
+
+  if use_layer_stack:
+    for key in all_block_params[0].keys():
+      vals = [
+          all_block_params[i][key] for i in range(config.num_decoder_blocks)
+      ]
+      parameter_mapping[f"blocks/{key}"] = pz.nx.stack(vals, "blocks")
   else:
-    set_block_params(
-        "attention/query.weights",
-        lambda i: pz.nx.NamedArray.wrap(
-            params[f"layer_{i}/attn/qkv_einsum"]["w"][0]
-        ).tag("heads", "embedding", "projection"),
-    )
-    set_block_params(
-        "attention/key.weights",
-        lambda i: pz.nx.NamedArray.wrap(
-            params[f"layer_{i}/attn/qkv_einsum"]["w"][1]
-        ).tag("heads", "embedding", "projection"),
-    )
-    set_block_params(
-        "attention/value.weights",
-        lambda i: pz.nx.NamedArray.wrap(
-            params[f"layer_{i}/attn/qkv_einsum"]["w"][2]
-        ).tag("heads", "embedding", "projection"),
-    )
-    set_block_params(
-        "attention/output.weights",
-        lambda i: pz.nx.NamedArray.wrap(
-            params[f"layer_{i}/attn/attn_vec_einsum"]["w"]
-        ).tag("heads", "projection", "embedding"),
-    )
+    for i in range(config.num_decoder_blocks):
+      for key, value in all_block_params[i].items():
+        parameter_mapping[f"block_{i}/{key}"] = value
 
   # Create parameter objects for each parameter, and bind them to the model's
   # slots.

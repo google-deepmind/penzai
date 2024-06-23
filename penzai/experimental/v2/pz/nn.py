@@ -41,6 +41,7 @@ from penzai.experimental.v2.nn.embeddings import (
     EmbeddingLookup,
     EmbeddingDecode,
     ApplyRoPE,
+    ApplyRoPEToSubset,
 )
 from penzai.experimental.v2.nn.grouping import (
     CheckedSequential,
