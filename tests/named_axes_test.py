@@ -845,6 +845,32 @@ class NamedAxesTest(parameterized.TestCase):
     self.assertEqual(broadcasted.positional_shape, positional_shape)
     self.assertEqual(dict(broadcasted.named_shape), named_shape)
 
+  def test_tree_order_like(self):
+    values = {
+        "a": 1.0,
+        "b": named_axes.wrap(jnp.arange(6).reshape((2, 3))).tag("foo", "bar"),
+        "c": named_axes.wrap(jnp.arange(20).reshape((5, 4))).tag_prefix("baz"),
+    }
+    target = {
+        "a": 2.0,
+        "b": named_axes.wrap(jnp.zeros((3, 2))).tag("bar", "foo"),
+        "c": (
+            named_axes.wrap(jnp.zeros((5, 4)))
+            .tag_prefix("baz")
+            .with_positional_prefix()
+        ),
+    }
+    values_like_target = named_axes.order_like(values, target)
+
+    chex.assert_trees_all_equal_structs(values_like_target, target)
+    chex.assert_trees_all_equal(
+        (values["b"].canonicalize(), values["c"].canonicalize()),
+        (
+            values_like_target["b"].canonicalize(),
+            values_like_target["c"].canonicalize(),
+        ),
+    )
+
 
 if __name__ == "__main__":
   absltest.main()

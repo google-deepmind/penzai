@@ -56,6 +56,12 @@ from penzai.experimental.v2.nn.grouping import (
 from penzai.experimental.v2.nn.layer import (
     Layer,
 )
+from penzai.experimental.v2.nn.layer_stack import (
+    LayerStackVarBehavior,
+    LayerStackGetAttrKey,
+    LayerStack,
+    layerstack_axes_from_keypath,
+)
 from penzai.experimental.v2.nn.linear_and_affine import (
     AddBias,
     ConstantRescale,

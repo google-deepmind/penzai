@@ -181,6 +181,76 @@ class GemmaTest(parameterized.TestCase):
         ),
     )
 
+  def test_build_and_run_layer_stack(self):
+    def run_traced(rng_key):
+
+      stacked_model = gemma.build_gemma_transformer(
+          gemma.GemmaTransformerConfig(
+              num_heads=2,
+              embedding_dim=16,
+              projection_dim=4,
+              single_kv_head=False,
+              mlp_hidden_dim=32,
+              num_decoder_blocks=2,
+              vocab_size=11,
+              parameter_dtype=jnp.bfloat16,
+              activation_dtype=jnp.float32,
+              use_layer_stack=True,
+          ),
+          init_base_rng=rng_key,
+      )
+      tokens = pz.nx.ones({"batch": 3, "seq": 13}, dtype=jnp.int32)
+      out = stacked_model(
+          tokens, **stacked_model.simple_causal_side_inputs(tokens)
+      )
+      pz.chk.check_structure(
+          out,
+          pz.chk.ArraySpec(
+              named_shape={"batch": 3, "seq": 13, "vocabulary": 11},
+              dtype=jnp.float32,
+          ),
+      )
+
+      sampler = sampling_mode.KVCachingTransformer.from_uncached(
+          stacked_model, cache_len=20, batch_axes={"batch": 3}
+      )
+      kv_cache_var = (
+          pz.select(sampler)
+          .at_instances_of(pz.StateVariable)
+          .where(lambda v: v.label == "sampler/cache_0")
+          .get()
+      )
+      self.assertEqual(
+          kv_cache_var.metadata,
+          {
+              "layerstack_axes": {
+                  "blocks": pz.nn.LayerStackVarBehavior.PER_LAYER
+              }
+          },
+      )
+      for i in range(2):
+        self.assertEqual(
+            kv_cache_var.value[i].named_shape,
+            {
+                "blocks": 2,
+                "batch": 3,
+                "heads": 2,
+                "projection": 4,
+                "seq": 20,
+            },
+        )
+
+      out = sampler(pz.nx.ones({"batch": 3, "seq": 13}, dtype=jnp.int32))
+      pz.chk.check_structure(
+          out,
+          pz.chk.ArraySpec(
+              named_shape={"batch": 3, "seq": 13, "vocabulary": 11},
+              dtype=jnp.float32,
+          ),
+      )
+
+    jax.eval_shape(run_traced, jax.random.key(2))
+
 
 if __name__ == "__main__":
   absltest.main()

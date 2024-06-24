@@ -52,6 +52,7 @@ class GemmaTransformerConfig:
     vocab_size: Number of tokens in the vocabulary.
     parameter_dtype: Floating dtype to use for all parameters.
     activation_dtype: Floating dtype to use for activations and KV cache tables.
+    use_layer_stack: Whether to stack the blocks together using a LayerStack.
   """
 
   num_heads: int
@@ -63,6 +64,7 @@ class GemmaTransformerConfig:
   vocab_size: int
   parameter_dtype: jax.typing.DTypeLike
   activation_dtype: jax.typing.DTypeLike
+  use_layer_stack: bool = False
 
 
 def build_gemma_feedforward(
@@ -336,10 +338,21 @@ def build_gemma_transformer(
       )
   )
 
-  for i in range(config.num_decoder_blocks):
+  if config.use_layer_stack:
     sublayers.append(
-        build_gemma_block(f"{name}/block_{i}", init_base_rng, config)
+        pz.nn.LayerStack.from_sublayer_builder(
+            builder=build_gemma_block,
+            stack_axis="blocks",
+            stack_axis_size=config.num_decoder_blocks,
+            init_base_rng=init_base_rng,
+            builder_kwargs=dict(name=f"{name}/blocks", config=config),
+        )
     )
+  else:
+    for i in range(config.num_decoder_blocks):
+      sublayers.append(
+          build_gemma_block(f"{name}/block_{i}", init_base_rng, config)
+      )
 
   sublayers.extend([
       pz.nn.RMSLayerNorm.from_config(
@@ -375,6 +388,7 @@ def build_gemma_transformer(
 def gemma_from_pretrained_checkpoint(
     ckpt_params: dict[str, Any],
     upcast_activations_to_float32: bool = False,
+    use_layer_stack: bool = False,
 ) -> model_parts.Transformer:
   """Builds a Gemma model from a pretrained checkpoint.
 
@@ -395,6 +409,7 @@ def gemma_from_pretrained_checkpoint(
     upcast_activations_to_float32: Whether to cast activations to float32 when
       the model runs. This is useful for doing interpretability research at
       higher precision without consuming additional memory.
+    use_layer_stack: Whether to use a layer stack for the decoder blocks.
 
   Returns:
     A Transformer model containing the loaded parameters.
@@ -426,6 +441,7 @@ def gemma_from_pretrained_checkpoint(
       vocab_size=vocab_size,
       parameter_dtype=attn_0_einsum_param.dtype,
       activation_dtype=activation_dtype,
+      use_layer_stack=use_layer_stack,
   )
   model_def = build_gemma_transformer(
       config, init_base_rng=None, name="transformer"
@@ -438,54 +454,96 @@ def gemma_from_pretrained_checkpoint(
           1 + params["final_norm"]["scale"]
       ).tag("embedding"),
   }
-  for i in range(config.num_decoder_blocks):
-    parameter_mapping.update({
-        f"block_{i}/pre_attention_norm/scale.weights": pz.nx.NamedArray.wrap(
-            1 + params[f"layer_{i}/pre_attention_norm"]["scale"]
-        ).tag("embedding"),
-        f"block_{i}/pre_ffw_norm/scale.weights": pz.nx.NamedArray.wrap(
-            1 + params[f"layer_{i}/pre_ffw_norm"]["scale"]
-        ).tag("embedding"),
-        f"block_{i}/mlp/gating_linear.weights": pz.nx.NamedArray.wrap(
-            params[f"layer_{i}/mlp/gating_einsum"]["w"][0]
-        ).tag("embedding", "neurons"),
-        f"block_{i}/mlp/value_linear.weights": pz.nx.NamedArray.wrap(
-            params[f"layer_{i}/mlp/gating_einsum"]["w"][1]
-        ).tag("embedding", "neurons"),
-        f"block_{i}/mlp/out_linear.weights": pz.nx.NamedArray.wrap(
-            params[f"layer_{i}/mlp/linear"]["w"]
-        ).tag("neurons", "embedding"),
-    })
-    if config.single_kv_head:
-      parameter_mapping.update({
-          f"block_{i}/attention/query.weights": pz.nx.NamedArray.wrap(
-              params[f"layer_{i}/attn/q_einsum"]["w"]
-          ).tag("query_heads", "embedding", "projection"),
-          f"block_{i}/attention/key.weights": pz.nx.NamedArray.wrap(
-              params[f"layer_{i}/attn/kv_einsum"]["w"][0].squeeze(0)
-          ).tag("embedding", "projection"),
-          f"block_{i}/attention/value.weights": pz.nx.NamedArray.wrap(
-              params[f"layer_{i}/attn/kv_einsum"]["w"][1].squeeze(0)
-          ).tag("embedding", "projection"),
-          f"block_{i}/attention/output.weights": pz.nx.NamedArray.wrap(
-              params[f"layer_{i}/attn/attn_vec_einsum"]["w"]
-          ).tag("query_heads", "projection", "embedding"),
-      })
+
+  def set_block_params(suffix, getter):
+    if use_layer_stack:
+      vals = [getter(i) for i in range(config.num_decoder_blocks)]
+      parameter_mapping[f"blocks/{suffix}"] = pz.nx.stack(vals, "blocks")
     else:
-      parameter_mapping.update({
-          f"block_{i}/attention/query.weights": pz.nx.NamedArray.wrap(
-              params[f"layer_{i}/attn/qkv_einsum"]["w"][0]
-          ).tag("heads", "embedding", "projection"),
-          f"block_{i}/attention/key.weights": pz.nx.NamedArray.wrap(
-              params[f"layer_{i}/attn/qkv_einsum"]["w"][1]
-          ).tag("heads", "embedding", "projection"),
-          f"block_{i}/attention/value.weights": pz.nx.NamedArray.wrap(
-              params[f"layer_{i}/attn/qkv_einsum"]["w"][2]
-          ).tag("heads", "embedding", "projection"),
-          f"block_{i}/attention/output.weights": pz.nx.NamedArray.wrap(
-              params[f"layer_{i}/attn/attn_vec_einsum"]["w"]
-          ).tag("heads", "projection", "embedding"),
-      })
+      for i in range(config.num_decoder_blocks):
+        parameter_mapping[f"block_{i}/{suffix}"] = getter(i)
+
+  set_block_params(
+      "pre_attention_norm/scale.weights",
+      lambda i: pz.nx.NamedArray.wrap(
+          1 + params[f"layer_{i}/pre_attention_norm"]["scale"]
+      ).tag("embedding"),
+  )
+  set_block_params(
+      "pre_ffw_norm/scale.weights",
+      lambda i: pz.nx.NamedArray.wrap(
+          1 + params[f"layer_{i}/pre_ffw_norm"]["scale"]
+      ).tag("embedding"),
+  )
+  set_block_params(
+      "mlp/gating_linear.weights",
+      lambda i: pz.nx.NamedArray.wrap(
+          params[f"layer_{i}/mlp/gating_einsum"]["w"][0]
+      ).tag("embedding", "neurons"),
+  )
+  set_block_params(
+      "mlp/value_linear.weights",
+      lambda i: pz.nx.NamedArray.wrap(
+          params[f"layer_{i}/mlp/gating_einsum"]["w"][1]
+      ).tag("embedding", "neurons"),
+  )
+  set_block_params(
+      "mlp/out_linear.weights",
+      lambda i: pz.nx.NamedArray.wrap(params[f"layer_{i}/mlp/linear"]["w"]).tag(
+          "neurons", "embedding"
+      ),
+  )
+  if config.single_kv_head:
+    set_block_params(
+        "attention/query.weights",
+        lambda i: pz.nx.NamedArray.wrap(
+            params[f"layer_{i}/attn/q_einsum"]["w"]
+        ).tag("query_heads", "embedding", "projection"),
+    )
+    set_block_params(
+        "attention/key.weights",
+        lambda i: pz.nx.NamedArray.wrap(
+            params[f"layer_{i}/attn/kv_einsum"]["w"][0].squeeze(0)
+        ).tag("embedding", "projection"),
+    )
+    set_block_params(
+        "attention/value.weights",
+        lambda i: pz.nx.NamedArray.wrap(
+            params[f"layer_{i}/attn/kv_einsum"]["w"][1].squeeze(0)
+        ).tag("embedding", "projection"),
+    )
+    set_block_params(
+        "attention/output.weights",
+        lambda i: pz.nx.NamedArray.wrap(
+            params[f"layer_{i}/attn/attn_vec_einsum"]["w"]
+        ).tag("query_heads", "projection", "embedding"),
+    )
+  else:
+    set_block_params(
+        "attention/query.weights",
+        lambda i: pz.nx.NamedArray.wrap(
+            params[f"layer_{i}/attn/qkv_einsum"]["w"][0]
+        ).tag("heads", "embedding", "projection"),
+    )
+    set_block_params(
+        "attention/key.weights",
+        lambda i: pz.nx.NamedArray.wrap(
+            params[f"layer_{i}/attn/qkv_einsum"]["w"][1]
+        ).tag("heads", "embedding", "projection"),
+    )
+    set_block_params(
+        "attention/value.weights",
+        lambda i: pz.nx.NamedArray.wrap(
+            params[f"layer_{i}/attn/qkv_einsum"]["w"][2]
+        ).tag("heads", "embedding", "projection"),
+    )
+    set_block_params(
+        "attention/output.weights",
+        lambda i: pz.nx.NamedArray.wrap(
+            params[f"layer_{i}/attn/attn_vec_einsum"]["w"]
+        ).tag("heads", "projection", "embedding"),
+    )
+
   # Create parameter objects for each parameter, and bind them to the model's
   # slots.
   model = pz.bind_variables(

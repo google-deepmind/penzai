@@ -32,6 +32,7 @@ from penzai.core import named_axes
 from penzai.core import struct
 from penzai.experimental.v2.core import variables
 from penzai.experimental.v2.nn import layer as layer_base
+from penzai.experimental.v2.nn import layer_stack
 
 
 @struct.pytree_dataclass
@@ -226,6 +227,7 @@ class KVCachingAttention(layer_base.Layer):
       cache_end_index_key: Hashable,
       cache_dtype: jax.typing.DTypeLike = jnp.float32,
       cache_label: variables.VariableLabel | None = None,
+      layerstack_axes: dict[named_axes.AxisName, int] | None = None,
   ) -> KVCachingAttention:
     """Builds a caching attention from an uncached attention.
 
@@ -242,14 +244,27 @@ class KVCachingAttention(layer_base.Layer):
       cache_dtype: Dtype for the data to store in the cache. Should match the
         dtype of the key and value arrays.
       cache_label: Optional label for the KV cache variable.
+      layerstack_axes: Stacked axes that are used inside a LayerStack
+        combinator. Usually inferred from `pz.nn.layerstack_axes_from_keypath`.
 
     Returns:
       A ``KVCachingAttention`` instance that behaves like the original
       `Attention` layer, but updates key-value caches iteratively, using new
       side input and state effect requests.
     """
+    if layerstack_axes:
+      cache_metadata = {
+          "layerstack_axes": {
+              ax: layer_stack.LayerStackVarBehavior.PER_LAYER
+              for ax in layerstack_axes.keys()
+          }
+      }
+    else:
+      cache_metadata = {}
+      layerstack_axes = {}
     empty_cache = named_axes.zeros(
-        {**cached_axes, sequence_axis: cache_len}, dtype=cache_dtype
+        {**cached_axes, **layerstack_axes, sequence_axis: cache_len},
+        dtype=cache_dtype,
     )
 
     return cls(
@@ -263,5 +278,6 @@ class KVCachingAttention(layer_base.Layer):
         kv_cache=variables.StateVariable(
             label=cache_label,
             value=(empty_cache, empty_cache),
+            metadata=cache_metadata,
         ),
     )

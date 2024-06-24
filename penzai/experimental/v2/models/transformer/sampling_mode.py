@@ -172,21 +172,20 @@ class KVCachingTransformer(pz.nn.Layer):
         **uncached.metadata.common_head_axes,
         "projection": uncached.metadata.projection_dim,
     }
-    caching_body = (
-        pz.select(uncached.body)
-        .at_instances_of(pz.nn.Attention)
-        .apply_with_selected_index(
-            lambda ix, attn: pz.nn.KVCachingAttention.from_uncached(
-                attn,
-                cache_len=cache_len,
-                cached_axes=cached_axes,
-                cache_dtype=uncached.metadata.activation_dtype,
-                sequence_axis="seq",
-                cache_end_index_key="cache_end_index",
-                cache_label=f"{variable_name_prefix}/cache_{ix}",
-            )
-        )
-    )
+    attn_sel = pz.select(uncached.body).at_instances_of(pz.nn.Attention)
+    fixed_attns = {}
+    for ix, (keypath, attn) in enumerate(attn_sel.selected_by_path.items()):
+      fixed_attns[keypath] = pz.nn.KVCachingAttention.from_uncached(
+          attn,
+          cache_len=cache_len,
+          cached_axes=cached_axes,
+          cache_dtype=uncached.metadata.activation_dtype,
+          sequence_axis="seq",
+          cache_end_index_key="cache_end_index",
+          cache_label=f"{variable_name_prefix}/cache_{ix}",
+          layerstack_axes=pz.nn.layerstack_axes_from_keypath(keypath),
+      )
+    caching_body = attn_sel.set_by_path(fixed_attns)
     return cls(
         metadata=uncached.metadata,
         cache_len=cache_len,
