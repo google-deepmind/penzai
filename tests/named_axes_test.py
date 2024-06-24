@@ -856,6 +856,111 @@ class NamedAxesTest(parameterized.TestCase):
         ),
     )
 
+  def test_indexed_update_at(self):
+    array = pz.nx.arange("foo", 5) + pz.nx.arange("bar", 4)
+
+    with self.subTest("set_ordinary"):
+      result = array.untag("foo").at[3].set(100).tag("foo")
+      chex.assert_trees_all_equal(
+          result.canonicalize(),
+          pz.nx.wrap(
+              jnp.array([
+                  [0, 1, 2, 3],
+                  [1, 2, 3, 4],
+                  [2, 3, 4, 5],
+                  [100, 100, 100, 100],
+                  [4, 5, 6, 7],
+              ])
+          )
+          .tag("foo", "bar")
+          .canonicalize(),
+      )
+
+    with self.subTest("add_ordinary"):
+      result = array.untag("foo").at[3].add(100).tag("foo")
+      chex.assert_trees_all_equal(
+          result.canonicalize(),
+          pz.nx.wrap(
+              jnp.array([
+                  [0, 1, 2, 3],
+                  [1, 2, 3, 4],
+                  [2, 3, 4, 5],
+                  [103, 104, 105, 106],
+                  [4, 5, 6, 7],
+              ])
+          )
+          .tag("foo", "bar")
+          .canonicalize(),
+      )
+
+    with self.subTest("add_along_named"):
+      result = (
+          array.untag("bar").at[2].add(100 * pz.nx.arange("foo", 5)).tag("bar")
+      )
+      chex.assert_trees_all_equal(
+          result.canonicalize(),
+          pz.nx.wrap(
+              jnp.array([
+                  [0, 1, 2, 3],
+                  [1, 2, 103, 4],
+                  [2, 3, 204, 5],
+                  [3, 4, 305, 6],
+                  [4, 5, 406, 7],
+              ])
+          )
+          .tag("foo", "bar")
+          .canonicalize(),
+      )
+
+    with self.subTest("add_new_named"):
+      result = (
+          array.untag("bar")
+          .at[pz.nx.arange("qux", 2) + 1]
+          .add(100 + 100 * pz.nx.arange("qux", 2))
+          .tag("bar")
+      )
+      chex.assert_trees_all_equal(
+          result.canonicalize(),
+          pz.nx.wrap(
+              jnp.array([
+                  [
+                      [0, 101, 2, 3],
+                      [1, 102, 3, 4],
+                      [2, 103, 4, 5],
+                      [3, 104, 5, 6],
+                      [4, 105, 6, 7],
+                  ],
+                  [
+                      [0, 1, 202, 3],
+                      [1, 2, 203, 4],
+                      [2, 3, 204, 5],
+                      [3, 4, 205, 6],
+                      [4, 5, 206, 7],
+                  ],
+              ])
+          )
+          .tag("qux", "foo", "bar")
+          .canonicalize(),
+      )
+
+    with self.subTest("get"):
+      result = (
+          array.untag("foo")
+          .at[jnp.array([1, 1, 2, 100])]
+          .get(mode="fill", fill_value=-1)
+          .tag("baz")
+      )
+      chex.assert_trees_all_equal(
+          result.canonicalize(),
+          pz.nx.wrap(
+              jnp.array(
+                  [[1, 2, 3, 4], [1, 2, 3, 4], [2, 3, 4, 5], [-1, -1, -1, -1]]
+              )
+          )
+          .tag("baz", "bar")
+          .canonicalize(),
+      )
+
 
 if __name__ == "__main__":
   absltest.main()

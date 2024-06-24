@@ -423,6 +423,65 @@ def _jitted_nmapped_getitem(
   return array[indexer]
 
 
+@dataclasses.dataclass
+class _IndexUpdateHelper:
+  """Helper property for index update functionality.
+
+  Lifts the ``jax.Array.at[...]`` syntax to also work for Penzai NamedArrays.
+  """
+  array: NamedArrayBase
+
+  def __getitem__(self, index):
+    return _IndexUpdateRef(self.array, index)
+
+
+@dataclasses.dataclass
+class _IndexUpdateRef:
+  """Helper object to call indexed update functions for an (advanced) index."""
+
+  array: NamedArrayBase
+  index: Any
+
+  def _nmap_index_op(self, method: str, args, kwargs):
+    def go(array, index, args, kwargs):
+      return getattr(array.at[index], method)(*args, **kwargs)
+
+    return nmap(go)(self.array, self.index, args, kwargs)
+
+  def get(self, *args, **kwargs):
+    return self._nmap_index_op("get", args, kwargs)
+
+  def set(self, *args, **kwargs):
+    return self._nmap_index_op("set", args, kwargs)
+
+  def apply(self, *args, **kwargs):
+    return self._nmap_index_op("apply", args, kwargs)
+
+  def add(self, *args, **kwargs):
+    return self._nmap_index_op("add", args, kwargs)
+
+  def multiply(self, *args, **kwargs):
+    return self._nmap_index_op("multiply", args, kwargs)
+
+  def mul(self, *args, **kwargs):
+    return self._nmap_index_op("mul", args, kwargs)
+
+  def divide(self, *args, **kwargs):
+    return self._nmap_index_op("divide", args, kwargs)
+
+  def div(self, *args, **kwargs):
+    return self._nmap_index_op("div", args, kwargs)
+
+  def power(self, *args, **kwargs):
+    return self._nmap_index_op("power", args, kwargs)
+
+  def min(self, *args, **kwargs):
+    return self._nmap_index_op("min", args, kwargs)
+
+  def max(self, *args, **kwargs):
+    return self._nmap_index_op("max", args, kwargs)
+
+
 class NamedArrayBase(abc.ABC):
   """Base class for named arrays and their transposed views."""
 
@@ -866,6 +925,27 @@ class NamedArrayBase(abc.ABC):
         else:
           index_thunks.append(_StaticThunk(c))
       return _jitted_nmapped_getitem(self, tuple(index_thunks))
+
+  # In-place mutation with at-set syntax. Note: Does not support dict-style
+  # indexing.
+  @property
+  def at(self) -> _IndexUpdateHelper:
+    """Helper property for index update functionality.
+
+    Lifts the ``jax.Array.at[...]`` syntax to also work for Penzai NamedArrays.
+    In particular, ::
+
+      named_array.at[index].set(value)
+
+    is equivalent to ::
+
+      nmap(lambda arr, i, v: arr.at[i].set(v))(named_array, index, value)
+
+    Note that dict-style indexing is not supported for ``.at``, so the index
+    passed to ``.at`` must be an ordinary positional index expression. To apply
+    indexed updates to specific named axes, ``untag`` them first.
+    """
+    return _IndexUpdateHelper(self)
 
   # Iteration. Note that we *must* implement this to avoid Python simply trying
   # to run __getitem__ until it raises IndexError, because we won't raise
