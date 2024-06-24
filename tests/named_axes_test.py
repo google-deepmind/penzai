@@ -569,27 +569,6 @@ class NamedAxesTest(parameterized.TestCase):
           ),
       )
 
-    with self.subTest("binop_scalar"):
-      chex.assert_trees_all_equal(
-          array_a - 100,
-          named_axes.NamedArray(
-              named_axes=collections.OrderedDict({"foo": 2, "bar": 3}),
-              data_array=np.array(
-                  [[-100, -99, -98], [-97, -96, -95]],
-                  dtype=np.dtype("int32"),
-              ),
-          ),
-      )
-      chex.assert_trees_all_equal(
-          100 - array_a,
-          named_axes.NamedArray(
-              named_axes=collections.OrderedDict({"foo": 2, "bar": 3}),
-              data_array=np.array(
-                  [[100, 99, 98], [97, 96, 95]], dtype=np.dtype("int32")
-              ),
-          ),
-      )
-
     with self.subTest("array_method"):
       # Summing over no axes does nothing
       chex.assert_trees_all_equal(array_a.sum(), array_a)
@@ -625,6 +604,43 @@ class NamedAxesTest(parameterized.TestCase):
       self.assertEqual(int(array_scalar), 3)
       self.assertTrue(bool(array_scalar))
 
+  @parameterized.parameters("python", "numpy", "jax")
+  def test_binop_lifts(self, which):
+    named_array = named_axes.wrap(jnp.arange(2 * 3).reshape((2, 3))).tag(
+        "foo", "bar"
+    )
+    if which == "python":
+      other = 100
+    elif which == "numpy":
+      other = np.array(100)
+    elif which == "jax":
+      other = jnp.array(100)
+    else:
+      raise ValueError(which)
+
+    with self.subTest("left"):
+      chex.assert_trees_all_equal(
+          named_array - other,
+          named_axes.NamedArray(
+              named_axes=collections.OrderedDict({"foo": 2, "bar": 3}),
+              data_array=np.array(
+                  [[-100, -99, -98], [-97, -96, -95]],
+                  dtype=np.dtype("int32"),
+              ),
+          ),
+      )
+
+    with self.subTest("right"):
+      chex.assert_trees_all_equal(
+          other - named_array,
+          named_axes.NamedArray(
+              named_axes=collections.OrderedDict({"foo": 2, "bar": 3}),
+              data_array=np.array(
+                  [[100, 99, 98], [97, 96, 95]], dtype=np.dtype("int32")
+              ),
+          ),
+      )
+
   def test_named_array_equality(self):
     array_a = named_axes.wrap(jnp.arange(2 * 3).reshape((2, 3))).tag(
         "foo", "bar"
@@ -635,37 +651,6 @@ class NamedAxesTest(parameterized.TestCase):
 
     result = array_a == array_b
     self.assertEqual(result.named_shape, {"foo": 2, "bar": 3, "baz": 5})
-
-  def test_named_array_conversion(self):
-    array_a = named_axes.wrap(jnp.arange(6))
-
-    with self.subTest("convert_positional_to_numpy"):
-      array_a_as_np = np.array(array_a)
-      self.assertEqual(array_a_as_np.shape, (6,))
-
-    with self.subTest("convert_positional_to_jax"):
-      array_a_as_jax = jnp.array(array_a)
-      self.assertEqual(array_a_as_jax.shape, (6,))
-
-    with self.subTest("conversion_failure_with_names"):
-      with self.assertRaisesRegex(
-          ValueError,
-          re.escape(
-              "Only NamedArray(View)s with no named axes can be converted to"
-              " numpy arrays"
-          ),
-      ):
-        _ = np.array(array_a.tag("foo"))
-
-    with self.subTest("conversion_failure_with_names_jax"):
-      with self.assertRaisesRegex(
-          ValueError,
-          re.escape(
-              "Only NamedArray(View)s with no named axes can be converted to"
-              " JAX arrays"
-          ),
-      ):
-        _ = jnp.array(array_a.tag("foo"))
 
   def test_convenience_constructors(self):
     with self.subTest("zeros"):

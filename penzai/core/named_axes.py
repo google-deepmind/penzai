@@ -867,29 +867,6 @@ class NamedArrayBase(abc.ABC):
           index_thunks.append(_StaticThunk(c))
       return _jitted_nmapped_getitem(self, tuple(index_thunks))
 
-  # Array conversion operators
-  def __array__(self, *args, **kwargs):
-    """Converts a named array with no named axes to a Numpy array."""
-    if self.named_shape:
-      raise ValueError(
-          "Only NamedArray(View)s with no named axes can be converted to numpy"
-          " arrays. Use `unwrap` or `untag` to assign positions to named axes"
-          " first, or use `penzai.named_axes.nmap` with a JAX function instead."
-      )
-    else:
-      return np.array(self.unwrap(), *args, **kwargs)
-
-  def __jax_array__(self):
-    """Converts a named array with no named axes to a JAX array."""
-    if self.named_shape:
-      raise ValueError(
-          "Only NamedArray(View)s with no named axes can be converted to JAX"
-          " arrays. Use `unwrap` or `untag` to assign positions to named axes"
-          " first, or use `penzai.named_axes.nmap` with a JAX function instead."
-      )
-    else:
-      return self.unwrap()
-
   # Iteration. Note that we *must* implement this to avoid Python simply trying
   # to run __getitem__ until it raises IndexError, because we won't raise
   # IndexError (since JAX clips array indices).
