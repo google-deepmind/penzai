@@ -68,6 +68,8 @@ active_renderer: context.ContextualValue[renderer.TreescopeRenderer] = (
         qualname="active_renderer",
         initial_value=renderer.TreescopeRenderer(
             handlers=[
+                # Objects with their own handlers.
+                extension_method_handler.handle_via_penzai_repr_method,
                 # Named arrays.
                 named_axes_handlers.handle_named_arrays,
                 # Shapecheck array structures.
@@ -78,8 +80,6 @@ active_renderer: context.ContextualValue[renderer.TreescopeRenderer] = (
                 layer_handler.handle_layers,
                 # Other pz.Struct instances.
                 struct_handler.handle_structs,
-                # Objects with their own handlers.
-                extension_method_handler.handle_via_penzai_repr_method,
                 # NDArrays.
                 ndarray_handler.handle_ndarrays,
                 # Reflection of functions and classes.
