@@ -26,9 +26,12 @@ import numpy.typing  # pylint: disable=unused-import
 
 from penzai.core import named_axes
 from penzai.core import struct
+from penzai.core import syntactic_sugar
 from penzai.experimental.v2.nn import layer as layer_base
 from penzai.experimental.v2.nn import linear_and_affine
 from penzai.experimental.v2.nn import parameters
+
+_slice = syntactic_sugar.slice
 
 
 @struct.pytree_dataclass
@@ -275,3 +278,49 @@ class ApplyRoPE(layer_base.Layer):
     # Finally, re-bind the embedding axis.
     out_named = out.tag(self.embedding_axis)
     return out_named.astype(inputs.dtype)
+
+
+@struct.pytree_dataclass
+class ApplyRoPEToSubset(layer_base.Layer):
+  """Adjusts a subset of embeddings using rotary position embeddings (RoPE).
+
+  This is like `ApplyRoPE`, but only applies to a subset of dimensions, for
+  compatibility with the GPT-NeoX configuration and similar models.
+
+  Attributes:
+    embedding_axis: The axis name of the input that contains the embedding
+      vector (e.g. "embedding" or "projection").
+    max_wavelength: The maximum wavelength of the periodic positional
+      embeddings.
+    rope_subset_size: Size of the prefix of the embedding axis that we should
+      apply rotary embeddings to. The suffix will be left unchanged.
+    positions_input_name: Key for the side input that provides the position of
+      each token in the sequence. This side input should be provided as an
+      integer array that is broadcastable with the input, and which does NOT
+      include the embedding axis.
+  """
+
+  embedding_axis: str = dataclasses.field(metadata={"pytree_node": False})
+  max_wavelength: int = dataclasses.field(metadata={"pytree_node": False})
+  rope_subset_size: int = dataclasses.field(metadata={"pytree_node": False})
+  positions_input_name: str = dataclasses.field(metadata={"pytree_node": False})
+
+  def __call__(
+      self, inputs: named_axes.NamedArray, **side_inputs
+  ) -> named_axes.NamedArray:
+    rotary_input = inputs[
+        {self.embedding_axis: _slice[: self.rope_subset_size]}
+    ]
+    passthrough_input = inputs[
+        {self.embedding_axis: _slice[self.rope_subset_size :]}
+    ]
+
+    rotator = ApplyRoPE(
+        embedding_axis=self.embedding_axis,
+        max_wavelength=self.max_wavelength,
+        positions_input_name=self.positions_input_name,
+    )
+    rotated_result = rotator(rotary_input, **side_inputs)
+    return named_axes.concatenate(
+        [rotated_result, passthrough_input], self.embedding_axis
+    )

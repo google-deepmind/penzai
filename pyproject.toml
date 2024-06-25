@@ -42,6 +42,8 @@ extras = [
     "ipython",
     "flax>=0.8.2",
     "optax",
+    "torch",
+    "transformers>=4.41.2",
 ]
 # Extra dependencies for some notebook demos.
 notebook = [

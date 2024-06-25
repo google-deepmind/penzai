@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for the Gemma model."""
+"""Tests for the Llama-like transformer variants."""
 
 from absl.testing import absltest
 from absl.testing import parameterized
@@ -21,65 +21,80 @@ import jax.numpy as jnp
 from penzai.experimental.v2 import pz
 from penzai.experimental.v2.models.transformer import sampling_mode
 from penzai.experimental.v2.models.transformer import simple_decoding_loop
-from penzai.experimental.v2.models.transformer.variants import gemma
+from penzai.experimental.v2.models.transformer.variants import llamalike_common
 
 
-class GemmaTest(parameterized.TestCase):
+class LlamalikeTransformerTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name="single_b16",
-          single_kv_head=True,
+          testcase_name="full_b16",
+          num_kv_heads=2,
+          query_head_multiplier=1,
           parameter_dtype=jnp.bfloat16,
           activation_dtype=jnp.bfloat16,
       ),
       dict(
-          testcase_name="single_b32",
-          single_kv_head=True,
-          parameter_dtype=jnp.bfloat16,
-          activation_dtype=jnp.bfloat16,
+          testcase_name="full_32",
+          num_kv_heads=2,
+          query_head_multiplier=1,
+          parameter_dtype=jnp.float32,
+          activation_dtype=jnp.float32,
       ),
       dict(
-          testcase_name="single_mixed",
-          single_kv_head=True,
+          testcase_name="full_mixed",
+          num_kv_heads=2,
+          query_head_multiplier=1,
           parameter_dtype=jnp.bfloat16,
           activation_dtype=jnp.float32,
       ),
       dict(
-          testcase_name="many_b16",
-          single_kv_head=False,
-          parameter_dtype=jnp.bfloat16,
-          activation_dtype=jnp.bfloat16,
-      ),
-      dict(
-          testcase_name="many_b32",
-          single_kv_head=False,
-          parameter_dtype=jnp.bfloat16,
-          activation_dtype=jnp.bfloat16,
-      ),
-      dict(
-          testcase_name="many_mixed",
-          single_kv_head=False,
-          parameter_dtype=jnp.bfloat16,
+          testcase_name="multi_query",
+          num_kv_heads=2,
+          query_head_multiplier=1,
+          parameter_dtype=jnp.float32,
           activation_dtype=jnp.float32,
+      ),
+      dict(
+          testcase_name="grouped_query",
+          num_kv_heads=2,
+          query_head_multiplier=2,
+          parameter_dtype=jnp.float32,
+          activation_dtype=jnp.float32,
+      ),
+      dict(
+          testcase_name="single_swiglu",
+          num_kv_heads=1,
+          query_head_multiplier=1,
+          parameter_dtype=jnp.float32,
+          activation_dtype=jnp.float32,
+          mlp_variant="swiglu",
       ),
   )
   def test_build_and_run_gemma(
-      self, single_kv_head: bool, parameter_dtype, activation_dtype
+      self,
+      num_kv_heads: int,
+      query_head_multiplier: int,
+      parameter_dtype,
+      activation_dtype,
+      mlp_variant="geglu_approx",
   ):
     def run_traced(rng_key):
 
-      model = gemma.build_gemma_transformer(
-          gemma.GemmaTransformerConfig(
-              num_heads=2,
+      model = llamalike_common.build_llamalike_transformer(
+          llamalike_common.LLamalikeTransformerConfig(
+              num_kv_heads=num_kv_heads,
+              query_head_multiplier=query_head_multiplier,
               embedding_dim=16,
               projection_dim=4,
-              single_kv_head=single_kv_head,
               mlp_hidden_dim=32,
               num_decoder_blocks=2,
               vocab_size=11,
               parameter_dtype=parameter_dtype,
               activation_dtype=activation_dtype,
+              mlp_variant=mlp_variant,
+              rope_wavelength=10_000,
+              tie_embedder_and_logits=True,
           ),
           init_base_rng=rng_key,
       )
@@ -97,57 +112,63 @@ class GemmaTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name="single_b16",
-          single_kv_head=True,
+          testcase_name="full_b16",
+          num_kv_heads=2,
+          query_head_multiplier=1,
           parameter_dtype=jnp.bfloat16,
           activation_dtype=jnp.bfloat16,
       ),
       dict(
-          testcase_name="single_b32",
-          single_kv_head=True,
-          parameter_dtype=jnp.bfloat16,
-          activation_dtype=jnp.bfloat16,
+          testcase_name="full_32",
+          num_kv_heads=2,
+          query_head_multiplier=1,
+          parameter_dtype=jnp.float32,
+          activation_dtype=jnp.float32,
       ),
       dict(
-          testcase_name="single_mixed",
-          single_kv_head=True,
+          testcase_name="full_mixed",
+          num_kv_heads=2,
+          query_head_multiplier=1,
           parameter_dtype=jnp.bfloat16,
           activation_dtype=jnp.float32,
       ),
       dict(
-          testcase_name="many_b16",
-          single_kv_head=False,
-          parameter_dtype=jnp.bfloat16,
-          activation_dtype=jnp.bfloat16,
+          testcase_name="multi_query",
+          num_kv_heads=2,
+          query_head_multiplier=1,
+          parameter_dtype=jnp.float32,
+          activation_dtype=jnp.float32,
       ),
       dict(
-          testcase_name="many_b32",
-          single_kv_head=False,
-          parameter_dtype=jnp.bfloat16,
-          activation_dtype=jnp.bfloat16,
-      ),
-      dict(
-          testcase_name="many_mixed",
-          single_kv_head=False,
-          parameter_dtype=jnp.bfloat16,
+          testcase_name="grouped_query",
+          num_kv_heads=2,
+          query_head_multiplier=2,
+          parameter_dtype=jnp.float32,
           activation_dtype=jnp.float32,
       ),
   )
   def test_build_and_run_sampling_mode(
-      self, single_kv_head: bool, parameter_dtype, activation_dtype
+      self,
+      num_kv_heads: int,
+      query_head_multiplier: int,
+      parameter_dtype,
+      activation_dtype,
   ):
 
-    model = gemma.build_gemma_transformer(
-        gemma.GemmaTransformerConfig(
-            num_heads=2,
+    model = llamalike_common.build_llamalike_transformer(
+        llamalike_common.LLamalikeTransformerConfig(
+            num_kv_heads=num_kv_heads,
+            query_head_multiplier=query_head_multiplier,
             embedding_dim=16,
             projection_dim=4,
-            single_kv_head=single_kv_head,
             mlp_hidden_dim=32,
             num_decoder_blocks=2,
             vocab_size=11,
+            mlp_variant="geglu_approx",
+            rope_wavelength=10_000,
             parameter_dtype=parameter_dtype,
             activation_dtype=activation_dtype,
+            tie_embedder_and_logits=True,
         ),
         init_base_rng=jax.random.key(2),
     )
@@ -184,18 +205,21 @@ class GemmaTest(parameterized.TestCase):
   def test_build_and_run_layer_stack(self):
     def run_traced(rng_key):
 
-      stacked_model = gemma.build_gemma_transformer(
-          gemma.GemmaTransformerConfig(
-              num_heads=2,
+      stacked_model = llamalike_common.build_llamalike_transformer(
+          llamalike_common.LLamalikeTransformerConfig(
+              num_kv_heads=2,
+              query_head_multiplier=1,
               embedding_dim=16,
               projection_dim=4,
-              single_kv_head=False,
               mlp_hidden_dim=32,
               num_decoder_blocks=2,
               vocab_size=11,
+              mlp_variant="geglu_approx",
+              rope_wavelength=10_000,
               parameter_dtype=jnp.bfloat16,
               activation_dtype=jnp.float32,
               use_layer_stack=True,
+              tie_embedder_and_logits=True,
           ),
           init_base_rng=rng_key,
       )

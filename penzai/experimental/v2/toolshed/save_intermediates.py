@@ -110,7 +110,7 @@ def saving_all_intermediates(
           pz.select(cur_layer)
           .at_children()
           .at_instances_of(pz.nn.Layer)
-          .apply(add_intercept_values_inside)
+          .apply(add_intercept_values_around)
       )
 
   def add_intercept_values_around(cur_layer: pz.nn.Layer) -> pz.nn.Layer:
