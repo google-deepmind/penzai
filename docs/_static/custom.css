@@ -40,3 +40,16 @@ html[data-theme=light], html[data-theme=dark] {
       flex-basis: calc(min(20%, 25em)) !important;
   }
 }
+
+html[data-theme="light"] .highlight .gd {
+  color: #A00000 !important;
+}
+html[data-theme="light"] .highlight .gi {
+  color: #008400 !important;
+}
+html[data-theme="dark"] .highlight .gd {
+  color: #fe7b6e !important;
+}
+html[data-theme="dark"] .highlight .gi {
+  color: #56d364 !important;
+}

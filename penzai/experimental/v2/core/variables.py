@@ -351,8 +351,7 @@ def variable_jit(fun, *, donate_variables: bool = False, **jit_kwargs):
     arguments.
   * Variables always have an unspecified sharding.
   * Variables should not be included in ``static_argnums`` or
-  ``static_argnames``
-    of the jitted function.
+    ``static_argnames`` of the jitted function.
   * The keyword argument ``"__penzai_variables"`` is used to track Variables
     and should not be used directly.
 
@@ -803,7 +802,7 @@ def unbind_params(
     predicate: Callable[[Parameter], bool] | None = None,
     frozen: bool = False,
 ) -> tuple[Any, tuple[Parameter | ParameterValue, ...]]:
-  """Version of `unbind_variables` that only extracts `Parameter`s."""
+  r"""Version of `unbind_variables` that only extracts `Parameter`\ s."""
   return unbind_variables(  # type: ignore
       tree,
       predicate=_type_filtered_predicate(predicate, Parameter),
@@ -815,7 +814,7 @@ def freeze_params(
     tree: Any,
     predicate: Callable[[Parameter], bool] | None = None,
 ) -> Any:
-  """Version of `freeze_variables` that only freezes `Parameter`s."""
+  r"""Version of `freeze_variables` that only freezes `Parameter`\ s."""
   return freeze_variables(  # type: ignore
       tree, predicate=_type_filtered_predicate(predicate, Parameter)
   )
@@ -845,7 +844,7 @@ def unbind_state_vars(
     predicate: Callable[[StateVariable], bool] | None = None,
     frozen: bool = False,
 ) -> tuple[Any, tuple[StateVariable | StateVariableValue, ...]]:
-  """Version of `unbind_variables` that only extracts `StateVariable`s."""
+  r"""Version of `unbind_variables` that only extracts `StateVariable`\ s."""
   return unbind_variables(  # type: ignore
       tree,
       predicate=_type_filtered_predicate(predicate, StateVariable),
@@ -857,7 +856,7 @@ def freeze_state_vars(
     tree: Any,
     predicate: Callable[[StateVariable], bool] | None = None,
 ) -> Any:
-  """Version of `freeze_variables` that only freezes `StateVariable`s."""
+  r"""Version of `freeze_variables` that only freezes `StateVariable`\ s."""
   return freeze_variables(  # type: ignore
       tree, predicate=_type_filtered_predicate(predicate, StateVariable)
   )

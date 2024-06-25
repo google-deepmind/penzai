@@ -30,6 +30,7 @@ naming conventions:
 * "heads", "head_groups", and "query_heads" are axes for attention heads,
   depending on whether full multi-head, multi-query, or grouped-query attention
   are used.
+
   * In full multi-head attention, the "heads" axis appears in queries, keys,
     and values.
   * In multi-query attention, the "query_heads" axis appears in queries, and

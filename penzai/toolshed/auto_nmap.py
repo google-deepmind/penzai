@@ -60,7 +60,7 @@ from penzai.core import named_axes
 
 @dataclasses.dataclass
 class AutoNmapModuleWrapper:
-  """Wrapper for a module that automatically `nmap`s callables.
+  """Wrapper for a module that automatically applies `nmap` to callables.
 
   Attributes:
     _module: The module to wrap.

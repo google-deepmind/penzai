@@ -135,23 +135,31 @@ models. Afterward, you could:
 
 .. toctree::
   :hidden:
-  :caption: Guides
+  :caption: Core Tools
 
-  notebooks/how_to_think_in_penzai
   notebooks/treescope_prettyprinting
   notebooks/treescope_arrayviz
   notebooks/selectors
   notebooks/named_axes
-  notebooks/data_effects
-  notebooks/jitting_and_sharding
 
 .. toctree::
   :hidden:
-  :caption: Example Notebooks
+  :caption: Neural Network Guides (V1 API)
 
+  notebooks/how_to_think_in_penzai
+  notebooks/data_effects
+  notebooks/jitting_and_sharding
   notebooks/lora_from_scratch
   notebooks/induction_heads
   notebooks/gemma_from_scratch
+
+.. toctree::
+  :hidden:
+  :caption: Neural Network Guides (V2 API)
+
+  notebooks/v2_how_to_think_in_penzai
+  guides/v2_differences
+  guides/howto_reference
 
 .. toctree::
    :hidden:
@@ -163,14 +171,10 @@ models. Afterward, you could:
    _autosummary/penzai.nn
    _autosummary/penzai.data_effects
    api/treescope
-
-.. toctree::
-   :hidden:
-   :caption: Extras
-   :maxdepth: 2
-
    _autosummary/penzai.toolshed
    _autosummary/penzai.example_models
+   api/penzai.experimental.v2
+
 
 License
 -------

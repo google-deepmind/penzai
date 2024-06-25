@@ -16,9 +16,10 @@
 
 Layer is the base type for most neural network components in Penzai.
 Conceptually, a layer is an object that can be called with
-- a single "ordinary input" (either a single array or a pytree), which usually
+
+* a single "ordinary input" (either a single array or a pytree), which usually
   comes from the previous layer in the model, and is always passed positionally,
-- and a set of named "side inputs", which are passed as keyword arguments,
+* and a set of named "side inputs", which are passed as keyword arguments,
   represent extra context or state (e.g. attention masks, conditioning
   information, or random number generators), and are generally forwarded between
   layers unchanged.

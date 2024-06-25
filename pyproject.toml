@@ -70,6 +70,7 @@ docs = [
     "sphinxcontrib-katex",
     "ipython>=8.8.0",
     "myst-nb>=1.0.0",
+    "myst-parser>=3.0.1",
     "matplotlib>=3.5.0",
     "sphinx-collections>=0.0.1",
     "sphinx_contributors",

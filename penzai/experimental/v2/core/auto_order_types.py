@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Helper class to define automatic arbitrary orderings across different types.
 
 Dictionaries in JAX need to have sortable keys in order to be manipulated with
@@ -26,6 +25,7 @@ through JAX transformations.
 
 This module defines a class `AutoOrderedAcrossTypes` that defines `__lt__`,
 `__gt__`, `__le__`, and `__ge__` methods for dataclasses so that:
+
   * comparisons within a single type are done using the ordinary dataclass rules
     (i.e. ordering like a tuple of their values),
   * comparisons between two different subclasses of `AutoOrderedAcrossTypes` are
@@ -33,6 +33,7 @@ This module defines a class `AutoOrderedAcrossTypes` that defines `__lt__`,
     of A are less than all instances of B or vice versa,
   * any subclass of `AutoOrderedAcrossTypes` is always greater than any string
     or ordinary tuple.
+
 """
 from __future__ import annotations
 

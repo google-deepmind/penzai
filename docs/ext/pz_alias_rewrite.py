@@ -22,7 +22,9 @@ from sphinx import application
 def substitute_pz_in_autodoc_docstring(app, what, name, obj, options, lines):
   """Rewrites docstrings for objects defined in `penzai.pz` to add alias links."""
   del app, what, options
-  if name.startswith("penzai.pz"):
+  if name.startswith("penzai.pz") or name.startswith(
+      "penzai.experimental.v2.pz"
+  ):
     if not lines:
       lines.append("")
     alias = canonical_aliases.lookup_alias(obj)
