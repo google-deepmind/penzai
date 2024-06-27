@@ -267,7 +267,7 @@ To extract model parameters, you can use `pz.unbind_params`, which extracts and 
 unbound_model, params = pz.unbind_params(model)
 ```
 
-After extracting parameters, you may also want to freeze them, which produces an immutable snapshot of the current value of each parameter (as an instance of `ParameterValue`). You can do this by calling `.freeze()` on each parameter, by using `pz.freeze_params` to freeze all parameters in a collection, or by using `pz.unbind_params(model, frozen=True)`. Frozen parameters are ordinary JAX PyTrees, making them safe to use across JAX transformation boundaries.
+After extracting parameters, you may also want to freeze them, which produces an immutable snapshot of the current value of each parameter (as an instance of `ParameterValue`). You can do this by calling `.freeze()` on each parameter, by using `pz.freeze_params` to freeze all parameters in a collection, or by using `pz.unbind_params(model, freeze=True)`. Frozen parameters are ordinary JAX PyTrees, making them safe to use across JAX transformation boundaries.
 
 Both mutable `Parameter` instances and frozen `ParameterValue` instances can be substituted back into a model with `ParameterSlot`s `pz.bind_variables`. A common pattern is to unbind and freeze `Parameter`s before a JAX transformation, and then re-bind their frozen values inside the function being transformed.
 
@@ -283,7 +283,7 @@ def my_loss(params, unbound_model):
   loss = # (... compute the loss ...)
   return loss
 
-unbound_model, frozen_params = pz.unbind_params(model, frozen=True)
+unbound_model, frozen_params = pz.unbind_params(model, freeze=True)
 grads = jax.grad(my_loss, argnums=0)(frozen_params, unbound_model)
 ```
 
@@ -295,7 +295,7 @@ def my_func(params, unbound_model):
   rebound_model = pz.bind_variables(unbound_model, params)
   return rebound_model(...)  # call it with some arguments
 
-unbound_model, frozen_params = pz.unbind_params(model, frozen=True)
+unbound_model, frozen_params = pz.unbind_params(model, freeze=True)
 
 # Build your input perturbations somehow
 perturbations = jax.tree_util.tree_map(some_func, frozen_params)
@@ -308,10 +308,10 @@ Some Penzai layers keep track of mutable `pz.StateVariable` instances and update
 
 Outside of JAX transformations, you can usually just mutate state variables normally. However, running stateful operations inside JAX transformations can require some care. Additionally, it's sometimes useful to take a snapshot of the state of all variables in a model.
 
-When working with a model that uses state variables, you can unbind the state variables using `pz.unbind_state_vars`, and optionally freeze them using `pz.freeze_state_vars` (or unbind with `frozen=True`), similar to the corresponding methods for `Parameter`s. This allows you to extract an immutable view of the model state that is safe to manipulate in JAX, e.g. via
+When working with a model that uses state variables, you can unbind the state variables using `pz.unbind_state_vars`, and optionally freeze them using `pz.freeze_state_vars` (or unbind with `freeze=True`), similar to the corresponding methods for `Parameter`s. This allows you to extract an immutable view of the model state that is safe to manipulate in JAX, e.g. via
 
 ```
-stateless_model, frozen_states = pz.unbind_state_vars(model, frozen=True)
+stateless_model, frozen_states = pz.unbind_state_vars(model, freeze=True)
 ```
 
 Every subclass of `Layer` implements the method `stateless_call`, which takes frozen state variables as input and returns updated state variables as output:

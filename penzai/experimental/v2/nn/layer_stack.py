@@ -297,7 +297,7 @@ class LayerStack(layer_base.Layer):
           **builder_kwargs,
       )
       unbound_sublayer, var_values = variables.unbind_variables(
-          sublayer, frozen=True
+          sublayer, freeze=True
       )
       if any(
           not isinstance(leaf, named_axes.NamedArrayBase)

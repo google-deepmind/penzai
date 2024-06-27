@@ -158,7 +158,7 @@ class AbstractVariableSlot(struct.Struct, abc.ABC):
 def unbind_variables(
     tree: Any,
     predicate: Callable[[AbstractVariable], bool] | None = None,
-    frozen: Literal[False] = False,
+    freeze: Literal[False] = False,
 ) -> tuple[Any, tuple[AbstractVariable, ...]]:
   ...
 
@@ -168,7 +168,7 @@ def unbind_variables(
     tree: Any,
     predicate: Callable[[AbstractVariable], bool] | None = None,
     *,
-    frozen: Literal[True],
+    freeze: Literal[True],
 ) -> tuple[Any, tuple[AbstractVariableValue, ...]]:
   ...
 
@@ -176,7 +176,7 @@ def unbind_variables(
 def unbind_variables(
     tree: Any,
     predicate: Callable[[AbstractVariable], bool] | None = None,
-    frozen: bool = False,
+    freeze: bool = False,
 ) -> tuple[Any, tuple[AbstractVariable | AbstractVariableValue, ...]]:
   """Unbinds variables from a pytree, inserting variable slots in their place.
 
@@ -194,7 +194,7 @@ def unbind_variables(
       raised.
     predicate: A function that returns True for variables that should be
       extracted. If None, all variables will be extracted.
-    frozen: Whether to return frozen variables instead of mutable variables.
+    freeze: Whether to return frozen variables instead of mutable variables.
 
   Returns:
     A tuple ``(tree_with_slots, variables)``, where ``tree_with_slots`` is
@@ -248,7 +248,7 @@ def unbind_variables(
     else:
       new_leaves.append(leaf)
 
-  if frozen:
+  if freeze:
     extracted = tuple(var.freeze() for var in variable_dict.values())
   else:
     extracted = tuple(variable_dict.values())
@@ -260,6 +260,7 @@ def bind_variables(
     tree: Any,
     variables: Iterable[AbstractVariable | AbstractVariableValue],
     allow_unused: bool = False,
+    unfreeze_as_copy: bool = False,
 ) -> Any:
   """Binds variables (mutable or frozen) into the variable slots in a pytree.
 
@@ -271,6 +272,9 @@ def bind_variables(
     variables: The collection of variables to insert.
     allow_unused: Whether to ignore variables that do not have any matching slot
       (in which case they will not be inserted).
+    unfreeze_as_copy: Whether to unfreeze variable values before inserting them,
+      producing a new mutable copy of each input variable. If True, all input
+      variables must be `AbstractVariableValue`s.
 
   Returns:
     A copy of ``tree`` with variables re-inserted.
@@ -278,6 +282,18 @@ def bind_variables(
   leaves, treedef = jax.tree_util.tree_flatten(
       tree, is_leaf=lambda l: isinstance(l, AbstractVariableSlot)
   )
+
+  if unfreeze_as_copy:
+    orig_variables = variables
+    variables = []
+    for var in orig_variables:
+      if isinstance(var, AbstractVariableValue):
+        variables.append(var.unfreeze_as_copy())
+      else:
+        raise ValueError(
+            "unfreeze_as_copy=True is only allowed if all variables are"
+            " variable values (e.g. ParameterValue or StateVariableValue)."
+        )
 
   substitution = {}
   for var in variables:
@@ -390,6 +406,15 @@ def variable_jit(fun, *, donate_variables: bool = False, **jit_kwargs):
     mut_vars = [var.unfreeze_as_copy() for var in frozen_variables]
     (rebound_args, rebound_kwargs) = bind_variables((args, kwargs), mut_vars)
     result = fun(*rebound_args, **rebound_kwargs)
+    _, bad_vars = unbind_variables(result)
+    if bad_vars:
+      raise ValueError(
+          "Returning a variable from a function transformed by pz.variable_jit"
+          " is not allowed. To create new variables under jax.jit, you should"
+          " instead return `pz.unbind_variables(..., frozen=True)`, then"
+          " rebuild the new variables after with `pz.bind_variables(...,"
+          f" unfreeze_as_copy=True)`.\nFound variables: {bad_vars}"
+      )
     return result, [var.freeze() for var in mut_vars]
 
   inner_fun.__signature__ = new_sig
@@ -782,7 +807,7 @@ def _type_filtered_predicate(
 def unbind_params(
     tree: Any,
     predicate: Callable[[Parameter], bool] | None = None,
-    frozen: Literal[False] = False,
+    freeze: Literal[False] = False,
 ) -> tuple[Any, tuple[Parameter, ...]]:
   ...
 
@@ -792,7 +817,7 @@ def unbind_params(
     tree: Any,
     predicate: Callable[[Parameter], bool] | None = None,
     *,
-    frozen: Literal[True],
+    freeze: Literal[True],
 ) -> tuple[Any, tuple[ParameterValue, ...]]:
   ...
 
@@ -800,13 +825,13 @@ def unbind_params(
 def unbind_params(
     tree: Any,
     predicate: Callable[[Parameter], bool] | None = None,
-    frozen: bool = False,
+    freeze: bool = False,
 ) -> tuple[Any, tuple[Parameter | ParameterValue, ...]]:
   r"""Version of `unbind_variables` that only extracts `Parameter`\ s."""
   return unbind_variables(  # type: ignore
       tree,
       predicate=_type_filtered_predicate(predicate, Parameter),
-      frozen=frozen,
+      freeze=freeze,
   )
 
 
@@ -824,7 +849,7 @@ def freeze_params(
 def unbind_state_vars(
     tree: Any,
     predicate: Callable[[StateVariable], bool] | None = None,
-    frozen: Literal[False] = False,
+    freeze: Literal[False] = False,
 ) -> tuple[Any, tuple[StateVariable, ...]]:
   ...
 
@@ -834,7 +859,7 @@ def unbind_state_vars(
     tree: Any,
     predicate: Callable[[StateVariable], bool] | None = None,
     *,
-    frozen: Literal[True],
+    freeze: Literal[True],
 ) -> tuple[Any, tuple[StateVariableValue, ...]]:
   ...
 
@@ -842,13 +867,13 @@ def unbind_state_vars(
 def unbind_state_vars(
     tree: Any,
     predicate: Callable[[StateVariable], bool] | None = None,
-    frozen: bool = False,
+    freeze: bool = False,
 ) -> tuple[Any, tuple[StateVariable | StateVariableValue, ...]]:
   r"""Version of `unbind_variables` that only extracts `StateVariable`\ s."""
   return unbind_variables(  # type: ignore
       tree,
       predicate=_type_filtered_predicate(predicate, StateVariable),
-      frozen=frozen,
+      freeze=freeze,
   )
 
 

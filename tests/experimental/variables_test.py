@@ -98,7 +98,7 @@ class VariablesTest(parameterized.TestCase):
 
     with self.subTest("unbind_frozen"):
       thing_with_slots, vars_list = variables.unbind_variables(
-          thing_with_vars, frozen=True
+          thing_with_vars, freeze=True
       )
       self.assertEqual(
           thing_with_slots,
@@ -164,6 +164,33 @@ class VariablesTest(parameterized.TestCase):
             "var_1": var_1,
             "var_2": var_2,
             "inner": [var_1, var_2],
+            "something_else": "something else",
+        },
+    )
+
+  def test_bind_and_unfreeze(self):
+    var_1 = variables.StateVariableValue(value=1, label="var_1")
+    var_2 = variables.ParameterValue(value=2, label="var_2")
+    thing_with_slots = {
+        "var_1": variables.StateVariableSlot("var_1"),
+        "var_2": variables.ParameterSlot("var_2"),
+        "inner": [
+            variables.StateVariableSlot("var_1"),
+            variables.ParameterSlot("var_2"),
+        ],
+        "something_else": "something else",
+    }
+    unfrozen = variables.bind_variables(
+        thing_with_slots, [var_1, var_2], unfreeze_as_copy=True
+    )
+    self.assertIsInstance(unfrozen["var_1"], variables.StateVariable)
+    self.assertIsInstance(unfrozen["var_2"], variables.Parameter)
+    self.assertEqual(
+        unfrozen,
+        {
+            "var_1": unfrozen["var_1"],
+            "var_2": unfrozen["var_2"],
+            "inner": [unfrozen["var_1"], unfrozen["var_2"]],
             "something_else": "something else",
         },
     )
@@ -281,6 +308,16 @@ class VariablesTest(parameterized.TestCase):
     self.assertEqual(thing_with_vars["var_1"].value, 101)
     self.assertEqual(thing_with_vars["var_2"].value, 1002)
     self.assertEqual(result, 1103)
+
+  def test_variable_jit_disallows_returning_vars(self):
+
+    def bad(x):
+      return [1, 2, variables.Parameter(label="foo", value=x)]
+
+    with self.assertRaisesWithPredicateMatch(
+        ValueError, lambda exc: "Returning a variable" in str(exc)
+    ):
+      variables.variable_jit(bad)(10)
 
 
 if __name__ == "__main__":
