@@ -82,7 +82,7 @@ class LlamalikeTransformerTest(parameterized.TestCase):
     def run_traced(rng_key):
 
       model = llamalike_common.build_llamalike_transformer(
-          llamalike_common.LLamalikeTransformerConfig(
+          llamalike_common.LlamalikeTransformerConfig(
               num_kv_heads=num_kv_heads,
               query_head_multiplier=query_head_multiplier,
               embedding_dim=16,
@@ -99,7 +99,7 @@ class LlamalikeTransformerTest(parameterized.TestCase):
           init_base_rng=rng_key,
       )
       tokens = pz.nx.ones({"batch": 3, "seq": 13}, dtype=jnp.int32)
-      out = model(tokens, **model.simple_causal_side_inputs(tokens))
+      out = model(tokens, token_positions=pz.nx.arange("seq", 13))
       pz.chk.check_structure(
           out,
           pz.chk.ArraySpec(
@@ -156,7 +156,7 @@ class LlamalikeTransformerTest(parameterized.TestCase):
   ):
 
     model = llamalike_common.build_llamalike_transformer(
-        llamalike_common.LLamalikeTransformerConfig(
+        llamalike_common.LlamalikeTransformerConfig(
             num_kv_heads=num_kv_heads,
             query_head_multiplier=query_head_multiplier,
             embedding_dim=16,
@@ -173,7 +173,7 @@ class LlamalikeTransformerTest(parameterized.TestCase):
         init_base_rng=jax.random.key(2),
     )
 
-    sampler = sampling_mode.KVCachingTransformer.from_uncached(
+    sampler = sampling_mode.KVCachingTransformerLM.from_uncached(
         model, cache_len=20, batch_axes={"batch": 3}
     )
     out = sampler(pz.nx.ones({"batch": 3, "seq": 13}, dtype=jnp.int32))
@@ -185,7 +185,7 @@ class LlamalikeTransformerTest(parameterized.TestCase):
         ),
     )
 
-    sampler = sampling_mode.KVCachingTransformer.from_uncached(
+    sampler = sampling_mode.KVCachingTransformerLM.from_uncached(
         model, cache_len=20, batch_axes={"batch": 3}
     )
     sampleout = simple_decoding_loop.temperature_sample_pyloop(
@@ -206,7 +206,7 @@ class LlamalikeTransformerTest(parameterized.TestCase):
     def run_traced(rng_key):
 
       stacked_model = llamalike_common.build_llamalike_transformer(
-          llamalike_common.LLamalikeTransformerConfig(
+          llamalike_common.LlamalikeTransformerConfig(
               num_kv_heads=2,
               query_head_multiplier=1,
               embedding_dim=16,
@@ -224,9 +224,7 @@ class LlamalikeTransformerTest(parameterized.TestCase):
           init_base_rng=rng_key,
       )
       tokens = pz.nx.ones({"batch": 3, "seq": 13}, dtype=jnp.int32)
-      out = stacked_model(
-          tokens, **stacked_model.simple_causal_side_inputs(tokens)
-      )
+      out = stacked_model(tokens, token_positions=pz.nx.arange("seq", 13))
       pz.chk.check_structure(
           out,
           pz.chk.ArraySpec(
@@ -235,7 +233,7 @@ class LlamalikeTransformerTest(parameterized.TestCase):
           ),
       )
 
-      sampler = sampling_mode.KVCachingTransformer.from_uncached(
+      sampler = sampling_mode.KVCachingTransformerLM.from_uncached(
           stacked_model, cache_len=20, batch_axes={"batch": 3}
       )
       kv_cache_var = (

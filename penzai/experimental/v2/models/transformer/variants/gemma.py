@@ -35,7 +35,7 @@ def gemma_from_pretrained_checkpoint(
     ckpt_params: dict[str, Any],
     upcast_activations_to_float32: bool = False,
     use_layer_stack: bool = False,
-) -> model_parts.Transformer:
+) -> model_parts.TransformerLM:
   """Builds a Gemma model from a pretrained checkpoint.
 
   The parameters of the loaded ``Transformer`` will be close to those in
@@ -77,7 +77,7 @@ def gemma_from_pretrained_checkpoint(
   else:
     activation_dtype = attn_0_einsum_param.dtype
 
-  config = llamalike_common.LLamalikeTransformerConfig(
+  config = llamalike_common.LlamalikeTransformerConfig(
       num_kv_heads=1 if single_kv_head else num_heads,
       query_head_multiplier=num_heads if single_kv_head else 1,
       embedding_dim=embed_dim,

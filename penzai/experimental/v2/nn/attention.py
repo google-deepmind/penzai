@@ -36,10 +36,10 @@ from penzai.experimental.v2.nn import layer_stack
 
 
 @struct.pytree_dataclass
-class ApplyAttentionMask(layer_base.Layer):
-  """Applies an attention mask to its input logit array.
+class ApplyExplicitAttentionMask(layer_base.Layer):
+  """Applies an explicit attention mask to its input logit array.
 
-  This layer retrieves a causal attention mask from its side input, and uses it
+  This layer retrieves an attention mask from its side input, and uses it
   to mask its main argument. Masked out values are replaced with the
   ``masked_out_value`` attribute, which is usually a large (but finite) negative
   value.
@@ -54,7 +54,7 @@ class ApplyAttentionMask(layer_base.Layer):
   masked_out_value: jax.typing.ArrayLike
 
   def __call__(
-      self, x: named_axes.NamedArray, **side_inputs: dict[Any, Any]
+      self, x: named_axes.NamedArray, **side_inputs: Any
   ) -> named_axes.NamedArray:
     """Applies the attention mask to the input array.
 
@@ -67,6 +67,135 @@ class ApplyAttentionMask(layer_base.Layer):
       been replaced with the `masked_out_value` argument.
     """
     mask = side_inputs[self.mask_input_name]
+    return named_axes.nmap(jnp.where)(mask, x, self.masked_out_value)
+
+
+@struct.pytree_dataclass
+class ApplyCausalAttentionMask(layer_base.Layer):
+  """Builds and applies a causal attention mask based on token positions.
+
+  This layer retrieves the token positions from its side input, and uses them
+  to build a causal attention mask. Masked out values are replaced with the
+  ``masked_out_value`` attribute, which is usually a large (but finite) negative
+  value.
+
+  Attributes:
+    masked_out_value: The value to substitute for masked-out locations.
+    query_positions_input_name: Key in the side input dictionary to use to
+      identify the query token positions, which should be an integer array with
+      the `seq_axis` axis.
+    kv_positions_input_name: Key in the side input dictionary to use to identify
+      the key/value token positions, which should be an integer array the
+      `seq_axis` axis. (This axis will be renamed to match `kv_seq_axis`.)
+    seq_axis: Name of the sequence axis, which should be present in both the
+      query and key/value token position side inputs.
+    kv_seq_axis: Name of the key/value sequence axis, which represents the keys
+      and values in the input logits array.
+  """
+
+  masked_out_value: jax.typing.ArrayLike
+  query_positions_input_name: str = dataclasses.field(
+      default="token_positions", metadata={"pytree_node": False}
+  )
+  kv_positions_input_name: str = dataclasses.field(
+      default="token_positions", metadata={"pytree_node": False}
+  )
+  seq_axis: str = dataclasses.field(
+      default="seq", metadata={"pytree_node": False}
+  )
+  kv_seq_axis: str = dataclasses.field(
+      default="kv_seq", metadata={"pytree_node": False}
+  )
+
+  def __call__(
+      self, x: named_axes.NamedArray, **side_inputs: Any
+  ) -> named_axes.NamedArray:
+    """Applies the attention mask to the input array.
+
+    Args:
+      x: The input array to mask. Usually the matrix of query-key dot products.
+      **side_inputs: Side inputs. Must include ``query_positions_input_name``
+        and ``kv_positions_input_name``.
+
+    Returns:
+      An adjusted matrix of logits, where any value where the mask is False has
+      been replaced with the `masked_out_value` argument.
+    """
+    query_positions = side_inputs[self.query_positions_input_name]
+    kv_positions = (
+        side_inputs[self.kv_positions_input_name]
+        .untag(self.seq_axis)
+        .tag(self.kv_seq_axis)
+    )
+    mask = (query_positions >= kv_positions) & (kv_positions >= 0)
+    return named_axes.nmap(jnp.where)(mask, x, self.masked_out_value)
+
+
+@struct.pytree_dataclass
+class ApplyCausalSlidingWindowAttentionMask(layer_base.Layer):
+  """Builds and applies a sliding-window attention mask based on token positions.
+
+  This layer retrieves the token positions from its side input, and uses them
+  to build a causal sliding-window attention mask, where values at a distance of
+  `window_size` or further away from the current token are masked out. Masked
+  out values are replaced with the ``masked_out_value`` attribute, which is
+  usually a large (but finite) negative value.
+
+  Attributes:
+    masked_out_value: The value to substitute for masked-out locations.
+    sliding_window_size: The size of the sliding window.
+    query_positions_input_name: Key in the side input dictionary to use to
+      identify the query token positions, which should be an integer array with
+      the `seq_axis` axis.
+    kv_positions_input_name: Key in the side input dictionary to use to identify
+      the key/value token positions, which should be an integer array the
+      `seq_axis` axis. (This axis will be renamed to match `kv_seq_axis`.)
+    seq_axis: Name of the sequence axis, which should be present in both the
+      query and key/value token position side inputs.
+    kv_seq_axis: Name of the key/value sequence axis, which represents the keys
+      and values in the input logits array.
+  """
+
+  masked_out_value: jax.typing.ArrayLike
+  sliding_window_size: int | jax.typing.ArrayLike
+  query_positions_input_name: str = dataclasses.field(
+      default="token_positions", metadata={"pytree_node": False}
+  )
+  kv_positions_input_name: str = dataclasses.field(
+      default="token_positions", metadata={"pytree_node": False}
+  )
+  seq_axis: str = dataclasses.field(
+      default="seq", metadata={"pytree_node": False}
+  )
+  kv_seq_axis: str = dataclasses.field(
+      default="kv_seq", metadata={"pytree_node": False}
+  )
+
+  def __call__(
+      self, x: named_axes.NamedArray, **side_inputs: Any
+  ) -> named_axes.NamedArray:
+    """Applies the attention mask to the input array.
+
+    Args:
+      x: The input array to mask. Usually the matrix of query-key dot products.
+      **side_inputs: Side inputs. Must include ``query_positions_input_name``
+        and ``kv_positions_input_name``.
+
+    Returns:
+      An adjusted matrix of logits, where any value where the mask is False has
+      been replaced with the `masked_out_value` argument.
+    """
+    query_positions = side_inputs[self.query_positions_input_name]
+    kv_positions = (
+        side_inputs[self.kv_positions_input_name]
+        .untag(self.seq_axis)
+        .tag(self.kv_seq_axis)
+    )
+    mask = (
+        (query_positions >= kv_positions)
+        & (query_positions - kv_positions < self.sliding_window_size)
+        & (kv_positions >= 0)
+    )
     return named_axes.nmap(jnp.where)(mask, x, self.masked_out_value)
 
 
@@ -97,7 +226,7 @@ class Attention(layer_base.Layer):
   attn_value_to_output: layer_base.Layer
 
   def __call__(
-      self, x: named_axes.NamedArray, **side_inputs: dict[Any, Any]
+      self, x: named_axes.NamedArray, **side_inputs: Any
   ) -> named_axes.NamedArray:
     """Runs the attention computation.
 
@@ -170,7 +299,7 @@ class KVCachingAttention(layer_base.Layer):
   ]
 
   def __call__(
-      self, x: named_axes.NamedArray, **side_inputs: dict[Any, Any]
+      self, x: named_axes.NamedArray, **side_inputs: Any
   ) -> named_axes.NamedArray:
     """Runs the caching attention computation and update the K/V cache state.
 

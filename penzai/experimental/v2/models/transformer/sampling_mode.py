@@ -12,16 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Sampling-mode adapters for Transformer models.
+"""Sampling-mode adapters for TransformerLM models.
 
-This file includes the kv-cache sampling mode of the base Transformer model.
-This mode is intended to be hot-swapped for the main Transformer implementation:
-you should generally start by loading a `model_parts.Transformer` and then
-converting it to a `KVCachingTransformer` using
-`KVCachingTransformer.from_uncached`.
+This file includes the kv-cache sampling mode of the base TransformerLM model.
+This mode is intended to be hot-swapped for the main TransformerLM
+implementation: you should generally start by loading a
+`model_parts.TransformerLM` and then converting it to a `KVCachingTransformerLM`
+using `KVCachingTransformerLM.from_uncached`.
 
 The layers defined here follow the same conventions documented in the module
-docstring for `model_parts`.
+docstring for `model_parts`. In addition:
+
+* Where applicable, "kv_token_positions" is the name of the side input that
+  provides the position of each token for the purposes of positional embeddings.
+
+* Where applicable, "cache_end_index" is the name of the side input that
+  identifies the current length of the key/value cache state.
 """
 
 from __future__ import annotations
@@ -36,13 +42,16 @@ from penzai.experimental.v2.models.transformer import model_parts
 
 
 @pz.pytree_dataclass
-class KVCachingTransformer(pz.nn.Layer):
+class KVCachingTransformerLM(pz.nn.Layer):
   """Top-level transformer in (stateful) cached autoregressive sampling mode.
 
   This class represents the sampling mode of the model, and manages the sampling
   state. It is designed to be loaded from an existing `Transformer`. If you want
   to load this from the pretrained checkpoint, first load a `Transformer`, then
   call `KVCachingTransformer.from_uncached`.
+
+  This class handles and automatically increments token positions based on the
+  tokens it has generated so far.
 
   Attributes:
     body: The implementation of the transformer. Usually a nested set of state
@@ -81,8 +90,8 @@ class KVCachingTransformer(pz.nn.Layer):
         and possibly batch axes. The batch axes must match the `batch_axes`
         attribute. Padding tokens are ignored.
       **extra_side_inputs: Extra side inputs, which will be forwarded on to the
-        body. The "token_positions", "attn_mask", and "cache_end_index" inputs
-        will be added automatically and do not need to be provided.
+        body. The "token_positions", "kv_token_positions", and "cache_end_index"
+        inputs will be added automatically and do not need to be provided.
 
     Returns:
       Matrix of logits from the embedding decoding layer, which (in the
@@ -108,27 +117,19 @@ class KVCachingTransformer(pz.nn.Layer):
     kv_nonpad_so_far_inclusive = pz.nx.nmap(jnp.cumsum)(
         kv_nonpad_mask.untag("seq"), dtype=jnp.int32
     ).tag("seq")
-    kv_nonpad_so_far_exclusive = (
-        kv_nonpad_so_far_inclusive - kv_nonpad_mask.astype(jnp.int32)
+    key_value_positions = pz.nx.nmap(jnp.where)(
+        kv_nonpad_mask, kv_nonpad_so_far_inclusive - 1, -1
     )
     query_positions = pz.nx.nmap(jax.lax.dynamic_slice)(
-        kv_nonpad_so_far_exclusive.untag("seq"),
+        key_value_positions.untag("seq"),
         (self.cache_end_index.value,),
         (tokens.named_shape["seq"],),
     ).tag("seq")
-    key_value_positions = kv_nonpad_so_far_exclusive.untag("seq").tag("kv_seq")
-    # Tokens can attend to any kv-token position that they are after, as long as
-    # it was NOT padding.
-    attention_mask = (
-        (query_positions >= key_value_positions)
-        & (tokens != self.pad_id)
-        & kv_nonpad_mask.untag("seq").tag("kv_seq")
-    )
     # Run the model.
     outs = self.body(
         tokens,
         token_positions=query_positions,
-        attn_mask=attention_mask,
+        kv_token_positions=key_value_positions,
         cache_end_index=self.cache_end_index.value,
         **extra_side_inputs,
     )
@@ -143,12 +144,12 @@ class KVCachingTransformer(pz.nn.Layer):
   @classmethod
   def from_uncached(
       cls,
-      uncached: model_parts.Transformer,
+      uncached: model_parts.TransformerLM,
       cache_len: int,
       batch_axes: dict[str, int],
       pad_id: int = 0,
       variable_name_prefix: str = "sampler",
-  ) -> KVCachingTransformer:
+  ) -> KVCachingTransformerLM:
     """Transforms a `Transformer` into cached sampling mode.
 
     This constructor hot-swaps all `pz.nn.Attention` layers in the
@@ -167,6 +168,17 @@ class KVCachingTransformer(pz.nn.Layer):
     Returns:
       A KVCachingTransformer.
     """
+
+    def _fix_attn_mask(masker):
+      if masker.kv_positions_input_name != "token_positions":
+        raise ValueError(
+            "Could not automatically convert attention mask layer with"
+            f" non-standard positions input name: {masker}"
+        )
+      return dataclasses.replace(
+          masker, kv_positions_input_name="kv_token_positions"
+      )
+
     cached_axes = {
         **batch_axes,
         **uncached.metadata.common_head_axes,
@@ -175,8 +187,16 @@ class KVCachingTransformer(pz.nn.Layer):
     attn_sel = pz.select(uncached.body).at_instances_of(pz.nn.Attention)
     fixed_attns = {}
     for ix, (keypath, attn) in enumerate(attn_sel.selected_by_path.items()):
+      attn_with_new_kv_positions = (
+          pz.select(attn)
+          .at_instances_of(
+              pz.nn.ApplyCausalAttentionMask
+              | pz.nn.ApplyCausalSlidingWindowAttentionMask
+          )
+          .apply(_fix_attn_mask)
+      )
       fixed_attns[keypath] = pz.nn.KVCachingAttention.from_uncached(
-          attn,
+          attn_with_new_kv_positions,
           cache_len=cache_len,
           cached_axes=cached_axes,
           cache_dtype=uncached.metadata.activation_dtype,

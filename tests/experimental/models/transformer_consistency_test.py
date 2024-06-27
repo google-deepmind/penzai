@@ -14,8 +14,6 @@
 
 """Tests for consistency between official and Penzai model implementations."""
 
-import warnings
-
 from absl.testing import absltest
 from absl.testing import parameterized
 import chex
@@ -62,8 +60,10 @@ class TransformerConsistencyTest(parameterized.TestCase):
             hf_model, use_layer_stack=layer_stack
         )
 
-        side_inputs = pz_model.simple_causal_side_inputs(tokens)
-        pz_out = pz_model(tokens, **side_inputs)
+        pz_out = pz_model(
+            tokens,
+            token_positions=pz.nx.arange("seq", tokens.named_shape["seq"]),
+        )
 
         chex.assert_trees_all_close(
             pz_out, hf_out.order_like(pz_out), atol=1e-6
@@ -96,19 +96,13 @@ class TransformerConsistencyTest(parameterized.TestCase):
 
     for layer_stack in (False, True):
       with self.subTest(f"layer_stack={layer_stack}"):
-        with warnings.catch_warnings(record=True) as recorded:
-          pz_model = mistral.mistral_from_huggingface_model(
-              hf_model, use_layer_stack=layer_stack
-          )
-
-        self.assertLen(recorded, 1)
-        self.assertStartsWith(
-            str(recorded[0].message),
-            "Sliding window attention is not directly supported in Penzai.",
+        pz_model = mistral.mistral_from_huggingface_model(
+            hf_model, use_layer_stack=layer_stack
         )
-
-        side_inputs = pz_model.simple_causal_side_inputs(tokens)
-        pz_out = pz_model(tokens, **side_inputs)
+        pz_out = pz_model(
+            tokens,
+            token_positions=pz.nx.arange("seq", tokens.named_shape["seq"]),
+        )
 
         chex.assert_trees_all_close(
             pz_out, hf_out.order_like(pz_out), atol=1e-6
@@ -138,8 +132,10 @@ class TransformerConsistencyTest(parameterized.TestCase):
         pz_model = gpt_neox.gpt_neox_from_huggingface_model(
             hf_model, use_layer_stack=layer_stack
         )
-        side_inputs = pz_model.simple_causal_side_inputs(tokens)
-        pz_out = pz_model(tokens, **side_inputs)
+        pz_out = pz_model(
+            tokens,
+            token_positions=pz.nx.arange("seq", tokens.named_shape["seq"]),
+        )
 
         chex.assert_trees_all_close(
             pz_out, hf_out.order_like(pz_out), atol=1e-3

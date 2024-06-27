@@ -17,7 +17,9 @@
 # pylint: disable=g-multiple-import,g-importing-member,unused-import
 
 from penzai.experimental.v2.nn.attention import (
-    ApplyAttentionMask,
+    ApplyExplicitAttentionMask,
+    ApplyCausalAttentionMask,
+    ApplyCausalSlidingWindowAttentionMask,
     Attention,
     KVCachingAttention,
 )

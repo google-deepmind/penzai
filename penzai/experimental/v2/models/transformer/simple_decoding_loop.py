@@ -26,7 +26,7 @@ from penzai.experimental.v2.models.transformer import sampling_mode
 
 
 def temperature_sample_pyloop(
-    model: sampling_mode.KVCachingTransformer,
+    model: sampling_mode.KVCachingTransformerLM,
     prompt: pz.nx.NamedArray,
     rng: jax.Array,
     temperature: float = 1.0,

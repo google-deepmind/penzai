@@ -151,7 +151,9 @@ Language Modeling
 .. autosummary::
   pz.nn.Attention
   pz.nn.KVCachingAttention
-  pz.nn.ApplyAttentionMask
+  pz.nn.ApplyExplicitAttentionMask
+  pz.nnApplyCausalAttentionMask
+  pz.nnApplyCausalSlidingWindowAttentionMask
   pz.nn.EmbeddingTable
   pz.nn.EmbeddingLookup
   pz.nn.EmbeddingDecode

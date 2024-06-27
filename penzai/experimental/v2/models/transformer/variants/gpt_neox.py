@@ -193,8 +193,7 @@ def build_gpt_neox_attention(
               ),
               {"seq": "tq", "heads": "h", "kv_seq": "tkv"},
           ),
-          pz.nn.ApplyAttentionMask(
-              mask_input_name="attn_mask",
+          pz.nn.ApplyCausalAttentionMask(
               masked_out_value=masked_out_value,
           ),
           pz.nn.Softmax("kv_seq"),
@@ -276,7 +275,7 @@ def build_gpt_neox_transformer(
     config: GPTNeoXTransformerConfig,
     init_base_rng: jax.Array | None = None,
     name: str = "transformer",
-) -> model_parts.Transformer:
+) -> model_parts.TransformerLM:
   """Builds a Llama-like transformer model from a configuration.
 
   Args:
@@ -335,7 +334,7 @@ def build_gpt_neox_transformer(
       )
   )
 
-  return model_parts.Transformer(
+  return model_parts.TransformerLM(
       metadata=model_parts.TransformerMetadata(
           common_head_axes={"heads": config.num_attention_heads},
           query_only_head_axes={},
@@ -356,7 +355,7 @@ def gpt_neox_from_huggingface_model(
     model: GPTNeoXForCausalLM,
     upcast_activations_to_float32: bool = False,
     use_layer_stack: bool = False,
-) -> model_parts.Transformer:
+) -> model_parts.TransformerLM:
   """Converts a GPT-NeoX model to a Penzai model.
 
   This function converts GPT-NeoX models from their HuggingFace implementations

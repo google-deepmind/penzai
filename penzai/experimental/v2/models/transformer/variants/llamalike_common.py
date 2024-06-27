@@ -30,6 +30,7 @@ Gemma, and Reka. It is also similar to the PaLM model architecture (but without
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import dataclasses
 import functools
 from typing import Any, Literal
@@ -40,8 +41,27 @@ from penzai.experimental.v2 import pz
 from penzai.experimental.v2.models.transformer import model_parts
 
 
-@dataclasses.dataclass
-class LLamalikeTransformerConfig:
+@dataclasses.dataclass(frozen=True)
+class AttentionTypeGlobalCausal:
+  """Marker for a global attention block."""
+
+
+@dataclasses.dataclass(frozen=True)
+class AttentionTypeSlidingWindowCausal:
+  """Marker for a local sliding-window attention block.
+
+  Attributes:
+    window_size: Size of the sliding window.
+  """
+
+  window_size: int
+
+
+AttentionType = AttentionTypeGlobalCausal | AttentionTypeSlidingWindowCausal
+
+
+@dataclasses.dataclass(kw_only=True)
+class LlamalikeTransformerConfig:
   """Common configuration parameters for a "llama-like" transformer.
 
   These are held in a single configuration object to simplify argument passing
@@ -58,10 +78,14 @@ class LLamalikeTransformerConfig:
     num_decoder_blocks: Number of transformer decoder blocks in the model.
     vocab_size: Number of tokens in the vocabulary.
     mlp_variant: Gated linear unit variant for MLPs.
-    rope_wavelength: Wavelength for RoPE layers.
     tie_embedder_and_logits: Whether to tie the weights of the input token
       embedding and output logit layers. If True, also scales down input token
       embeddings by sqrt(embedding_dim). (This is used by Gemma.)
+    rope_wavelength: Wavelength for RoPE layers.
+    rms_norm_eps: Epsilon for RMSNorm layers.
+    attention_type: A single attention type or sequence of per-layer attention
+      types. If a sequence, its length should evenly divide the number of
+      decoder blocks, and will be repeated to match the number of blocks.
     parameter_dtype: Floating dtype to use for all parameters.
     activation_dtype: Floating dtype to use for activations and KV cache tables.
     use_layer_stack: Whether to stack the blocks together using a LayerStack.
@@ -75,17 +99,21 @@ class LLamalikeTransformerConfig:
   num_decoder_blocks: int
   vocab_size: int
   mlp_variant: Literal["geglu_approx", "swiglu"]
-  rope_wavelength: float
   tie_embedder_and_logits: bool
-  parameter_dtype: jax.typing.DTypeLike
-  activation_dtype: jax.typing.DTypeLike
+  rope_wavelength: float = 10_000
+  rms_norm_eps: float = 1e-6
+  attention_type: AttentionType | Sequence[AttentionType] = (
+      AttentionTypeGlobalCausal()
+  )
+  parameter_dtype: jax.typing.DTypeLike = jnp.float32
+  activation_dtype: jax.typing.DTypeLike = jnp.float32
   use_layer_stack: bool = False
 
 
 def build_llamalike_feedforward(
     name: str,
     init_base_rng: jax.Array | None,
-    config: LLamalikeTransformerConfig,
+    config: LlamalikeTransformerConfig,
 ) -> model_parts.TransformerFeedForward:
   """Creates a feedforward block.
 
@@ -145,7 +173,7 @@ def build_llamalike_feedforward(
   ])
 
 
-def _head_info(config: LLamalikeTransformerConfig):
+def _head_info(config: LlamalikeTransformerConfig):
   """Computes query, key, and value head axes and einsum names."""
   if config.query_head_multiplier == 1:
     common_head_axes = {"heads": config.num_kv_heads}
@@ -168,7 +196,8 @@ def _head_info(config: LLamalikeTransformerConfig):
 def build_llamalike_attention(
     name: str,
     init_base_rng: jax.Array | None,
-    config: LLamalikeTransformerConfig,
+    config: LlamalikeTransformerConfig,
+    block_index: int | None = None,
 ) -> pz.nn.Attention:
   """Builds an attention block from a configuration.
 
@@ -176,6 +205,8 @@ def build_llamalike_attention(
     name: Name of the attention block.
     init_base_rng: Base RNG for initializing the parameters.
     config: The configuration of the model.
+    block_index: The index of the transformer block in the list of blocks. Can
+      be None if the attention type doesn't depend on the block index.
 
   Returns:
     An Attention block.
@@ -190,6 +221,29 @@ def build_llamalike_attention(
   # As used in https://github.com/google-deepmind/gemma.
   # (This exact value is probably not important.)
   masked_out_value = jnp.array(-2.3819763e38, dtype=config.activation_dtype)
+
+  if isinstance(config.attention_type, AttentionType):
+    attention_type = config.attention_type
+  else:
+    if block_index is None:
+      raise ValueError(
+          "block_index must be specified if attention_type is a sequence."
+      )
+    attention_type = config.attention_type[
+        block_index % len(config.attention_type)
+    ]
+
+  if isinstance(attention_type, AttentionTypeSlidingWindowCausal):
+    attn_masker = pz.nn.ApplyCausalSlidingWindowAttentionMask(
+        sliding_window_size=attention_type.window_size,
+        masked_out_value=masked_out_value,
+    )
+  elif isinstance(attention_type, AttentionTypeGlobalCausal):
+    attn_masker = pz.nn.ApplyCausalAttentionMask(
+        masked_out_value=masked_out_value,
+    )
+  else:
+    raise ValueError(f"Unsupported attention type {attention_type}")
 
   return pz.nn.Attention(
       input_to_query=pz.nn.Sequential([
@@ -244,10 +298,7 @@ def build_llamalike_attention(
               ),
               {"seq": "tq", **qkv_einsum, **q_einsum, "kv_seq": "tkv"},
           ),
-          pz.nn.ApplyAttentionMask(
-              mask_input_name="attn_mask",
-              masked_out_value=masked_out_value,
-          ),
+          attn_masker,
           pz.nn.Softmax("kv_seq"),
       ]),
       attn_value_to_output=pz.nn.Sequential([
@@ -276,7 +327,8 @@ def build_llamalike_attention(
 def build_llamalike_block(
     name: str,
     init_base_rng: jax.Array | None,
-    config: LLamalikeTransformerConfig,
+    config: LlamalikeTransformerConfig,
+    block_index: int | None = None,
 ) -> model_parts.TransformerBlock:
   """Builds a transformer block from a configuration.
 
@@ -284,6 +336,8 @@ def build_llamalike_block(
     name: Name of the block.
     init_base_rng: Base RNG for initializing the parameters.
     config: The configuration of the model.
+    block_index: The index of the transformer block in the list of blocks. Can
+      be None if the attention type doesn't depend on the block index.
 
   Returns:
     A full transformer block.
@@ -297,9 +351,13 @@ def build_llamalike_block(
                       init_base_rng=init_base_rng,
                       across_axes={"embedding": config.embedding_dim},
                       dtype=config.parameter_dtype,
+                      epsilon=config.rms_norm_eps,
                   ),
                   build_llamalike_attention(
-                      f"{name}/attention", init_base_rng, config
+                      f"{name}/attention",
+                      init_base_rng,
+                      config,
+                      block_index=block_index,
                   ),
               ])
           ),
@@ -310,6 +368,7 @@ def build_llamalike_block(
                       init_base_rng=init_base_rng,
                       across_axes={"embedding": config.embedding_dim},
                       dtype=config.parameter_dtype,
+                      epsilon=config.rms_norm_eps,
                   ),
                   build_llamalike_feedforward(
                       f"{name}/mlp", init_base_rng, config
@@ -321,10 +380,10 @@ def build_llamalike_block(
 
 
 def build_llamalike_transformer(
-    config: LLamalikeTransformerConfig,
+    config: LlamalikeTransformerConfig,
     init_base_rng: jax.Array | None = None,
     name: str = "transformer",
-) -> model_parts.Transformer:
+) -> model_parts.TransformerLM:
   """Builds a Llama-like transformer model from a configuration.
 
   Args:
@@ -357,6 +416,10 @@ def build_llamalike_transformer(
     )
 
   if config.use_layer_stack:
+    if not isinstance(config.attention_type, AttentionType):
+      raise ValueError(
+          "Layer stack does not currently support per-layer attention types."
+      )
     sublayers.append(
         pz.nn.LayerStack.from_sublayer_builder(
             builder=build_llamalike_block,
@@ -367,9 +430,17 @@ def build_llamalike_transformer(
         )
     )
   else:
-    for i in range(config.num_decoder_blocks):
+    if not isinstance(config.attention_type, AttentionType):
+      if config.num_decoder_blocks % len(config.attention_type) != 0:
+        raise ValueError(
+            "Per-layer attention types must have a length that divides the"
+            " number of blocks."
+        )
+    for block_index in range(config.num_decoder_blocks):
       sublayers.append(
-          build_llamalike_block(f"{name}/block_{i}", init_base_rng, config)
+          build_llamalike_block(
+              f"{name}/block_{block_index}", init_base_rng, config, block_index
+          )
       )
 
   sublayers.append(
@@ -378,6 +449,7 @@ def build_llamalike_transformer(
           init_base_rng=init_base_rng,
           across_axes={"embedding": config.embedding_dim},
           dtype=config.parameter_dtype,
+          epsilon=config.rms_norm_eps,
       )
   )
 
@@ -394,7 +466,7 @@ def build_llamalike_transformer(
     )
 
   common_head_axes, _, query_only_head_axes, _ = _head_info(config)
-  return model_parts.Transformer(
+  return model_parts.TransformerLM(
       metadata=model_parts.TransformerMetadata(
           common_head_axes=common_head_axes,
           query_only_head_axes=query_only_head_axes,
@@ -412,7 +484,7 @@ def llamalike_from_huggingface_model(
     model: Any,
     upcast_activations_to_float32: bool = False,
     use_layer_stack: bool = False,
-) -> model_parts.Transformer:
+) -> model_parts.TransformerLM:
   """Converts a "llama-like" HuggingFace model to a Penzai model.
 
   This function converts Llama-like models from their HuggingFace
@@ -440,6 +512,12 @@ def llamalike_from_huggingface_model(
   query_head_multiplier = hf_config.num_attention_heads // num_kv_heads
   assert num_kv_heads * query_head_multiplier == hf_config.num_attention_heads
 
+  sliding_window_size = getattr(hf_config, "sliding_window", None)
+  if sliding_window_size is None:
+    attention_type = AttentionTypeGlobalCausal()
+  else:
+    attention_type = AttentionTypeSlidingWindowCausal(sliding_window_size)
+
   param_dtype = {
       "torch.float32": jnp.float32,
       "torch.bfloat16": jnp.bfloat16,
@@ -449,7 +527,7 @@ def llamalike_from_huggingface_model(
   else:
     activation_dtype = param_dtype
 
-  pz_config = LLamalikeTransformerConfig(
+  pz_config = LlamalikeTransformerConfig(
       num_kv_heads=num_kv_heads,
       query_head_multiplier=query_head_multiplier,
       embedding_dim=hf_config.hidden_size,
@@ -460,6 +538,8 @@ def llamalike_from_huggingface_model(
       mlp_variant="swiglu",
       rope_wavelength=10_000,
       tie_embedder_and_logits=False,
+      attention_type=attention_type,
+      rms_norm_eps=hf_config.rms_norm_eps,
       parameter_dtype=param_dtype,
       activation_dtype=activation_dtype,
       use_layer_stack=use_layer_stack,

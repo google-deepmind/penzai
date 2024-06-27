@@ -29,7 +29,7 @@ def llama_from_huggingface_model(
     model: LlamaForCausalLM,
     upcast_activations_to_float32: bool = False,
     use_layer_stack: bool = False,
-) -> model_parts.Transformer:
+) -> model_parts.TransformerLM:
   """Converts a HuggingFace Llama model to a Penzai model.
 
   This function converts Llama models from their HuggingFace
@@ -56,7 +56,6 @@ def llama_from_huggingface_model(
   hf_config = model.config
   checked_config_args = dict(
       hidden_act="silu",
-      rms_norm_eps=1e-6,
       tie_word_embeddings=False,
       rope_scaling=None,
       attention_bias=False,

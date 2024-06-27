@@ -17,7 +17,6 @@
 from __future__ import annotations
 
 from typing import Any
-import warnings
 
 from penzai.experimental.v2.models.transformer import model_parts
 from penzai.experimental.v2.models.transformer.variants import llamalike_common
@@ -30,7 +29,7 @@ def mistral_from_huggingface_model(
     model: MistralForCausalLM,
     upcast_activations_to_float32: bool = False,
     use_layer_stack: bool = False,
-) -> model_parts.Transformer:
+) -> model_parts.TransformerLM:
   """Converts a HuggingFace Mistral model to a Penzai model.
 
   This function converts Mistral models from their HuggingFace
@@ -62,7 +61,6 @@ def mistral_from_huggingface_model(
   hf_config = model.config
   checked_config_args = dict(
       hidden_act="silu",
-      rms_norm_eps=1e-6,
       tie_word_embeddings=False,
       attention_dropout=0.0,
   )
@@ -76,14 +74,6 @@ def mistral_from_huggingface_model(
           f"Conversion of a MistralForCausalLM requires config.{k}={repr(v)},"
           f" but got {actual_value}"
       )
-
-  if model.config.sliding_window is not None:
-    warnings.warn(
-        "Sliding window attention is not directly supported in Penzai. Training"
-        " or scoring mode should work with a manually-constructed attention"
-        " mask, but decoding may not work correctly in key-value cache"
-        " decoding mode!"
-    )
 
   return llamalike_common.llamalike_from_huggingface_model(
       model,
