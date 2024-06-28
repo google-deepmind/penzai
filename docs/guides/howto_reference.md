@@ -10,7 +10,7 @@ from penzai.experimental.v2 import pz
 
 ## Visualization
 
-This is a short overview of some of Penzai's visualization tools. For more, see the tutorials on [pretty printing](../notebooks/treescope_prettyprinting.ipynb) and [array visualization]](../notebooks/treescope_arrayviz.ipynb).
+This is a short overview of some of Penzai's visualization tools. For more, see the tutorials on [pretty printing](../notebooks/treescope_prettyprinting.ipynb) and [array visualization](../notebooks/treescope_arrayviz.ipynb).
 
 ### Setting up pretty-printing
 When using Penzai in IPython notebooks, it's recommended to set up Penzai's pretty-printer as the default pretty-printer and turn on array autovisualization. You can do this by running
@@ -220,17 +220,38 @@ You can read more about Penzai's conventions for layers in "How to Think in Penz
 
 Penzai's Gemma implementation includes a conversion utility that converts the ["Flax" model weights from Kaggle](https://www.kaggle.com/models/google/gemma) into the correct form. You can load it using:
 
-```
+```python
 import kagglehub
 import orbax.checkpoint
-from penzai.experimental.v2.models.transformer.variants import gemma
+from penzai.experimental.v2.models.transformer import variants
 
 weights_dir = kagglehub.model_download('google/gemma/Flax/7b')
 ckpt_path = os.path.join(weights_dir, '7b')
 
 checkpointer = orbax.checkpoint.PyTreeCheckpointer()
 flax_params_dict = checkpointer.restore(ckpt_path)
-model = gemma.gemma_from_pretrained_checkpoint(flax_params_dict)
+model = variants.gemma.gemma_from_pretrained_checkpoint(flax_params_dict)
+```
+
+### Loading Llama, Mistral, or GPT-NeoX / Pythia
+
+Penzai also includes re-implementations of the architectures used by [Llama](https://llama.meta.com/), [Mistral](https://mistral.ai/), and the [GPT-NeoX](https://www.eleuther.ai/artifacts/gpt-neox-20b) family of models, including the [Pythia](https://github.com/EleutherAI/pythia) model scaling suite. To load these models into Penzai, you can first load the weights using the HuggingFace `transformers` library, then convert them to Penzai:
+
+```python
+import transformers
+from penzai.experimental.v2.models.transformer import variants
+
+# To load a Llama model:
+hf_model = transformers.LlamaForCausalLM.from_pretrained(...)
+pz_model = variants.llama.llama_from_huggingface_model(hf_model)
+
+# To load a Mistral model:
+hf_model = transformers.MistralForCausalLM.from_pretrained(...)
+pz_model = variants.mistral.mistral_from_huggingface_model(hf_model)
+
+# To load a GPT-NeoX / Pythia model:
+hf_model = transformers.GPTNeoXForCausalLM.from_pretrained(...)
+pz_model = variants.gpt_neox.gpt_neox_from_huggingface_model(hf_model)
 ```
 
 ### Freezing pretrained model weights

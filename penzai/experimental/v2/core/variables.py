@@ -274,7 +274,7 @@ def bind_variables(
       (in which case they will not be inserted).
     unfreeze_as_copy: Whether to unfreeze variable values before inserting them,
       producing a new mutable copy of each input variable. If True, all input
-      variables must be `AbstractVariableValue`s.
+      variables must be instances of `AbstractVariableValue`.
 
   Returns:
     A copy of ``tree`` with variables re-inserted.

@@ -1,4 +1,4 @@
-# Differences between the v1 and v2 neural network APIs
+# Changes in the V2 API
 
 Penzai includes two neural network APIs:
 
@@ -21,6 +21,8 @@ This document explains the major changes in the V2 API, relative to the V1 API. 
 - The data-effect system is no longer used.
   - Parameter sharing, state, and side outputs will instead use `Parameter` and `StateVariable`.
   - Side inputs should be passed as keyword arguments.
+- The built-in Transformer implementation also supports loading Llama, Mistral, and GPT-NeoX / Pythia models.
+  - This implementation is in `penzai.experimental.v2.models.transformer`, and shares the same high-level interface across all transformer variants.
 
 For Penzai release v0.2.0, we are planning to move the V2 API to penzai.nn, and deprecate the original system.
 (This will be a **breaking change** to `penzai.nn` and Penzai's existing model implementations.)
@@ -366,3 +368,22 @@ output, new_vars = model_without_vars.call_with_local_vars(
 for k, var in vars.items:
   var.value = new_vars[k].value
 ```
+
+
+### Loading pretrained transformers
+
+The V2 API includes a new transformer implementation with support for additional transformer variants. If you are using the current Gemma model, you will need to change how you load it:
+
+```python
+# Old
+from penzai.example_models import gemma
+model = gemma.model_core.GemmaTransformer.from_pretrained(flax_params_dict)
+# (model is an instance of GemmaTransformer)
+
+# New
+from penzai.experimental.v2.models.transformer import variants
+model = variants.gemma.gemma_from_pretrained_checkpoint(flax_params_dict)
+# (model is an instance of TransformerLM)
+```
+
+Additionally, the types of various model components have changed to become more generic (e.g. `TransformerFeedForward` instead of `GemmaFeedForward`).

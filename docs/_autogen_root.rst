@@ -35,4 +35,5 @@
   :hidden:
 
   notebooks/induction_heads_2B
+  notebooks/v2_induction_heads_2B
   _include/_glue_figures
