@@ -39,7 +39,7 @@ from . import figures
 from . import foldable_representation
 from . import formatting_util
 from . import handlers
-from . import html_compression
+from . import html_encapsulation
 from . import html_escaping
 from . import renderer
 from . import repr_lib

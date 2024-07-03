@@ -27,7 +27,6 @@ import io
 from typing import Any
 
 from penzai.treescope import default_renderer
-from penzai.treescope import html_compression
 from penzai.treescope import html_escaping
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import embedded_iframe
@@ -45,10 +44,7 @@ class RendersAsRootInIPython(part_interface.RenderableTreePart):
 
   def _repr_html_(self) -> str:
     """Returns a rich HTML representation of this part."""
-    return html_compression.compress_html(
-        foldable_impl.render_to_html_as_root(self),
-        loading_message="(Loading...)",
-    )
+    return foldable_impl.render_to_html_as_root(self, compressed=True)
 
   def _repr_pretty_(self, p, cycle):
     """Builds a representation of this part for the IPython text prettyprinter."""

@@ -120,7 +120,7 @@ class EmbeddedIFrame(RenderableTreePart):
         # itself to match its content.
         # But start with a minimum width of 80 characters.
         JavaScriptDefn(html_escaping.without_repeated_whitespace("""
-        window.treescope.resize_iframe_by_content = ((iframe) => {
+        this.getRootNode().host.defns.resize_iframe_by_content = ((iframe) => {
           iframe.height = 0;
           iframe.style.width = "80ch";
           iframe.style.overflow = "hidden";
@@ -165,5 +165,6 @@ class EmbeddedIFrame(RenderableTreePart):
     )
     stream.write(
         f'<div class="embedded_html"><iframe srcdoc="{srcdoc}"'
-        ' onload="treescope.resize_iframe_by_content(this)"></iframe></div>'
+        ' onload="this.getRootNode().host.defns.resize_iframe_by_content(this)">'
+        '</iframe></div>'
     )

@@ -25,7 +25,6 @@ from penzai.core import struct
 from penzai.treescope import autovisualize
 from penzai.treescope import default_renderer
 from penzai.treescope import figures
-from penzai.treescope import html_compression
 from penzai.treescope import object_inspection
 from penzai.treescope import selection_rendering
 from penzai.treescope.arrayviz import array_autovisualizer
@@ -68,14 +67,12 @@ def display(
     raise RuntimeError("Cannot use `display` outside of IPython.")
   IPython.display.display(
       IPython.display.HTML(
-          html_compression.compress_html(
-              default_renderer.render_to_html(
-                  value,
-                  ignore_exceptions=ignore_exceptions,
-                  roundtrip_mode=roundtrip_mode,
-              ),
-              loading_message="(Loading...)",
-          )
+          default_renderer.render_to_html(
+              value,
+              ignore_exceptions=ignore_exceptions,
+              roundtrip_mode=roundtrip_mode,
+              compressed=True,
+          ),
       )
   )
 

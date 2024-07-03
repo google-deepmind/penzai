@@ -30,7 +30,6 @@ import itertools
 import json
 import os
 from typing import Any, Literal, Mapping, Sequence
-import uuid
 
 import jax
 import jax.numpy as jnp
@@ -66,6 +65,9 @@ def _html_setup() -> (
     set[part_interface.CSSStyleRule | part_interface.JavaScriptDefn]
 ):
   """Builds the setup HTML that should be included in any arrayviz output cell."""
+  arrayviz_src = html_escaping.heuristic_strip_javascript_comments(
+      load_arrayvis_javascript()
+  )
   return {
       part_interface.CSSStyleRule(html_escaping.without_repeated_whitespace("""
         .arrayviz_container {
@@ -121,9 +123,7 @@ def _html_setup() -> (
         }
       """)),
       part_interface.JavaScriptDefn(
-          html_escaping.heuristic_strip_javascript_comments(
-              load_arrayvis_javascript()
-          )
+          arrayviz_src + " this.getRootNode().host.defns.arrayviz = arrayviz;"
       ),
   }
 
@@ -215,9 +215,7 @@ def _render_array_to_html(
   for axis in slider_axes:
     sliced_axis_specs_arg.append(axis_spec_arg(axis))
 
-  fresh_id = "arrayviz" + uuid.uuid4().hex
   args_json = json.dumps({
-      "destinationId": fresh_id,
       "info": info,
       "arrayBase64": base64.b64encode(converted_array_data.tobytes()).decode(
           "ascii"
@@ -241,12 +239,27 @@ def _render_array_to_html(
       },
       "valueFormattingInstructions": formatting_instructions,
   })
+  # Note: We need to save the parent of the treescope-run-here element first,
+  # because it will be removed before the runSoon callback executes.
+  inner_fn = html_escaping.without_repeated_whitespace("""
+    const parent = this.parentNode;
+    const defns = this.getRootNode().host.defns;
+    defns.runSoon(() => {
+        const tpl = parent.querySelector('template.deferred_args');
+        const config = JSON.parse(
+            tpl.content.querySelector('script').textContent
+        );
+        tpl.remove();
+        defns.arrayviz.buildArrayvizFigure(parent, config);
+    });
+  """)
   src = (
-      f'<div id="{fresh_id}" class="arrayviz_container">'
+      '<div class="arrayviz_container">'
       '<span class="loading_message">Rendering array...</span>'
-      "</div>"
-      '<template class="treescope_run_soon"><script>'
-      f" arrayviz.buildArrayvizFigure({args_json})</script></template>"
+      f'<treescope-run-here><script type="application/octet-stream">{inner_fn}'
+      "</script></treescope-run-here>"
+      '<template class="deferred_args">'
+      f'<script type="application/json">{args_json}</script></template></div>'
   )
   return src
 
@@ -1471,19 +1484,24 @@ def integer_digitbox(
   if label_bottom is None:
     label_bottom = str(value)
 
-  fresh_id = "arrayviz" + uuid.uuid4().hex
   render_args = json.dumps({
       "value": value,
       "labelTop": label_top,
       "labelBottom": label_bottom,
-      "destinationId": fresh_id,
   })
   size_attr = html_escaping.escape_html_attribute(size)
+  # Note: We need to save the parent of the treescope-run-here element first,
+  # because it will be removed before the runSoon callback executes.
   src = (
-      f'<span id="{fresh_id}" class="inline_digitbox"'
-      f' style="font-size: {size_attr}"></span>'
-      '<template class="treescope_run_soon">'
-      f"<script>arrayviz.renderOneDigitbox({render_args});</script></template>"
+      f'<span class="inline_digitbox" style="font-size: {size_attr}">'
+      '<treescope-run-here><script type="application/octet-stream">'
+      "const parent = this.parentNode;"
+      "const defns = this.getRootNode().host.defns;"
+      "defns.runSoon(() => {"
+      f"defns.arrayviz.buildArrayvizFigure(parent, {render_args});"
+      "});"
+      "</script></treescope-run-here>"
+      "</span>"
   )
   return ArrayvizRendering(src)
 

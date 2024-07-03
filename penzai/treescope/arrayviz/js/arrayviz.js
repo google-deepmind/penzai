@@ -17,10 +17,11 @@
 /**
  * @fileoverview Javascript implementation of arrayviz.
  * This file is inserted into the generated Treescope HTML when arrayviz is
- * used from Python. Compatible with the Closure JS compiler.
+ * used from Python.
  */
 
-window['arrayviz'] = (() => {
+/** @type {*} */
+const arrayviz = (() => {
   /**
    * Converts a base64 string to a Uint8 array.
    * @param {string} s
@@ -520,10 +521,8 @@ window['arrayviz'] = (() => {
   let AxisSpec;
 
   /* Delays an action until a destination element becomes visible. */
-  function _delayUntilVisible(destinationId, action) {
+  function _delayUntilVisible(destination, action) {
     // Trigger rendering as soon as the destination becomes visible.
-    const destination = /** @type {!Element} */
-        (document.getElementById(destinationId));
     const visiblityObserver = new IntersectionObserver((entries) => {
       if (entries[0].intersectionRatio > 0) {
         const loadingMarkers = destination.querySelectorAll('.loading_message');
@@ -541,7 +540,6 @@ window['arrayviz'] = (() => {
 
   /**
    * Renders an array to a destination object.
-   *  config.destinationId: ID of the HTML element to render into.
    *  config.info: Info for the figure; drawn on the bottom.
    *  config.arrayBase64: Base64-encoded array of either float32 or int32 data.
    *  config.arrayDtype: Either "float32" or "int32".
@@ -562,8 +560,8 @@ window['arrayviz'] = (() => {
    *    as continuous or discrete.
    *  config.valueFormattingInstructions: Instructions for rendering array
    *    indices and values on mouse hover/click.
+   * @param {!HTMLElement} destination The element to render into.
    * @param {{
-   *    destinationId: string,
    *    info: string,
    *    arrayBase64: string,
    *    arrayDtype: string,
@@ -576,13 +574,12 @@ window['arrayviz'] = (() => {
    *    valueFormattingInstructions: !Array<?>,
    * }} config Configuration for the setup.
    */
-  function buildArrayvizFigure(config) {
-    _delayUntilVisible(config.destinationId, () => {
-      _buildArrayvizFigure(config);
+  function buildArrayvizFigure(destination, config) {
+    _delayUntilVisible(destination, () => {
+      _buildArrayvizFigure(destination, config);
     });
   }
-  function _buildArrayvizFigure(config) {
-    const destinationId = config.destinationId;
+  function _buildArrayvizFigure(destination, config) {
     const info = config.info;
     const arrayBase64 = config.arrayBase64;
     const arrayDtype = config.arrayDtype;
@@ -884,9 +881,6 @@ window['arrayviz'] = (() => {
       return [array[dataIndex], valid_mask[dataIndex], result, row, col];
     }
 
-    // Set up the overall HTML structure for the rendering.
-    const destination = document.getElementById(destinationId);
-
     // HTML structure: The main figure, wrapped in a series of containers to
     // help with axis label layout.
     const container = /** @type {!HTMLDivElement} */ (
@@ -1015,7 +1009,7 @@ window['arrayviz'] = (() => {
     const datalist =
         /** @type {!HTMLDataListElement} */ (
             destination.appendChild(document.createElement('datalist')));
-    datalist.id = `${destinationId}-markers`;
+    datalist.id = "arrayviz-markers";
     for (const val of [1, 7, 14, 21]) {
       const datalistOption = /** @type {!HTMLOptionElement} */ (
           datalist.appendChild(document.createElement('option')));
@@ -1031,7 +1025,6 @@ window['arrayviz'] = (() => {
     zoomslider.setAttribute('list', datalist.id);
     const infodiv = /** @type {!HTMLDivElement} */ (
         destination.appendChild(document.createElement('div')));
-    infodiv.id = `${destinationId}-info`;
     infodiv.classList.add('info');
     infodiv.style.whiteSpace = 'pre';
     infodiv.append('Zoom: -');
@@ -1218,17 +1211,15 @@ window['arrayviz'] = (() => {
    *  config.value: Integer value to render.
    *  config.labelTop: Label to draw above the box.
    *  config.labelBottom: Label to draw below the box.
-   *  config.destinationId: ID of the element to render into.
+   * @param {!HTMLElement} destination The element to render into.
    * @param {{
    *    value: number,
    *    labelTop: string,
    *    labelBottom: string,
-   *    destinationId: string,
    * }} config Configuration for the digitbox.
    */
-  function renderOneDigitbox(config) {
-    _delayUntilVisible(config.destinationId, () => {
-      const destination = document.getElementById(config.destinationId);
+  function renderOneDigitbox(destination, config) {
+    _delayUntilVisible(destination, () => {
       const value = config.value;
       const labelTop = config.labelTop;
       const labelBottom = config.labelBottom;

@@ -172,6 +172,9 @@ class ColoredBorderIndentedChildren(basic_parts.IndentedChildren):
       self, context: HtmlContextForSetup
   ) -> set[CSSStyleRule | JavaScriptDefn]:
     rule = html_escaping.without_repeated_whitespace(f"""
+        .stacked_children {{
+          contain: content;
+        }}
         .stacked_children.colored_border
           > .stacked_child:not({context.collapsed_selector} *)
         {{
@@ -284,6 +287,8 @@ def _common_block_rules(
             {{
               padding-bottom: 0.15em;
               line-height: 1.5em;
+              z-index: 1;
+              position: relative;
             }}
           """)),
       "bottomline": CSSStyleRule(html_escaping.without_repeated_whitespace(f"""
@@ -291,6 +296,8 @@ def _common_block_rules(
             {{
               padding-top: 0.15em;
               line-height: 1.5em;
+              z-index: 1;
+              position: relative;
             }}
           """)),
       "hch_space_left": CSSStyleRule(

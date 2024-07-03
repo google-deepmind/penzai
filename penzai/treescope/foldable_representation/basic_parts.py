@@ -1036,12 +1036,15 @@ class IndentedChildren(RenderableTreePart):
       self, context: HtmlContextForSetup
   ) -> set[CSSStyleRule | JavaScriptDefn]:
     rule = html_escaping.without_repeated_whitespace(f"""
+        .indented_children {{
+            contain: content;
+        }}
         .indented_child:not({context.collapsed_selector} *)
         {{
             display: block;
             margin-left: calc(2ch - 1px);
         }}
-        .indented_children:not({context.collapsed_selector} *)
+        .stacked_children:not({context.collapsed_selector} *)
         {{
             display: block;
             border-left: dotted 1px #e0e0e0;

@@ -28,7 +28,7 @@ from typing import Any, Callable, Iterator, Sequence
 import uuid
 
 from penzai.core import context
-from penzai.treescope import html_compression
+from penzai.treescope import html_encapsulation
 from penzai.treescope import html_escaping
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import common_styles
@@ -320,9 +320,10 @@ class NodeHyperlink(basic_parts.DeferringToChild):
               return possible ? possible : target;
           };
 
-          window.treescope.expand_and_scroll_to = (
+          const defns = this.getRootNode().host.defns;
+          defns.expand_and_scroll_to = (
             (linkelement, target_path) => {
-              const root = window.treescope.get_treescope_root(linkelement);
+              const root = linkelement.getRootNode().shadowRoot;
               const target = _get_target(root, target_path);
               /* Expand all of its parents. */
               let may_need_expand = target.parentElement;
@@ -350,9 +351,9 @@ class NodeHyperlink(basic_parts.DeferringToChild):
             }
           );
 
-          window.treescope.handle_hyperlink_mouse = (
+          defns.handle_hyperlink_mouse = (
             (linkelement, event, target_path) => {
-              const root = window.treescope.get_treescope_root(linkelement);
+              const root = linkelement.getRootNode().shadowRoot;
               const target = _get_target(root, target_path);
               if (event.type == "mouseover") {
                 target.classList.add("hyperlink_remote_hover");
@@ -412,12 +413,12 @@ class NodeHyperlink(basic_parts.DeferringToChild):
       stream.write(
           html_escaping.without_repeated_whitespace(
               '<span class="path_hyperlink"'
-              ' onClick="treescope.expand_and_scroll_to(this,'
+              ' onClick="this.getRootNode().host.defns.expand_and_scroll_to(this,'
               ' this.dataset.targetpath)"'
-              ' onMouseOver="treescope.handle_hyperlink_mouse(   this, event,'
-              ' this.dataset.targetpath)"'
-              ' onMouseOut="treescope.handle_hyperlink_mouse(   this, event,'
-              ' this.dataset.targetpath)"'
+              ' onMouseOver="this.getRootNode().host.defns.handle_hyperlink_mouse('
+              ' this, event, this.dataset.targetpath)"'
+              ' onMouseOut="this.getRootNode().host.defns.handle_hyperlink_mouse('
+              ' this, event, this.dataset.targetpath)"'
               f' data-targetpath="{target_path_as_html_attr}">'
           )
       )
@@ -480,7 +481,7 @@ class StringCopyButton(RenderableTreePart):
     font_data_url = "data:font/woff2;base64,d09GMgABAAAAAAIQAAoAAAAABRwAAAHFAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmAAgkoKdIEBCwYAATYCJAMIBCAFgxIHLhtsBMieg3FDX2LI6YvSpuiPM5T1JXIRVMvWMztPyFFC+WgkTiBD0hiDQuJEdGj0Hb/fvIdpqK6hqWiiQuMnGhHfUtAU6BNr4AFInkE6cUuun+R5qcskwvfFl/qxgEo8gbJwG81HA/nAR5LrrJ1R+gz0Rd0AJf1gN7CwGj2g0oyuR77mE16wHX9OggpeTky4eIbz5cbrOGtaAgQINwDasysQuIIXWEFwAPQpIYdU//+g7T7X3t0fKPqAv52g0LAN7AMwAmgzRS+uZSeEXx2f6czN4RHy5uBAKzBjpFp3iHQCE0ZuP4S7nfBLEHFMmAi+8vE2hn1h7+bVwXjwHrvDGUCnjfEEgt+OcZll759CJwB8h94MMGS3GZAgmI5jBQ9tTGeH9EBBIG3Dg4R/YcybAGEAAVK/AQGaAeMClAHzEOgZtg6BPgOOIDBkiQ5eFBXCBFci0phropnQAApZED1z1kSfCfthyKnHdaFsHf0NmGEN6BdAqVVpatsSZmddai92fz94Uijq6pmr6OoYCSirGmvJG3SWS3FE2cBQfT+HlopG4Fsw5agq68iZeSNlpWnBHIedMreuWqGCm1WFrkSSx526WWswAQAA"
     rules = {
         JavaScriptDefn(html_escaping.without_repeated_whitespace("""
-          window.treescope.handle_copy_click = async (button) => {
+          this.getRootNode().host.defns.handle_copy_click = async (button) => {
             const dataToCopy = button.dataset.copy;
             try {
               await navigator.clipboard.writeText(dataToCopy);
@@ -496,13 +497,25 @@ class StringCopyButton(RenderableTreePart):
             }
           };
         """)),
-        CSSStyleRule(html_escaping.without_repeated_whitespace(f"""
-          @font-face {{
+        # Font-face definitions can't live inside a shadow
+        # DOM node, so we need to inject them into the root document.
+        JavaScriptDefn(html_escaping.without_repeated_whitespace("""
+        if (
+            !Array.from(document.fonts.values()).some(
+              font => font.family == 'Material Symbols Outlined Content Copy"'
+            )
+        ) {
+          const sheet = new CSSStyleSheet();
+          sheet.replaceSync(`@font-face {
               font-family: 'Material Symbols Outlined Content Copy';
               font-style: normal;
               font-weight: 400;
-              src: url({font_data_url}) format('woff2');
-          }}
+              src: url({__FONT_DATA_URL__}) format('woff2');
+          }`);
+          document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+        }
+        """.replace("{__FONT_DATA_URL__}", font_data_url))),
+        CSSStyleRule(html_escaping.without_repeated_whitespace(f"""
           {setup_context.collapsed_selector} .copybutton {{
               display: none;
           }}
@@ -557,7 +570,8 @@ class StringCopyButton(RenderableTreePart):
           repr(self.annotation)
       )
       attributes = html_escaping.without_repeated_whitespace(
-          "class='copybutton' onClick='treescope.handle_copy_click(this)'"
+          "class='copybutton'"
+          " onClick='this.getRootNode().host.defns.handle_copy_click(this)'"
           f' data-copy="{copy_string_attr}" style="--data-copy:'
           f" {copy_string_property}; --data-annotation:"
           f' {annotation_property}" '
@@ -728,6 +742,40 @@ def render_to_text_as_root(
   return result
 
 
+TREESCOPE_PREAMBLE_SCRIPT = """(()=> {
+  const defns = this.getRootNode().host.defns;
+  let _pendingActions = [];
+  let _pendingActionHandle = null;
+  defns.runSoon = (work) => {
+      const doWork = () => {
+          const tick = performance.now();
+          while (performance.now() - tick < 32) {
+            if (_pendingActions.length == 0) {
+                _pendingActionHandle = null;
+                return;
+            } else {
+                const thunk = _pendingActions.shift();
+                thunk();
+            }
+          }
+          _pendingActionHandle = (
+              window.requestAnimationFrame(doWork));
+      };
+      _pendingActions.push(work);
+      if (_pendingActionHandle === null) {
+          _pendingActionHandle = (
+              window.requestAnimationFrame(doWork));
+      }
+  };
+  defns.toggle_root_roundtrip = (rootelt, event) => {
+      if (event.key == "r") {
+          rootelt.classList.toggle("roundtrip_mode");
+      }
+  };
+})();
+"""
+
+
 def _render_to_html_as_root_streaming(
     root_node: RenderableTreePart,
     roundtrip: bool,
@@ -776,10 +824,12 @@ def _render_to_html_as_root_streaming(
       stream.write("</style>")
 
     if current_js_defns:
-      stream.write("<script>")
+      stream.write(
+          "<treescope-run-here><script type='application/octet-stream'>"
+      )
       for js_defn in sorted(current_js_defns):
         stream.write(js_defn.source)
-      stream.write("</script>")
+      stream.write("</script></treescope-run-here>")
 
     # Render the node itself.
     node.render_to_html(
@@ -800,84 +850,33 @@ def _render_to_html_as_root_streaming(
       background-color: white;
       color: black;
       width: fit-content;
-      margin-left: 2ch;
+      padding-left: 2ch;
       line-height: 1.5;
+      contain: content;
+      content-visibility: auto;
+      contain-intrinsic-size: auto none;
     }
   """))
   stream.write("</style>")
   # These scripts allow us to defer execution of javascript blocks until after
   # the content is loaded, avoiding locking up the browser rendering process.
-  stream.write(html_escaping.without_repeated_whitespace("""
-  <script>
-    if (window.treescope === undefined) {
-      window.treescope = {};
-      window.treescope._pendingActions = [];
-      window.treescope._pendingActionHandle = null;
-      window.treescope.get_treescope_root = (relative_to) => {
-        /* Look for the root node. */
-        let root = relative_to;
-        while (
-          root != document.body
-          && !root.classList.contains("treescope_root")
-        ) {
-          root = root.parentElement;
-        }
-        return root;
-      };
-      window.treescope.runSoon = (work) => {
-          const doWork = () => {
-              const tick = performance.now();
-              while (performance.now() - tick < 32) {
-                if (window.treescope._pendingActions.length == 0) {
-                    window.treescope._pendingActionHandle = null;
-                    return;
-                } else {
-                    const thunk = window.treescope._pendingActions.shift();
-                    thunk();
-                }
-              }
-              window.treescope._pendingActionHandle = (
-                  window.requestAnimationFrame(doWork));
-          };
-          window.treescope._pendingActions.push(work);
-          if (window.treescope._pendingActionHandle === null) {
-              window.treescope._pendingActionHandle = (
-                  window.requestAnimationFrame(doWork));
-          }
-      };
-      window.treescope.enqueueDeferredTemplates = () => {
-          const tpls = document.querySelectorAll("template.treescope_run_soon");
-          for (let tpl of tpls) {
-              tpl.classList.remove("treescope_run_soon");
-              window.treescope.runSoon(() => {
-                  let frozen = tpl.content.querySelector("script");
-                  let scr = document.createElement("script");
-                  scr.type = frozen.type;
-                  scr.textContent = frozen.textContent;
-                  tpl.parentNode.replaceChild(scr, tpl);
-              });
-          }
-      };
-      window.treescope.toggle_root_roundtrip = (rootelt, event) => {
-          if (event.key == "r") {
-              rootelt.classList.toggle("roundtrip_mode");
-          }
-      };
-    }
-  </script>
-  """))
+  stream.write("<treescope-run-here><script type='application/octet-stream'>")
+  stream.write(
+      html_escaping.without_repeated_whitespace(TREESCOPE_PREAMBLE_SCRIPT)
+  )
+  stream.write("</script></treescope-run-here>")
 
   # Render the root node.
   classnames = "treescope_root"
   if roundtrip:
     classnames += " roundtrip_mode"
   stream.write(
-      f'<div class="{classnames}" tabindex="0"'
-      ' onkeydown="treescope.toggle_root_roundtrip(this, event)">'
+      f'<div class="{classnames}" tabindex="0" '
+      'onkeydown="this.getRootNode().host.defns'
+      '.toggle_root_roundtrip(this, event)">'
   )
   _render_one(root_node, True, {}, stream)
   stream.write("</div>")
-  stream.write("<script>window.treescope.enqueueDeferredTemplates()</script>")
 
   yield stream.getvalue()
 
@@ -907,25 +906,27 @@ def _render_to_html_as_root_streaming(
       )
       stream.write("</span></div>")
 
-    stream.write("<script>(() => {")
     all_ids = [deferred.placeholder.replacement_id for deferred in deferreds]
-    stream.write(f"const targetIds = {json.dumps(all_ids)};")
-    stream.write(html_escaping.without_repeated_whitespace("""
-        const root = window.treescope.get_treescope_root(
-            document.getElementById(targetIds[0]));
+    inner_script = (
+        f"const targetIds = {json.dumps(all_ids)};"
+        + html_escaping.without_repeated_whitespace("""
+        const docroot = this.getRootNode();
+        const treeroot = docroot.querySelector(".treescope_root");
         const fragment = document.createDocumentFragment();
-        const rootClone = fragment.appendChild(root.cloneNode(true));
+        const treerootClone = fragment.appendChild(treeroot.cloneNode(true));
         for (let i = 0; i < targetIds.length; i++) {
             let target = fragment.getElementById(targetIds[i]);
-            let sourceDiv = document.getElementById("for_" + targetIds[i]);
+            let sourceDiv = docroot.querySelector("#for_" + targetIds[i]);
             target.replaceWith(sourceDiv.firstElementChild);
             sourceDiv.remove();
         }
-        root.replaceWith(rootClone);
-      })();
-      </script>
-    """))
-    stream.write("<script>window.treescope.enqueueDeferredTemplates()</script>")
+        treeroot.replaceWith(treerootClone);
+        """)
+    )
+    stream.write(
+        '<treescope-run-here><script type="application/octet-stream">'
+        f"{inner_script}</script></treescope-run-here>"
+    )
     yield stream.getvalue()
 
 
@@ -947,14 +948,9 @@ def render_to_html_as_root(
   Returns:
     HTML source for the rendered node.
   """
-  html_src = "".join(
-      _render_to_html_as_root_streaming(root_node, roundtrip, [])
-  )
-  if compressed:
-    html_src = html_compression.compress_html(
-        html_src, include_preamble=True, loading_message="(Loading...)"
-    )
-  return html_src
+  render_iterator = _render_to_html_as_root_streaming(root_node, roundtrip, [])
+  html_src = "".join(render_iterator)
+  return html_encapsulation.encapsulate_html(html_src, compress=compressed)
 
 
 def display_streaming_as_root(
@@ -987,26 +983,12 @@ def display_streaming_as_root(
   render_iterator = _render_to_html_as_root_streaming(
       root_node, roundtrip, deferreds
   )
-  steal_id = uuid.uuid4().hex
-  for i, step in enumerate(render_iterator):
-    if compressed:
-      if i == 0:
-        step = html_compression.compress_html(
-            step, include_preamble=True, loading_message="(Loading...)"
-        )
-        if stealable:
-          step = f'<div id="output_{steal_id}">{step}</div>'
-      else:
-        step = html_compression.compress_html(step, include_preamble=False)
-    IPython.display.display(IPython.display.HTML(step))
+  encapsulated_iterator = html_encapsulation.encapsulate_streaming_html(
+      render_iterator, compress=compressed, stealable=stealable
+  )
 
-  if stealable:
-    return html_escaping.without_repeated_whitespace(
-        """<div id="output_dest_{__STEAL_ID__}"><script>
-        (()=>{
-          const output = document.getElementById("output_{__STEAL_ID__}");
-          const dest = document.getElementById("output_dest_{__STEAL_ID__}");
-          dest.parentNode.replaceChild(output, dest);
-        })();
-        </script></div>""".replace("{__STEAL_ID__}", steal_id)
-    )
+  for step in encapsulated_iterator:
+    if step.segment_type == html_encapsulation.SegmentType.FINAL_OUTPUT_STEALER:
+      return step.html_src
+    else:
+      IPython.display.display(IPython.display.HTML(step.html_src))

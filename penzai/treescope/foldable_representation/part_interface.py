@@ -47,8 +47,8 @@ class JavaScriptDefn:
 
   The contents of `source` will be inserted into a <script> block in the
   rendered tree. Functions that need to be referenced by event handlers can
-  be assigned as a property to `window.treescope`, a common namespace for
-  treescope functions.
+  be assigned as a property to `this.getRootNode().defns`, which will resolve
+  to a scoped "definitions" property on the treescope rendering container.
 
   Attributes:
     source: The JS source code to insert.
