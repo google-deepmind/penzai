@@ -141,8 +141,8 @@ Here's how you could initialize and visualize a simple neural network::
 To learn more about how to build and manipulate neural networks with Penzai,
 we recommend starting with the
 "How to Think in Penzai" tutorial
-(`V1 API version <notebooks/how_to_think_in_penzai>`,
-`V2 API version <notebooks/v2_how_to_think_in_penzai>`),
+(:doc:`V1 API version <notebooks/how_to_think_in_penzai>`,
+:doc:`V2 API version <notebooks/v2_how_to_think_in_penzai>`),
 which gives a high-level overview of how to think about and use Penzai
 models. Afterward, you could:
 

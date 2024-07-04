@@ -457,6 +457,40 @@ patched_model = (
 where `target` is the layer to linearize, `linearize_around` computes the input that the layer should be linearized at (e.g. by modifying its input activation or returning a constant), and `evaluate_at` computes the input that the linear approximation should be evaluated at (usually the same as the original input, but can also be different).
 
 
+### Customizing attention masks in `TransformerLM`
+
+By default, most `TransformerLM` architecture variants are specialized to causal attention masks, using the `pz.nn.ApplyCausalAttentionMask` layer (or sometimes `pz.nn.ApplyCausalSlidingWindowAttentionMask`). These layers use the token positions input to build a causal attention mask and apply it to the attention logits.
+
+If you would like to customize the attention mask computation, you can swap out these layers for `pz.nn.ApplyExplicitAttentionMask` layers, using something like
+
+```
+explicit_attn_model = (
+  pz.select(model)
+  .at_instances_of(
+    pz.nn.ApplyCausalAttentionMask
+    | pz.nn.ApplyCausalSlidingWindowAttentionMask
+  )
+  .apply(lambda old: pz.nn.ApplyExplicitAttentionMask(
+    mask_input_name="attn_mask",
+    masked_out_value=old.masked_out_value,
+  ))
+)
+```
+
+This will create a copy of the model that expects a side input called `attn_mask`, and uses it to mask the inputs. You can call it using something like
+
+```
+# tokens should have named shape {..., "seq": n_seq}
+# token_positions should have named shape {..., "seq": n_seq}
+# attn_mask should be a boolean array with named shape
+#   {..., "seq": n_seq, "kv_seq": n_seq}
+token_logits = explicit_attn_model(
+  tokens, token_positions=token_positions, attn_mask=attn_mask
+)
+```
+
+For more control, you can also define your own layer and insert it in place of the attention masking logic.
+
 ----------------------------
 ## Training and Fine-Tuning Models (V2 API)
 

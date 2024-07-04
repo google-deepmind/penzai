@@ -75,7 +75,7 @@ Documentation on Penzai can be found at
 > boilerplate. It also includes a more flexible transformer implementation with
 > support for more pretrained model variants. You can read about the
 > differences between the two APIs in the
-> ["Changes in the V2 API"](v2_differences) overview.
+> ["Changes in the V2 API"][v2_differences] overview.
 >
 > We plan to stabilize the V2 API and move it out of experimental in release
 > ``0.2.0``, replacing the V1 API. If you wish to keep the V1 behavior, we
