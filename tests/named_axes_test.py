@@ -418,7 +418,7 @@ class NamedAxesTest(parameterized.TestCase):
     self.assertEqual(result.named_shape, {"foo": 2, "bar": 3})
     self.assertEqual(result.positional_shape, ())
     chex.assert_trees_all_equal(
-        result,
+        result.order_as("foo", "bar"),
         named_axes.NamedArray(
             named_axes=collections.OrderedDict({"foo": 2, "bar": 3}),
             data_array=np.array(
@@ -433,7 +433,7 @@ class NamedAxesTest(parameterized.TestCase):
     self.assertEqual(result.named_shape, {"foo": 2, "bar": 3, "qux": 1})
     self.assertEqual(result.positional_shape, ())
     chex.assert_trees_all_equal(
-        result,
+        result.order_as("foo", "bar", "qux"),
         named_axes.NamedArray(
             named_axes=collections.OrderedDict({"foo": 2, "bar": 3, "qux": 1}),
             data_array=np.array(
@@ -442,29 +442,49 @@ class NamedAxesTest(parameterized.TestCase):
         ),
     )
 
-  def test_indexing_advanced(self):
+  def test_indexing_batched(self):
     table = named_axes.wrap(jnp.arange(100 * 3).reshape((100, 3))).tag(
         "vocab", "features"
     )
     indices = named_axes.wrap(jnp.array([2, 61, 3, 10, 40])).tag("batch")
 
-    result = table.untag("vocab")[indices]
-    self.assertEqual(result.named_shape, {"features": 3, "batch": 5})
-    self.assertEqual(result.positional_shape, ())
-    chex.assert_trees_all_equal(
-        result,
-        named_axes.NamedArray(
-            named_axes=collections.OrderedDict({"features": 3, "batch": 5}),
-            data_array=np.array(
-                [
-                    [6, 183, 9, 30, 120],
-                    [7, 184, 10, 31, 121],
-                    [8, 185, 11, 32, 122],
-                ],
-                dtype=np.dtype("int32"),
-            ),
-        ),
-    )
+    with self.subTest("positional_style"):
+      result = table.untag("vocab")[indices]
+      self.assertEqual(result.named_shape, {"features": 3, "batch": 5})
+      self.assertEqual(result.positional_shape, ())
+      chex.assert_trees_all_equal(
+          result,
+          named_axes.NamedArray(
+              named_axes=collections.OrderedDict({"features": 3, "batch": 5}),
+              data_array=np.array(
+                  [
+                      [6, 183, 9, 30, 120],
+                      [7, 184, 10, 31, 121],
+                      [8, 185, 11, 32, 122],
+                  ],
+                  dtype=np.dtype("int32"),
+              ),
+          ),
+      )
+
+    with self.subTest("dict_style"):
+      result = table[{"vocab": indices}]
+      self.assertEqual(result.named_shape, {"features": 3, "batch": 5})
+      self.assertEqual(result.positional_shape, ())
+      chex.assert_trees_all_equal(
+          result,
+          named_axes.NamedArray(
+              named_axes=collections.OrderedDict({"features": 3, "batch": 5}),
+              data_array=np.array(
+                  [
+                      [6, 183, 9, 30, 120],
+                      [7, 184, 10, 31, 121],
+                      [8, 185, 11, 32, 122],
+                  ],
+                  dtype=np.dtype("int32"),
+              ),
+          ),
+      )
 
   def test_wrapped_instance_methods(self):
     array_a = named_axes.wrap(jnp.arange(2 * 3).reshape((2, 3))).tag(
@@ -859,107 +879,296 @@ class NamedAxesTest(parameterized.TestCase):
   def test_indexed_update_at(self):
     array = pz.nx.arange("foo", 5) + pz.nx.arange("bar", 4)
 
-    with self.subTest("set_ordinary"):
-      result = array.untag("foo").at[3].set(100).tag("foo")
-      chex.assert_trees_all_equal(
-          result.canonicalize(),
-          pz.nx.wrap(
-              jnp.array([
-                  [0, 1, 2, 3],
-                  [1, 2, 3, 4],
-                  [2, 3, 4, 5],
-                  [100, 100, 100, 100],
-                  [4, 5, 6, 7],
-              ])
-          )
-          .tag("foo", "bar")
-          .canonicalize(),
-      )
+    for style in ["positional", "dict"]:
+      with self.subTest(f"{style}_style"):
 
-    with self.subTest("add_ordinary"):
-      result = array.untag("foo").at[3].add(100).tag("foo")
-      chex.assert_trees_all_equal(
-          result.canonicalize(),
-          pz.nx.wrap(
-              jnp.array([
-                  [0, 1, 2, 3],
-                  [1, 2, 3, 4],
-                  [2, 3, 4, 5],
-                  [103, 104, 105, 106],
-                  [4, 5, 6, 7],
-              ])
+        with self.subTest("set_ordinary"):
+          if style == "positional":
+            result = array.untag("foo").at[3].set(100).tag("foo")
+          else:
+            result = array.at[{"foo": 3}].set(100)
+          chex.assert_trees_all_equal(
+              result.canonicalize(),
+              pz.nx.wrap(
+                  jnp.array([
+                      [0, 1, 2, 3],
+                      [1, 2, 3, 4],
+                      [2, 3, 4, 5],
+                      [100, 100, 100, 100],
+                      [4, 5, 6, 7],
+                  ])
+              )
+              .tag("foo", "bar")
+              .canonicalize(),
           )
-          .tag("foo", "bar")
-          .canonicalize(),
-      )
 
-    with self.subTest("add_along_named"):
-      result = (
-          array.untag("bar").at[2].add(100 * pz.nx.arange("foo", 5)).tag("bar")
-      )
-      chex.assert_trees_all_equal(
-          result.canonicalize(),
-          pz.nx.wrap(
-              jnp.array([
-                  [0, 1, 2, 3],
-                  [1, 2, 103, 4],
-                  [2, 3, 204, 5],
-                  [3, 4, 305, 6],
-                  [4, 5, 406, 7],
-              ])
+        with self.subTest("add_ordinary"):
+          if style == "positional":
+            result = array.untag("foo").at[3].add(100).tag("foo")
+          else:
+            result = array.at[{"foo": 3}].add(100)
+          chex.assert_trees_all_equal(
+              result.canonicalize(),
+              pz.nx.wrap(
+                  jnp.array([
+                      [0, 1, 2, 3],
+                      [1, 2, 3, 4],
+                      [2, 3, 4, 5],
+                      [103, 104, 105, 106],
+                      [4, 5, 6, 7],
+                  ])
+              )
+              .tag("foo", "bar")
+              .canonicalize(),
           )
-          .tag("foo", "bar")
-          .canonicalize(),
-      )
 
-    with self.subTest("add_new_named"):
-      result = (
-          array.untag("bar")
-          .at[pz.nx.arange("qux", 2) + 1]
-          .add(100 + 100 * pz.nx.arange("qux", 2))
-          .tag("bar")
-      )
-      chex.assert_trees_all_equal(
-          result.canonicalize(),
-          pz.nx.wrap(
-              jnp.array([
-                  [
-                      [0, 101, 2, 3],
-                      [1, 102, 3, 4],
-                      [2, 103, 4, 5],
-                      [3, 104, 5, 6],
-                      [4, 105, 6, 7],
-                  ],
-                  [
-                      [0, 1, 202, 3],
-                      [1, 2, 203, 4],
+        with self.subTest("add_along_named"):
+          if style == "positional":
+            result = (
+                array.untag("bar")
+                .at[2]
+                .add(100 * pz.nx.arange("foo", 5))
+                .tag("bar")
+            )
+          else:
+            result = array.at[{"bar": 2}].add(100 * pz.nx.arange("foo", 5))
+          chex.assert_trees_all_equal(
+              result.canonicalize(),
+              pz.nx.wrap(
+                  jnp.array([
+                      [0, 1, 2, 3],
+                      [1, 2, 103, 4],
                       [2, 3, 204, 5],
-                      [3, 4, 205, 6],
-                      [4, 5, 206, 7],
-                  ],
-              ])
+                      [3, 4, 305, 6],
+                      [4, 5, 406, 7],
+                  ])
+              )
+              .tag("foo", "bar")
+              .canonicalize(),
           )
-          .tag("qux", "foo", "bar")
-          .canonicalize(),
-      )
+
+        with self.subTest("add_new_named"):
+          if style == "positional":
+            result = (
+                array.untag("bar")
+                .at[pz.nx.arange("qux", 2) + 1]
+                .add(100 + 100 * pz.nx.arange("qux", 2))
+                .tag("bar")
+            )
+          else:
+            result = array.at[{"bar": pz.nx.arange("qux", 2) + 1}].add(
+                100 + 100 * pz.nx.arange("qux", 2)
+            )
+          chex.assert_trees_all_equal(
+              result.canonicalize(),
+              pz.nx.wrap(
+                  jnp.array([
+                      [
+                          [0, 101, 2, 3],
+                          [1, 102, 3, 4],
+                          [2, 103, 4, 5],
+                          [3, 104, 5, 6],
+                          [4, 105, 6, 7],
+                      ],
+                      [
+                          [0, 1, 202, 3],
+                          [1, 2, 203, 4],
+                          [2, 3, 204, 5],
+                          [3, 4, 205, 6],
+                          [4, 5, 206, 7],
+                      ],
+                  ])
+              )
+              .tag("qux", "foo", "bar")
+              .canonicalize(),
+          )
+
+      with self.subTest("get"):
+        result = (
+            array.untag("foo")
+            .at[jnp.array([1, 1, 2, 100])]
+            .get(mode="fill", fill_value=-1)
+            .tag("baz")
+        )
+        chex.assert_trees_all_equal(
+            result.canonicalize(),
+            pz.nx.wrap(
+                jnp.array([
+                    [1, 2, 3, 4],
+                    [1, 2, 3, 4],
+                    [2, 3, 4, 5],
+                    [-1, -1, -1, -1],
+                ])
+            )
+            .tag("baz", "bar")
+            .canonicalize(),
+        )
+
+  def test_complicated_dict_indexed_update(self):
+    # Build an array with every type of axis that needs special treatment, and
+    # make sure that dict-indexing semantics agrees with
+    # nmapped-positional-indexing semantics.
+    array_shape = {
+        "indexed_scalar": 2,
+        "indexed_unnamed": 3,
+        "indexed_named": 3,
+        "sliced": 3,
+        "common": 2,
+        "lhs_only": 2,
+        "positional_1": 2,
+        "positional_2": 2,
+    }
+    array = (
+        pz.nx.wrap(jnp.arange(np.prod(list(array_shape.values()))))
+        .reshape((*array_shape.values(),))
+        .tag(*array_shape.keys())
+        .untag("positional_1", "positional_2")
+    )
+    index_arr_unnamed = jnp.array([2, 0, 1])
+    index_arr_named = pz.nx.wrap(
+        jnp.array([
+            [0, 0, 1],
+            [2, 1, 2],
+        ])
+    ).tag_prefix("common")
+
+    indexer = {
+        "indexed_scalar": 0,
+        "sliced": pz.slice[1:],
+        "indexed_unnamed": index_arr_unnamed,
+        "new": None,
+        "indexed_named": index_arr_named,
+    }
 
     with self.subTest("get"):
-      result = (
-          array.untag("foo")
-          .at[jnp.array([1, 1, 2, 100])]
-          .get(mode="fill", fill_value=-1)
-          .tag("baz")
+      result = array[indexer]
+      reference = array.untag_prefix(
+          "sliced", "indexed_scalar", "indexed_unnamed", "indexed_named"
+      )[
+          None, pz.slice[1:], 0, index_arr_unnamed, index_arr_named, :, :
+      ].tag_prefix(
+          "new", "sliced"
       )
       chex.assert_trees_all_equal(
-          result.canonicalize(),
-          pz.nx.wrap(
-              jnp.array(
-                  [[1, 2, 3, 4], [1, 2, 3, 4], [2, 3, 4, 5], [-1, -1, -1, -1]]
-              )
-          )
-          .tag("baz", "bar")
-          .canonicalize(),
+          result.canonicalize(), reference.canonicalize()
       )
+
+    with self.subTest("add_full"):
+      update = pz.nx.wrap(
+          jnp.arange(2 * 2 * 3 * 2 * 2).reshape((2, 2, 3, 2, 2))
+      ).tag_prefix("sliced", "common")[{"new": None}]
+      result = array.at[indexer].add(update)
+
+      reference = (
+          array.untag_prefix(
+              "sliced", "indexed_scalar", "indexed_unnamed", "indexed_named"
+          )
+          .at[None, pz.slice[1:], 0, index_arr_unnamed, index_arr_named, :, :]
+          .add(update.untag_prefix("new", "sliced"))
+          .tag_prefix(
+              "sliced", "indexed_scalar", "indexed_unnamed", "indexed_named"
+          )
+      )
+      chex.assert_trees_all_equal(
+          result.canonicalize(), reference.canonicalize()
+      )
+
+    with self.subTest("add_broadcasting_1"):
+      update = pz.nx.wrap(jnp.arange(2 * 2).reshape((2, 2))).tag_prefix(
+          "common"
+      )
+      result = array.at[indexer].add(update)
+
+      reference = (
+          array.untag_prefix(
+              "sliced", "indexed_scalar", "indexed_unnamed", "indexed_named"
+          )
+          .at[None, pz.slice[1:], 0, index_arr_unnamed, index_arr_named, :, :]
+          .add(update)
+          .tag_prefix(
+              "sliced", "indexed_scalar", "indexed_unnamed", "indexed_named"
+          )
+      )
+      chex.assert_trees_all_equal(
+          result.canonicalize(), reference.canonicalize()
+      )
+
+    with self.subTest("add_broadcasting_2"):
+      update = pz.nx.wrap(jnp.arange(2 * 2 * 2).reshape((2, 2, 2))).tag_prefix(
+          "sliced", "common"
+      )
+      result = array.at[indexer].add(update)
+
+      reference = (
+          array.untag_prefix(
+              "sliced", "indexed_scalar", "indexed_unnamed", "indexed_named"
+          )
+          .at[None, pz.slice[1:], 0, index_arr_unnamed, index_arr_named, :, :]
+          # The "sliced" axis has to line up with where it would be in the
+          # result, and the positional axis has to line up with the *last*
+          # positional axis to follow Numpy broadcasting rules.
+          .add(update.untag_prefix("sliced")[None, :, None, None, :])
+          .tag_prefix(
+              "sliced", "indexed_scalar", "indexed_unnamed", "indexed_named"
+          )
+      )
+      chex.assert_trees_all_equal(
+          result.canonicalize(), reference.canonicalize()
+      )
+
+  def test_scan(self):
+    carry = {
+        "foo": jnp.array([1, 2, 3]),
+        "bar": pz.nx.wrap(jnp.ones([2, 3, 4])).tag_prefix("a", "b"),
+    }
+    xs = {
+        "baz": pz.nx.wrap(jnp.ones([2, 7])).tag("a", "seq"),
+        "qux": pz.nx.wrap(jnp.ones([2, 7, 3])).tag_prefix("a", "seq"),
+    }
+
+    def f(carry, x):
+      self.assertIsInstance(carry["foo"], jax.Array)
+      self.assertEqual(carry["foo"].shape, (3,))
+
+      self.assertIsInstance(carry["bar"], pz.nx.NamedArrayBase)
+      self.assertEqual(carry["bar"].named_shape, {"a": 2, "b": 3})
+      self.assertEqual(carry["bar"].positional_shape, (4,))
+
+      self.assertIsInstance(x["baz"], pz.nx.NamedArrayBase)
+      self.assertEqual(x["baz"].named_shape, {"a": 2})
+      self.assertEqual(x["baz"].positional_shape, ())
+
+      self.assertIsInstance(x["qux"], pz.nx.NamedArrayBase)
+      self.assertEqual(x["qux"].named_shape, {"a": 2})
+      self.assertEqual(x["qux"].positional_shape, (3,))
+
+      # Intentionally mess up the axis ordering:
+      new_carry = {
+          "foo": jnp.array([1, 2, 3]),
+          "bar": pz.nx.wrap(jnp.ones([3, 2, 4])).tag_prefix("b", "a"),
+      }
+      new_output = {
+          "out_arr": jnp.zeros((5,)),
+          "out_narr": pz.nx.wrap(jnp.ones([4, 5])).tag_prefix("c"),
+      }
+      return new_carry, new_output
+
+    final_carry, stacked_out = pz.nx.scan(f, "seq", carry, xs)
+
+    self.assertIsInstance(final_carry["foo"], jax.Array)
+    self.assertEqual(final_carry["foo"].shape, (3,))
+
+    self.assertIsInstance(final_carry["bar"], pz.nx.NamedArrayBase)
+    self.assertEqual(final_carry["bar"].named_shape, {"a": 2, "b": 3})
+    self.assertEqual(final_carry["bar"].positional_shape, (4,))
+
+    self.assertIsInstance(stacked_out["out_arr"], pz.nx.NamedArrayBase)
+    self.assertEqual(stacked_out["out_arr"].named_shape, {"seq": 7})
+    self.assertEqual(stacked_out["out_arr"].positional_shape, (5,))
+
+    self.assertIsInstance(stacked_out["out_narr"], pz.nx.NamedArrayBase)
+    self.assertEqual(stacked_out["out_narr"].named_shape, {"seq": 7, "c": 4})
+    self.assertEqual(stacked_out["out_narr"].positional_shape, (5,))
 
 
 if __name__ == "__main__":

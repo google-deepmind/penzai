@@ -414,13 +414,58 @@ class _SliceThunk(struct.Struct):
     return slice(self.start, self.stop, self.step)
 
 
-@jax.jit
+@functools.partial(
+    jax.jit,
+    static_argnames=[
+        "indices_are_sorted",
+        "unique_indices",
+        "mode",
+        "fill_value",
+    ],
+)
 @nmap
 def _jitted_nmapped_getitem(
-    array, index_thunks: tuple[_StaticThunk | _DynamicThunk | _SliceThunk, ...]
+    array: jax.Array,
+    index_thunks: tuple[_StaticThunk | _DynamicThunk | _SliceThunk, ...],
+    *,
+    indices_are_sorted=False,
+    unique_indices=False,
+    mode=None,
+    fill_value=None,
 ):
+  """JIT-compiled helper for getitem."""
   indexer = tuple(thunk.unwrap() for thunk in index_thunks)
-  return array[indexer]
+  return array.at[indexer].get(
+      indices_are_sorted=indices_are_sorted,
+      unique_indices=unique_indices,
+      mode=mode,
+      fill_value=fill_value,
+  )
+
+
+@functools.partial(
+    jax.jit,
+    static_argnames=["method", "indices_are_sorted", "unique_indices", "mode"],
+)
+@nmap
+def _jitted_nmapped_update(
+    array: jax.Array,
+    index_thunks: tuple[_StaticThunk | _DynamicThunk | _SliceThunk, ...],
+    values: jax.Array,
+    method: str,
+    *,
+    indices_are_sorted=False,
+    unique_indices=False,
+    mode=None,
+):
+  """JIT-compiled helper for in-place updates."""
+  indexer = tuple(thunk.unwrap() for thunk in index_thunks)
+  return getattr(array.at[indexer], method)(
+      values,
+      indices_are_sorted=indices_are_sorted,
+      unique_indices=unique_indices,
+      mode=mode,
+  )
 
 
 @dataclasses.dataclass
@@ -429,57 +474,212 @@ class _IndexUpdateHelper:
 
   Lifts the ``jax.Array.at[...]`` syntax to also work for Penzai NamedArrays.
   """
+
   array: NamedArrayBase
 
-  def __getitem__(self, index):
+  def __getitem__(self, index) -> _IndexUpdateRef:
     return _IndexUpdateRef(self.array, index)
 
 
 @dataclasses.dataclass
 class _IndexUpdateRef:
-  """Helper object to call indexed update functions for an (advanced) index."""
+  """Helper object to index or update at an (advanced) index.
+
+  Attributes:
+    array: The array to index or update.
+    indexer: The index to use.
+  """
 
   array: NamedArrayBase
-  index: Any
+  indexer: Any
 
-  def _nmap_index_op(self, method: str, args, kwargs):
-    def go(array, index, args, kwargs):
-      return getattr(array.at[index], method)(*args, **kwargs)
+  def _partition_dict_index(self):
+    """Helper to partition the indices of a dict-style index."""
+    indexer = self.indexer
+    assert isinstance(indexer, dict)
+    # Our strategy will be to convert the indexed axis names into
+    # positional axes, with
+    # - named axes that are being introduced coming first,
+    # - named axes that are being sliced (and thus preserved) coming next,
+    # - named axes that are being removed or indexed using advanced indexing
+    #   coming after,
+    # - and finally, the positional axes of the original array.
+    # We can then use ordinary positional indexing logic to retrieve the
+    # result.
+    sliced_axes = []
+    introduced_axes = []
+    indexed_axes = []
 
-    return nmap(go)(self.array, self.index, args, kwargs)
+    for name, index in self.indexer.items():
+      if index is None:
+        # New axis.
+        introduced_axes.append(name)
+      elif isinstance(index, slice):
+        # Sliced axis.
+        sliced_axes.append(name)
+      elif isinstance(index, int) or (
+          isinstance(index, jax.Array | np.ndarray | NamedArrayBase)
+          and jnp.issubdtype(index.dtype, np.integer)
+      ):
+        # Indexed axis.
+        indexed_axes.append(name)
+      else:
+        raise TypeError(
+            "Unsupported index for a named axis using dict-style index:"
+            " expected a slice, an integer, an integer array, or None, but"
+            f" got {index}"
+        )
 
-  def get(self, *args, **kwargs):
-    return self._nmap_index_op("get", args, kwargs)
+    input_prefix_order = (*sliced_axes, *indexed_axes)
+    slice_order = (*introduced_axes, *sliced_axes, *indexed_axes)
+    output_prefix_order = (*introduced_axes, *sliced_axes)
 
-  def set(self, *args, **kwargs):
-    return self._nmap_index_op("set", args, kwargs)
+    return input_prefix_order, slice_order, output_prefix_order
 
-  def apply(self, *args, **kwargs):
-    return self._nmap_index_op("apply", args, kwargs)
+  def get(self, **kwargs) -> NamedArrayBase:
+    """Get values from the array."""
+    if isinstance(self.indexer, dict):
+      # Dict indexing => desugar it to positional indexing over the requested
+      # names.
+      input_prefix_order, slice_order, output_prefix_order = (
+          self._partition_dict_index()
+      )
+      return (
+          self.array.untag_prefix(*input_prefix_order)
+          .at[tuple(self.indexer[name] for name in slice_order)]
+          .get(**kwargs)
+          .tag_prefix(*output_prefix_order)
+      )
 
-  def add(self, *args, **kwargs):
-    return self._nmap_index_op("add", args, kwargs)
+    else:
+      # Normal indexing => map it over any named axes.
+      # We always jit-compile `getitem`, because eagerly `vmap`-ing (and, by
+      # extension, `nmap`-ing) a gather operation can lead to spurious
+      # transposes that waste device memory when indexing into a large array.
+      # We have to do a bit of trickery to deal with slices and non-jittable
+      # array data.
+      indexer = self.indexer
+      if not isinstance(indexer, tuple):
+        indexer = (indexer,)
+      index_thunks = []
+      for c in indexer:
+        if isinstance(c, jax.Array | np.ndarray | NamedArrayBase | int):
+          index_thunks.append(_DynamicThunk(c))
+        elif isinstance(c, slice):
+          index_thunks.append(_SliceThunk(c.start, c.stop, c.step))
+        else:
+          index_thunks.append(_StaticThunk(c))
 
-  def multiply(self, *args, **kwargs):
-    return self._nmap_index_op("multiply", args, kwargs)
+      return _jitted_nmapped_getitem(self.array, tuple(index_thunks), **kwargs)
 
-  def mul(self, *args, **kwargs):
-    return self._nmap_index_op("mul", args, kwargs)
+  def _nmap_update_op(self, method: str, value, kwargs) -> NamedArrayBase:
+    """Updates values in the array."""
+    if isinstance(self.indexer, dict):
+      # Dict indexing => desugar it to positional indexing over the requested
+      # names.
+      input_prefix_order, slice_order, output_prefix_order = (
+          self._partition_dict_index()
+      )
 
-  def divide(self, *args, **kwargs):
-    return self._nmap_index_op("divide", args, kwargs)
+      # Make sure the provided value has the necessary axes, by broadcasting it
+      # to the positional shape the result would have, and adding new named
+      # axes that would be introduced into the result. But keep the axes of
+      # length 1.
+      if not isinstance(value, NamedArrayBase):
+        value = wrap(value)
 
-  def div(self, *args, **kwargs):
-    return self._nmap_index_op("div", args, kwargs)
+      result_structure = jax.eval_shape(self.get)
+      assert isinstance(result_structure, NamedArrayBase)
 
-  def power(self, *args, **kwargs):
-    return self._nmap_index_op("power", args, kwargs)
+      value_shape = value.positional_shape
+      result_shape = result_structure.positional_shape
+      num_new_positional_axes = len(result_shape) - len(value_shape)
+      if num_new_positional_axes < 0 or not all(
+          vd == 1 or vd == rd
+          for vd, rd in zip(
+              value_shape, result_shape[len(result_shape) - len(value_shape) :]
+          )
+      ):
+        raise ValueError(
+            "Cannot provide updates with positional shape"
+            f" {value_shape} for an index whose result shape is"
+            f" {result_shape}! Update shape must be a"
+            " suffix of the result shape (or broadcastable to it)."
+        )
+      if num_new_positional_axes:
+        value = value[(None,) * num_new_positional_axes + (...,)]
 
-  def min(self, *args, **kwargs):
-    return self._nmap_index_op("min", args, kwargs)
+      new_names = {
+          name: None
+          for name in output_prefix_order
+          if name not in value.named_shape
+      }
+      if new_names:
+        value = value[new_names]
 
-  def max(self, *args, **kwargs):
-    return self._nmap_index_op("max", args, kwargs)
+      # pylint: disable=protected-access
+      return (
+          self.array.untag_prefix(*input_prefix_order)
+          .at[tuple(self.indexer[name] for name in slice_order)]
+          ._nmap_update_op(
+              method, value.untag_prefix(*output_prefix_order), kwargs
+          )
+          .tag_prefix(*input_prefix_order)
+      )
+      # pylint: enable=protected-access
+
+    else:
+      # Normal indexing => map it over any named axes.
+      # We always jit-compile advanced updates, because eagerly `vmap`-ing (and,
+      # by extension, `nmap`-ing) a gather operation can lead to spurious
+      # transposes that waste device memory when indexing into a large array.
+      # We have to do a bit of trickery to deal with slices and non-jittable
+      # array data.
+      indexer = self.indexer
+      if not isinstance(indexer, tuple):
+        indexer = (indexer,)
+      index_thunks = []
+      for c in indexer:
+        if isinstance(c, jax.Array | np.ndarray | NamedArrayBase | int):
+          index_thunks.append(_DynamicThunk(c))
+        elif isinstance(c, slice):
+          index_thunks.append(_SliceThunk(c.start, c.stop, c.step))
+        else:
+          index_thunks.append(_StaticThunk(c))
+
+      return _jitted_nmapped_update(
+          self.array, tuple(index_thunks), value, method, **kwargs
+      )
+
+  def set(self, values, /, **kwargs):
+    return self._nmap_update_op("set", values, kwargs)
+
+  def apply(self, values, /, **kwargs):
+    return self._nmap_update_op("apply", values, kwargs)
+
+  def add(self, values, /, **kwargs):
+    return self._nmap_update_op("add", values, kwargs)
+
+  def multiply(self, values, /, **kwargs):
+    return self._nmap_update_op("multiply", values, kwargs)
+
+  def mul(self, values, /, **kwargs):
+    return self._nmap_update_op("mul", values, kwargs)
+
+  def divide(self, values, /, **kwargs):
+    return self._nmap_update_op("divide", values, kwargs)
+
+  def div(self, values, /, **kwargs):
+    return self._nmap_update_op("div", values, kwargs)
+
+  def power(self, values, /, **kwargs):
+    return self._nmap_update_op("power", values, kwargs)
+
+  def min(self, values, /, **kwargs):
+    return self._nmap_update_op("min", values, kwargs)  # pylint: disable=protected-access
+
+  def max(self, values, /, **kwargs):
+    return self._nmap_update_op("max", values, kwargs)  # pylint: disable=protected-access
 
 
 class NamedArrayBase(abc.ABC):
@@ -817,12 +1017,11 @@ class NamedArrayBase(abc.ABC):
     """Retrieves slices from an indexer.
 
     `NamedArray` and `NamedArrayView` can be indexed in two different ways,
-    depending on whether they have positional axes or not.
+    depending on whether the axes you wish to index are positional or named.
 
-    If they do have positional axes, those positional axes can be indexed into
-    using ordinary Numpy-style indexing. Indexing operations will be
-    automatically vectorized over all of the named axes. For instance, an
-    embedding lookup could look something like::
+    To index positional axes, you can use ordinary Numpy-style indexing.
+    Indexing operations will be automatically vectorized over all of the named
+    axes. For instance, an embedding lookup could look something like::
 
       embedding_table.untag("vocab")[token_ids]
 
@@ -830,12 +1029,66 @@ class NamedArrayBase(abc.ABC):
     that axis using another array (which can be a `NamedArray` or an ordinary
     array).
 
-    If they do NOT have positional axes, the named axes can be sliced directly
-    using dictionaries mapping names to indices or slices, e.g.::
+    The result of positional indexing follows the combination of `nmap` and
+    Numpy indexing semantics: positional axis ordering is determined by Numpy
+    basic/advanced indexing rules, and any named axes in the input or in the
+    slices will be jointly vectorized over.
+
+    To index named axes, you can use a dictionary mapping axis names to indices
+    or slices. For instance, you can use ::
 
       my_array[{"position": 1, "feature": pz.slice[2:5]}]
 
     Here ``pz.slice[2:5]`` is syntactic sugar for ``slice(2, 5, None)``.
+
+    The semantics of dict-style indexing are based on Numpy indexing rules,
+    except that they apply to the named axes instead of positional axes. In
+    general, dict-style indexing will behave like positional indexing, where
+    the requested axes are mapped to positional axes, then indexed, then mapped
+    back to named axes where applicable. For instance, ::
+
+      # Slice "foo" in place, and index into "bar" and "baz".
+      named_array[{"foo": pz.slice[2:5], "bar": 1, "baz": indexer_array}]
+
+    will behave like ::
+
+      # Slice the first axis, and index into the next two. Then restore the
+      # axis name "foo".
+      named_array.untag_prefix("foo", "bar", "baz")[2:5, 1, indexer_array, ...]
+        .tag_prefix("foo")
+
+    Specifically:
+
+    * Axis names that map to an integer will be indexed into, and those names
+      will not appear in the output.
+    * Axis names that map to a slice object (like ``pz.slice[2:5]``) will be
+      sliced into, and preserved in the output with a smaller size.
+    * Axis names that map to None (or `np.newaxis`) must not appear in the
+      input array. These axis names will be introduced and will have size 1.
+    * Axis names that map to a Numpy or JAX array with non-empty (positional)
+      shape and integer dtype will follow Numpy advanced indexing rules. All
+      such arrays will be broadcast together and iterated over as one, and
+      interpreted as a sequence of indices into each named axis. The result will
+      have new positional axes at the front (matching the shapes of the advanced
+      index arrays), followed by the existing positional axes of the input (if
+      any).
+    * Axis names that map to a Penzai named array will be vectorized over using
+      `nmap` rules: those names will be vectorized over jointly with the array
+      if they are present, and will be introduced into the result if they are
+      not present.
+
+    The resulting array's positional shape will first include any new axes
+    introduced by advanced indexing, followed by the existing positional axes
+    of the input array (if any). The array's named shape will be the input
+    array's named shape, minus any axes that were indexed into (without using
+    a slice), plus any names that were introduced using `None`/`np.newaxis`,
+    plus the union of all names used in named array indices that aren't already
+    present.
+
+    Note that Numpy-style advanced indexing can be difficult to reason about
+    due to the axis ordering of positional axes. We recommend indexing using
+    either integers or NamedArrays with an empty positional shape, which will
+    always introduce named axes instead of positional ones.
 
     Args:
       indexer: Either a normal Numpy-style indexer into the positional axes, or
@@ -845,95 +1098,22 @@ class NamedArrayBase(abc.ABC):
     Returns:
       A slice of the array.
     """
-    if isinstance(indexer, dict):
-      # Dict indexing => desugar it to positional indexing over the requested
-      # names.
-      self.check_valid()
-      # Create temporary "names" for existing positional axes by creating new
-      # objects, which are hashable but only compare equal by ID and are thus
-      # guaranteed unique.
-      tmp_names_for_pos = [TmpPosAxisMarker() for _ in self.positional_shape]
-      # Figure out how to bind the requested keys to new positional axes to
-      # apply indexing to them.
-      input_names = []
-      output_names = []
-      index_seq = []
-      for name, index in indexer.items():
-        if index is None:
-          # New axis.
-          index_seq.append(None)
-          output_names.append(name)
-        else:
-          # Slicing an existing axis.
-          input_names.append(name)
-          index_seq.append(index)
-          if isinstance(index, slice):
-            # If a slice is provided, this axis will still appear in the output.
-            output_names.append(name)
-          elif isinstance(index, NamedArrayBase):
-            if index.positional_shape:
-              raise TypeError(
-                  "Dict-style indexing of a named array with another named"
-                  " array is only supported if the indexer has only named axes,"
-                  " no positional axes. Please tag the positional axes with a"
-                  " name, either the same as one of the target array's names or"
-                  " a new one, depending on the desired behavior."
-              )
-            # Named axes get mapped over automatically, so this temporary
-            # positional axis will go away in the mapped computation.
-          elif isinstance(index, int) or (
-              isinstance(index, jax.Array | np.ndarray)
-              and jnp.issubdtype(index.dtype, np.integer)
-              and index.ndim == 0
-          ):
-            # Scalar indexing, this is OK. This axis will be removed.
-            pass
-          else:
-            raise TypeError(
-                "Dict-style indexing of a named array only supports indexing"
-                " with scalar integers, None, slices, and fully-named"
-                f" NamedArray(View)s. Got: {index}\nNote: If you are trying to"
-                " perform Numpy-style advanced indexing with an integer"
-                " positional array, you can instead index with a NamedArray"
-                " with a fresh named axis, which will be vectorized over"
-                " automatically."
-            )
+    self.check_valid()
+    return self.at[indexer].get()
 
-      return (
-          self.tag(*tmp_names_for_pos)
-          .untag(*input_names)[tuple(index_seq)]
-          .tag(*output_names)
-          .untag(*tmp_names_for_pos)
-      )
-
-    else:
-
-      # Normal indexing => map it over any named axes.
-      # We always jit-compile `getitem`, because eagerly `vmap`-ing (and, by
-      # extension, `nmap`-ing) a gather operation can lead to spurious
-      # transposes that waste device memory when indexing into a large array.
-      # We have to do a bit of trickery to deal with slices and non-jittable
-      # array data.
-      if not isinstance(indexer, tuple):
-        indexer = (indexer,)
-      index_thunks = []
-      for c in indexer:
-        if isinstance(c, jax.Array | np.ndarray | NamedArrayBase | int):
-          index_thunks.append(_DynamicThunk(c))
-        elif isinstance(c, slice):
-          index_thunks.append(_SliceThunk(c.start, c.stop, c.step))
-        else:
-          index_thunks.append(_StaticThunk(c))
-      return _jitted_nmapped_getitem(self, tuple(index_thunks))
-
-  # In-place mutation with at-set syntax. Note: Does not support dict-style
-  # indexing.
+  # In-place mutation with at-set syntax.
   @property
   def at(self) -> _IndexUpdateHelper:
     """Helper property for index update functionality.
 
     Lifts the ``jax.Array.at[...]`` syntax to also work for Penzai NamedArrays.
-    In particular, ::
+
+    Similar to direct indexing, `NamedArray.at[...]` can be indexed in two
+    different ways, depending on whether the axes you wish to index are
+    positional or named.
+
+    When indexing positional axes, this operation follows the combination of
+    `nmap` and ``jax.Array.at[...]`` semantics. In particular, ::
 
       named_array.at[index].set(value)
 
@@ -941,10 +1121,84 @@ class NamedArrayBase(abc.ABC):
 
       nmap(lambda arr, i, v: arr.at[i].set(v))(named_array, index, value)
 
-    Note that dict-style indexing is not supported for ``.at``, so the index
-    passed to ``.at`` must be an ordinary positional index expression. To apply
-    indexed updates to specific named axes, ``untag`` them first.
+    The resulting array will have the same positional shape as the input array,
+    and will have a named shape that is the union of the named shape of the
+    input array and the names used in the indexer.
+
+    The semantics of dict-style indexing are similar, except that they apply to
+    the named axes instead of the positional ones. In general, dict-style
+    indexing will behave like positional indexing, where the requested axes
+    are mapped to positional axes, then indexed, then mapped back to named axes
+    where applicable. In other words, ::
+
+      # Update part of "foo" in place, and index into "bar" and "baz".
+      named_array.at[{
+          "foo": pz.slice[2:5], "bar": 1, "baz": indexer_array
+      }].set(value)
+
+    will behave like ::
+
+      result_structure = jax.eval_shape(lambda: named_array[{
+          "foo": pz.slice[2:5], "bar": 1, "baz": indexer_array
+      }])
+
+      # Update positionally, but expect the name "foo" in `value`, and make
+      # sure it maps correctly to "foo" in the input.
+      named_array.untag_prefix("foo", "bar", "baz")
+        .at[2:5, 1, indexer_array, ...]
+        .set(value.broadcast_like(result_structure).untag_prefix("foo"))
+        .tag_prefix("foo", "bar", "baz")
+
+    Specifically:
+
+    * Axis names that are sliced by ``index_dict`` (e.g. mapped to a slice
+      object) can appear in the ``value``. These will be used to update the
+      corresponding slices of the array.
+    * Axis names that do not appear in ``index_dict`` will be broadcast against
+      the corresponding axis names in ``value`` if they exist, following the
+      semantics of `nmap`.
+    * The positional axes of ``value`` will be broadcast against the result of
+      slicing the input array. This means that the suffix axes of ``value``
+      will correspond to positional axes of the input array, and the prefix
+      axes will correspond to new axes introduced by advanced Numpy indexing.
+      Often, the input ``named_array`` will have no positional axes, in which
+      case the positional axes of ``value`` will be broadcast against the
+      positional axes of the indexer arrays.
+
+    Note that, in order to update multiple positions along the same axis, you
+    will need to use Numpy-style advanced indexing, by indexing with an array
+    with a *positional* axis. For instance, to update indices 2 and 4 along
+    axis "foo", you can do ::
+
+      # Option 1: dict-style
+      named_array.at[{ "foo": jnp.array([2, 4]) }].set( jnp.array([100, 101]) )
+
+      # Option 2: positional-style
+      named_array.untag("foo").at[jnp.array([2, 4])]
+        .set(jnp.array([100, 101])).tag("foo")
+
+    The following, will instead create a new axis "bar" with one update in each
+    dimension: ::
+
+      # Option 1: dict-style
+      named_array.at[{
+          "foo": pz.nx.wrap(jnp.array([2, 4])).tag("bar")
+      }].set(
+          pz.nx.wrap(jnp.array([100, 101])).tag("bar")
+      )
+
+      # Option 2: positional-style
+      named_array.untag("foo").at[
+          pz.nx.wrap(jnp.array([2, 4])).tag("bar")
+      ].set(
+          pz.nx.wrap(jnp.array([100, 101])).tag("bar")
+      ).tag("foo")
+
+    The reason for this difference is that the named axis "bar" is *vectorized*
+    over, and the behavior needs to be consistent regardless of whether "bar"
+    appears in ``named_array`` or not.
     """
+    self.check_valid()
     return _IndexUpdateHelper(self)
 
   # Iteration. Note that we *must* implement this to avoid Python simply trying
@@ -1753,3 +2007,90 @@ def order_like(value_tree: Any, reference_tree: Any):
   return jax.tree_util.tree_map(
       _fix, value_tree, reference_tree, is_leaf=is_namedarray
   )
+
+
+def scan(
+    f: Callable[[Any, Any], Any], axis: AxisName, init, xs=None, **scan_kwargs
+) -> Any:
+  """Scan a function over a named array axis while carrying along state.
+
+  This function wraps `jax.lax.scan` to allow scanning over a named axis instead
+  of over the leading axis of ``xs``. The inputs ``xs`` must contain
+  `NamedArray` (or `NamedArrayView`) instances, and ``f`` should (usually) take
+  and return named arrays also, with the difference that each value in ``xs``
+  will be missing the named axis ``axis`` that is being scanned over. ``f`` will
+  be called with slices of ``xs`` along the given named axis.
+
+  When ``xs`` and the output of ``f`` are single ``NamedArray`` instances, the
+  semantics of `scan` are given roughly by ::
+
+    def scan(f, axis, init, xs):
+      carry = init
+      ys = []
+      for i in range(xs.named_shape[axis]):
+        x = xs[{axis: i}]
+        carry, y = f(carry, x)
+        ys.append(y)
+      return carry, pz.nx.stack(ys, axis)
+
+  This is a convenience function that is equivalent to calling `jax.lax.scan`
+  in combination with the necessary `tag`, `untag`, and `with_positional_prefix`
+  calls.
+
+  Args:
+    f: The function to scan. As in `jax.lax.scan`, this function should have
+      signature ``c -> a -> (c, b)``, where ``c`` is the carry state, ``a`` is
+      the current element of `xs`, and ``b`` is the result of the scan.
+    axis: The name of the axis to scan over.
+    init: The initial loop carry value of type ``c``, which can be any JAX
+      PyTree. This value must have the same structure as the first element of
+      the pair returned by ``f``.
+    xs: The value or tree of values over which to scan. Must contain Penzai
+      named arrays, each of which should have the named axis ``axis``.
+    **scan_kwargs: Additional keyword arguments to pass to `jax.lax.scan`. In
+      particular, if ``xs`` is None, this should include the keyword argument
+      ``length`` to specify the length of the scan.
+
+  Returns:
+    A pair ``(final_carry, stacked_outputs)``, where ``final_carry`` is the
+    final loop carry value, and ``stacked_outputs`` is a named array or tree
+    of named arrays that represents the second outputs of ``f``, stacked over
+    the named axis ``axis``.
+  """
+
+  # Untag the scan axis.
+  def _untag(x):
+    if isinstance(x, NamedArrayBase):
+      return x.untag_prefix(axis).with_positional_prefix()
+    else:
+      raise ValueError("All leaves of `xs` must be Penzai named arrays.")
+
+  xs_untagged = jax.tree_util.tree_map(_untag, xs, is_leaf=is_namedarray)
+
+  # Run the function, ensuring that axis names are consistent for the carry,
+  # and that outputs have positional prefixes.
+  def wrapped_f(carry, x):
+    new_carry, y = f(carry, x)
+    new_carry = order_like(new_carry, carry)
+    y = jax.tree_util.tree_map(
+        lambda v: v.with_positional_prefix() if is_namedarray(v) else v,
+        y,
+        is_leaf=is_namedarray,
+    )
+    return new_carry, y
+
+  # Run the scan, which will slice off the positional prefix from the inputs,
+  # and add a positional prefix to the outputs.
+  final_carry, ys_untagged = jax.lax.scan(
+      wrapped_f, init, xs_untagged, **scan_kwargs
+  )
+
+  # Re-assign the scanned-over axis.
+  def _retag(leaf):
+    if isinstance(leaf, NamedArrayBase):
+      return leaf.tag_prefix(axis)
+    else:
+      return wrap(leaf).tag_prefix(axis)
+
+  ys = jax.tree_util.tree_map(_retag, ys_untagged, is_leaf=is_namedarray)
+  return final_carry, ys
