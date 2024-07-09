@@ -1498,7 +1498,7 @@ def integer_digitbox(
       "const parent = this.parentNode;"
       "const defns = this.getRootNode().host.defns;"
       "defns.runSoon(() => {"
-      f"defns.arrayviz.buildArrayvizFigure(parent, {render_args});"
+      f"defns.arrayviz.renderOneDigitbox(parent, {render_args});"
       "});"
       "</script></treescope-run-here>"
       "</span>"
