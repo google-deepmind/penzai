@@ -100,10 +100,26 @@ CONTAINER_TEMPLATE = """
     class RunHere extends HTMLElement {
       constructor() { super() }
       connectedCallback() {
-        const src = this.querySelector("script").textContent;
-        const fn = new Function(src);
-        fn.call(this);
-        this.remove();
+        const run = child => {
+          const fn = new Function(child.textContent);
+          child.textContent = "";
+          fn.call(this);
+          this.remove();
+        };
+        const child = this.querySelector("script");
+        if (child) {
+          run(child);
+        } else {
+          // In some cases, the connected callback may fire before the script
+          // tag has actually been added; this can occur when loading from an
+          // iframe srcdoc attribute. In this case, we need to wait for the
+          // script tag to appear. We assume the only mutation that will occur
+          // is adding the script tag, since the element is only supposed to
+          // contain a single script tag.
+          new MutationObserver(()=>{
+            run(this.querySelector("script"));
+          }).observe(this, {childList: true});
+        }
       }
     }
     customElements.define("treescope-run-here", RunHere);
