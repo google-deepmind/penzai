@@ -491,6 +491,24 @@ token_logits = explicit_attn_model(
 
 For more control, you can also define your own layer and insert it in place of the attention masking logic.
 
+
+### Reducing backward-pass memory usage using gradient checkpointing
+
+By default, when computing gradients through a model, JAX will save all of the intermediate values produced by the computation. This can sometimes lead to out-of-memory errors.
+
+To prevent this, you can enable gradient checkpointing, which tells JAX to recompute some intermediate values during the backward pass. In Penzai models, you can enable gradient checkpointing using the `Checkpointed` combinator from `penzai.experimental.v2.toolshed.gradient_checkpointing`, which adapts the `jax.checkpoint` function transformation to support Penzai's variables. For instance, to prevent saving intermediate values inside each attention layer, you can use something like
+
+```
+checkpointed_model = (
+    pz.select(model)
+    .at_instances_of(pz.nn.Attention)  # for example
+    .apply(gradient_checkpointing.Checkpointed)
+)
+```
+
+`Checkpointed` can be wrapped around any `pz.nn.Layer` in the model to add gradient checkpointing. It is also itself a Penzai layer, and can be modified and pretty-printed just like any other layer.
+
+
 ----------------------------
 ## Training and Fine-Tuning Models (V2 API)
 
@@ -506,6 +524,6 @@ To finetune a model using low-rank adaptation, you can use the function `loraify
 
 `loraify_linears_in_selection` returns a modified copy of the model, where each of the `pz.nn.Linear` layers in the original model has been replaced with a `lora.LowRankAdapter` with the same signature. As with any other Penzai model transformation, you can visualize the new model structure by pretty-printing the new model copy.
 
-### Checkpointing models
+### Checkpointing model parameters
 
 Penzai does not include any Penzai-specific checkpointing utilities. However, Penzai is compatible with any PyTree-based JAX checkpointing system, as long as you first extract the parameters using `pz.unbind_parameters(model, freeze=True)`. One checkpointing library that is currently well supported in JAX is [`orbax.checkpoint`](https://orbax.readthedocs.io/en/latest/orbax_checkpoint_101.html).
