@@ -241,7 +241,8 @@ class TreescopeRenderer:
             postprocessed_result, part_interface.RenderableTreePart
         ):
           return part_interface.RenderableAndLineAnnotations(
-              renderable=postprocessed_result
+              renderable=postprocessed_result,
+              annotations=basic_parts.EmptyPart(),
           )
         else:
           raise ValueError(
@@ -272,7 +273,8 @@ class TreescopeRenderer:
                   f"<cyclic reference to {type(node).__name__} at"
                   f" 0x{node_id:x}>"
               )
-          )
+          ),
+          annotations=basic_parts.EmptyPart(),
       )
     else:
       # Track cyclic references. We use `try: ... finally: ...` to ensure we
@@ -301,7 +303,8 @@ class TreescopeRenderer:
             elif isinstance(maybe_result, part_interface.RenderableTreePart):
               # Wrap it with empty annotations.
               return part_interface.RenderableAndLineAnnotations(
-                  renderable=maybe_result
+                  renderable=maybe_result,
+                  annotations=basic_parts.EmptyPart(),
               )
             else:
               raise ValueError(
@@ -330,7 +333,8 @@ class TreescopeRenderer:
           return part_interface.RenderableAndLineAnnotations(
               renderable=common_styles.AbbreviationColor(
                   basic_parts.Text(repr(node))
-              )
+              ),
+              annotations=basic_parts.EmptyPart(),
           )
         else:
           raise ValueError(

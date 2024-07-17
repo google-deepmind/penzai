@@ -1210,6 +1210,13 @@ class NamedArrayBase(abc.ABC):
     for i in range(self.positional_shape[0]):
       yield self[i]
 
+  # Rendering
+  def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
+    """Treescope handler for named arrays."""
+    from penzai.treescope.handlers.penzai import named_axes_handlers  # pylint: disable=g-import-not-at-top
+
+    return named_axes_handlers.handle_named_arrays(self, path, subtree_renderer)
+
   # Convenience wrappers: Elementwise infix operators.
   __lt__ = _nmap_with_doc(operator.lt, "jax.Array.__lt__")
   __le__ = _nmap_with_doc(operator.le, "jax.Array.__le__")
@@ -1316,7 +1323,7 @@ class NamedArrayBase(abc.ABC):
 
 
 @struct.pytree_dataclass
-class NamedArray(struct.Struct, NamedArrayBase):
+class NamedArray(NamedArrayBase, struct.Struct):
   r"""A multidimensional array with a combination of positional and named axes.
 
   Conceptually, ``NamedArray``\ s can have positional axes like an ordinary
@@ -1522,7 +1529,7 @@ class NamedArray(struct.Struct, NamedArrayBase):
 
 
 @struct.pytree_dataclass
-class NamedArrayView(struct.Struct, NamedArrayBase):
+class NamedArrayView(NamedArrayBase, struct.Struct):
   """A possibly-transposed view of an array with positional and named axes.
 
   This view identifies a particular set of axes in a data array as "virtual

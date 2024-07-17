@@ -25,10 +25,6 @@ from penzai.core.dataclass_util import (
     dataclass_from_attributes,
     init_takes_fields,
 )
-from penzai.core.formatting_util import (
-    oklch_color,
-    color_from_string,
-)
 from penzai.core.layer import (
     Layer,
     LayerLike,

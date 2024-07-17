@@ -21,7 +21,6 @@ from typing import Any, Callable
 
 import jax
 import jax.numpy as jnp
-from penzai.core import formatting_util
 from penzai.core import layer
 from penzai.core import named_axes
 from penzai.core import shapecheck
@@ -60,6 +59,8 @@ class Elementwise(layer.Layer):
       return self.fn(value)
 
   def treescope_color(self) -> str:
+    from penzai.treescope import formatting_util  # pylint: disable=g-import-not-at-top
+
     return formatting_util.color_from_string(repr(self.fn))
 
 

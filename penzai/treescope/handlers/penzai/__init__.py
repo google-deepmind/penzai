@@ -13,9 +13,3 @@
 # limitations under the License.
 
 """Treescope handlers for Penzai's own classes."""
-
-from . import data_effects_handlers
-from . import layer_handler
-from . import named_axes_handlers
-from . import shapecheck_handlers
-from . import struct_handler

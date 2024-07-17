@@ -52,6 +52,13 @@ class Wildcard(struct.Struct):
       default=None, metadata={"pytree_node": False}
   )
 
+  def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
+    from penzai.treescope.handlers.penzai import shapecheck_handlers  # pylint: disable=g-import-not-at-top
+
+    return shapecheck_handlers.handle_arraystructures(
+        self, path, subtree_renderer
+    )
+
 
 ANY = Wildcard()
 
@@ -349,6 +356,13 @@ class ArraySpec(struct.Struct):
       )
     else:
       return jax.ShapeDtypeStruct(self.shape, self.dtype)
+
+  def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
+    from penzai.treescope.handlers.penzai import shapecheck_handlers  # pylint: disable=g-import-not-at-top
+
+    return shapecheck_handlers.handle_arraystructures(
+        self, path, subtree_renderer
+    )
 
 
 def _abstract_leaf(value: Any) -> ArraySpec | Wildcard:

@@ -20,14 +20,13 @@ import functools
 from typing import Any, Callable
 import jax
 from penzai.core import context
-from penzai.core import selectors
-from penzai.treescope import autovisualize
 from penzai.treescope import canonical_aliases
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import foldable_impl
 from penzai.treescope.foldable_representation import layout_algorithms
 from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope.handlers import autovisualizer_hook
 from penzai.treescope.handlers import builtin_atom_handler
 from penzai.treescope.handlers import builtin_structure_handler
 from penzai.treescope.handlers import canonical_alias_postprocessor
@@ -39,28 +38,7 @@ from penzai.treescope.handlers import hardcoded_structure_handlers
 from penzai.treescope.handlers import ndarray_handler
 from penzai.treescope.handlers import repr_html_postprocessor
 from penzai.treescope.handlers import shared_value_postprocessor
-from penzai.treescope.handlers.penzai import data_effects_handlers
-from penzai.treescope.handlers.penzai import layer_handler
-from penzai.treescope.handlers.penzai import named_axes_handlers
-from penzai.treescope.handlers.penzai import shapecheck_handlers
-from penzai.treescope.handlers.penzai import struct_handler
 
-Selection = selectors.Selection
-
-
-handle_known_hardcoded_structures = (
-    hardcoded_structure_handlers.HardcodedStructureHandler({
-        ast.AST: (
-            hardcoded_structure_handlers.HasFieldsInClassAttr(
-                "_fields", render_subclasses=True
-            )
-        ),
-        jax.ShapeDtypeStruct: (
-            hardcoded_structure_handlers.HasFieldsInClassAttr("__slots__")
-        ),
-        jax.lax.Precision: hardcoded_structure_handlers.IsEnumLike(),
-    })
-)
 
 active_renderer: context.ContextualValue[renderer.TreescopeRenderer] = (
     context.ContextualValue(
@@ -70,16 +48,6 @@ active_renderer: context.ContextualValue[renderer.TreescopeRenderer] = (
             handlers=[
                 # Objects with their own handlers.
                 extension_method_handler.handle_via_penzai_repr_method,
-                # Named arrays.
-                named_axes_handlers.handle_named_arrays,
-                # Shapecheck array structures.
-                shapecheck_handlers.handle_arraystructures,
-                # Data effects objects.
-                data_effects_handlers.handle_data_effects_objects,
-                # Layers.
-                layer_handler.handle_layers,
-                # Other pz.Struct instances.
-                struct_handler.handle_structs,
                 # NDArrays.
                 ndarray_handler.handle_ndarrays,
                 # Reflection of functions and classes.
@@ -89,7 +57,19 @@ active_renderer: context.ContextualValue[renderer.TreescopeRenderer] = (
                 # Lists, dicts, tuples, dataclasses, namedtuples, etc.
                 builtin_structure_handler.handle_builtin_structures,
                 # Hardcoded simple types.
-                handle_known_hardcoded_structures,
+                hardcoded_structure_handlers.HardcodedStructureHandler({
+                    ast.AST: hardcoded_structure_handlers.HasFieldsInClassAttr(
+                        "_fields", render_subclasses=True
+                    ),
+                    jax.ShapeDtypeStruct: (
+                        hardcoded_structure_handlers.HasFieldsInClassAttr(
+                            "__slots__"
+                        )
+                    ),
+                    jax.lax.Precision: (
+                        hardcoded_structure_handlers.IsEnumLike()
+                    ),
+                }),
                 # Dtype objects.
                 ndarray_handler.handle_dtype_instances,
                 # Fallback for unknown pytree types: Show repr and also the
@@ -100,7 +80,7 @@ active_renderer: context.ContextualValue[renderer.TreescopeRenderer] = (
             ],
             wrapper_hooks=[
                 # Allow user-configurable visualizations.
-                autovisualize.use_autovisualizer_if_present,
+                autovisualizer_hook.use_autovisualizer_if_present,
                 # Show display objects inline.
                 repr_html_postprocessor.append_repr_html_when_present,
                 # Collapse well-known objects into aliases.

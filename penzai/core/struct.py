@@ -31,7 +31,6 @@ from typing import Any, Callable, Hashable, Literal, Sequence, Type, TypeVar
 
 import jax
 from penzai.core import dataclass_util
-from penzai.core import formatting_util
 from typing_extensions import dataclass_transform
 
 if typing.TYPE_CHECKING:
@@ -667,6 +666,8 @@ class Struct(metaclass=AbstractStructMetaclass):
     """
     # By default, we render structs in color if they define __call__.
     if hasattr(self, "__call__"):
+      from penzai.treescope import formatting_util  # pylint: disable=g-import-not-at-top
+
       type_string = type(self).__module__ + "." + type(self).__qualname__
       return formatting_util.color_from_string(type_string)
     else:
@@ -691,3 +692,8 @@ class Struct(metaclass=AbstractStructMetaclass):
       if i:
         p.break_()
       p.text(line)
+
+  def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
+    from penzai.treescope.handlers.penzai import struct_handler  # pylint: disable=g-import-not-at-top
+
+    return struct_handler.handle_structs(self, path, subtree_renderer)

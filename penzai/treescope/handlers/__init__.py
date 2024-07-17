@@ -13,15 +13,3 @@
 # limitations under the License.
 
 """Treescope handlers for known objects."""
-
-from . import builtin_atom_handler
-from . import builtin_structure_handler
-from . import canonical_alias_postprocessor
-from . import function_reflection_handlers
-from . import generic_pytree_handler
-from . import generic_repr_handler
-from . import hardcoded_structure_handlers
-from . import ndarray_handler
-from . import penzai
-from . import repr_html_postprocessor
-from . import shared_value_postprocessor

@@ -80,7 +80,6 @@ import weakref
 
 import jax
 import ordered_set
-from penzai.core import formatting_util
 from penzai.core import layer as layer_base
 from penzai.core import selectors
 from penzai.core import struct
@@ -100,6 +99,8 @@ def get_effect_color(effect_protocol: type[Any]) -> str:
   """Gets the default color for a given effect (for treescope rendering)."""
   if effect_protocol in _EFFECT_COLORS:
     return _EFFECT_COLORS[effect_protocol]
+  from penzai.treescope import formatting_util  # pylint: disable=g-import-not-at-top
+
   return formatting_util.color_from_string(effect_protocol.__qualname__)
 
 
@@ -388,6 +389,13 @@ class HandledEffectRef(struct.Struct, abc.ABC):
   def treescope_color(self):
     return get_effect_color(self.effect_protocol())
 
+  def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
+    from penzai.treescope.handlers.penzai import data_effects_handlers  # pylint: disable=g-import-not-at-top
+
+    return data_effects_handlers.handle_data_effects_objects(
+        self, path, subtree_renderer
+    )
+
 
 class EffectRuntimeImpl(abc.ABC):
   """Base class for runtime effect implementations.
@@ -434,6 +442,13 @@ class EffectRuntimeImpl(abc.ABC):
 
   def treescope_color(self):
     return get_effect_color(self.effect_protocol())
+
+  def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
+    from penzai.treescope.handlers.penzai import data_effects_handlers  # pylint: disable=g-import-not-at-top
+
+    return data_effects_handlers.handle_data_effects_objects(
+        self, path, subtree_renderer
+    )
 
 
 @struct.pytree_dataclass
@@ -494,8 +509,17 @@ class EffectHandler(layer_base.Layer, abc.ABC):
     )
 
   def treescope_color(self):
+    from penzai.treescope import formatting_util  # pylint: disable=g-import-not-at-top
+
     protocol = self.effect_protocol()
     if isinstance(protocol, type):
       return get_effect_color(protocol)
     else:
       return formatting_util.color_from_string(type(self).__qualname__)
+
+  def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
+    from penzai.treescope.handlers.penzai import data_effects_handlers  # pylint: disable=g-import-not-at-top
+
+    return data_effects_handlers.handle_data_effects_objects(
+        self, path, subtree_renderer
+    )

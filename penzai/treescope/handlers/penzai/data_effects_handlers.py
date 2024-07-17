@@ -21,9 +21,9 @@ import functools
 from typing import Any
 
 from penzai.core import context
-from penzai.core import formatting_util
 from penzai.core import struct
 from penzai.data_effects import effect_base
+from penzai.treescope import formatting_util
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import common_structures

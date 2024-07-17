@@ -35,6 +35,7 @@ import flax
 import flax.typing
 import jax
 from penzai import pz
+from penzai.treescope import formatting_util
 
 
 @pz.pytree_dataclass
@@ -194,7 +195,7 @@ class InterceptedFlaxModuleMethod(pz.Layer):
     return output
 
   def treescope_color(self) -> str:
-    return pz.color_from_string(type(self.module).__name__)
+    return formatting_util.color_from_string(type(self.module).__name__)
 
 
 @dataclasses.dataclass

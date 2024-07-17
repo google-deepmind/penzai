@@ -370,7 +370,7 @@ class RenderableAndLineAnnotations:
   """
 
   renderable: RenderableTreePart
-  annotations: RenderableTreePart | None = None
+  annotations: RenderableTreePart
 
 
 NodePath: TypeAlias = str
