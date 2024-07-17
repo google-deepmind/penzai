@@ -36,22 +36,20 @@ FoldableTreeNode = part_interface.FoldableTreeNode
 RenderableAndLineAnnotations = basic_parts.RenderableAndLineAnnotations
 
 
-def build_copy_button(path: tuple[Any, ...] | None) -> RenderableTreePart:
+def build_copy_button(path: str | None) -> RenderableTreePart:
   """Builds a copy-path button, if `path` is provided and not empty."""
   if not path:
     return basic_parts.EmptyPart()
   else:
     return foldable_impl.StringCopyButton(
         annotation="Copy path: ",
-        copy_string=(
-            "(lambda root: root" + "".join(str(key) for key in path) + ")"
-        ),
+        copy_string=f"(lambda root: root{path})",
     )
 
 
 def build_custom_foldable_tree_node(
     contents: RenderableTreePart,
-    path: tuple[Any, ...] | None = None,
+    path: str | None = None,
     label: RenderableTreePart = basic_parts.EmptyPart(),
     expand_state: part_interface.ExpandState = part_interface.ExpandState.WEAKLY_COLLAPSED,
 ) -> RenderableAndLineAnnotations:
@@ -85,7 +83,7 @@ def build_custom_foldable_tree_node(
 
 def build_one_line_tree_node(
     line: RenderableAndLineAnnotations | RenderableTreePart | str,
-    path: tuple[Any, ...] | None = None,
+    path: str | None = None,
     background_color: str | None = None,
     background_pattern: str | None = None,
 ) -> RenderableAndLineAnnotations:
@@ -149,7 +147,7 @@ def build_foldable_tree_node_from_children(
     suffix: RenderableTreePart | str,
     comma_separated: bool = False,
     force_trailing_comma: bool = False,
-    path: tuple[Any, ...] | None = None,
+    path: str | None = None,
     background_color: str | None = None,
     background_pattern: str | None = None,
     first_line_annotation: RenderableTreePart | None = None,
@@ -188,6 +186,7 @@ def build_foldable_tree_node_from_children(
     )
 
   maybe_copy_button = build_copy_button(path)
+
   if isinstance(prefix, str):
     prefix = basic_parts.Text(prefix)
 

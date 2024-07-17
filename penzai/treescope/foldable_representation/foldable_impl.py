@@ -257,7 +257,7 @@ class HyperlinkTarget(basic_parts.DeferringToChild):
   """
 
   child: RenderableTreePart
-  keypath: tuple[Any, ...] | None
+  keypath: str | None
 
   def render_to_html(
       self,
@@ -299,7 +299,7 @@ class NodeHyperlink(basic_parts.DeferringToChild):
   """
 
   child: RenderableTreePart
-  target_keypath: tuple[Any, ...] | None
+  target_keypath: str | None
 
   def html_setup_parts(
       self, setup_context: HtmlContextForSetup

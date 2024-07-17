@@ -40,15 +40,14 @@ class TreescopeSubtreeRenderer(typing.Protocol):
   def __call__(
       self,
       node: Any,
-      path: tuple[Any, ...] | None = None,
+      path: str | None = None,
   ) -> part_interface.RenderableAndLineAnnotations:
     """Signature for a (recursive) subtree renderer.
 
     Args:
       node: The node to render.
-      path: Optionally, a path to this node. Handlers should pass the JAX
-        keypath to each of their pytree node children. They can also pass
-        keypaths to non-pytree-node children if desired.
+      path: Optionally, a path to this node, represented as a string that can be
+        used to reach this node from the root (e.g. ".foo.bar['baz']")
 
     Returns:
       A representation of the object as a renderable tree part in the
@@ -68,7 +67,7 @@ class TreescopeNodeHandler(typing.Protocol):
   def __call__(
       self,
       node: Any,
-      path: tuple[Any, ...] | None,
+      path: str | None,
       subtree_renderer: TreescopeSubtreeRenderer,
   ) -> (
       part_interface.RenderableTreePart
@@ -79,12 +78,10 @@ class TreescopeNodeHandler(typing.Protocol):
 
     Args:
       node: The node to render.
-      path: Optionally, a path to this node. This will be the JAX keypath to the
-        node if the node is part of a JAX PyTree. It may also be provided for
-        nodes outside of the PyTree, in a format similar to that used by JAX
-        keypaths. Handlers are encouraged to use this to build their rendering,
-        and to pass an extended version when rendering their children using
-        ``subtree_renderer``.
+      path: Optionally, a path to this node, represented as a string that can be
+        used to reach this node from the root (e.g. ".foo.bar['baz']"). Handlers
+        should extend this path and pass it to `subtree_renderer` when rendering
+        each of its children.
       subtree_renderer: A recursive renderer for subtrees of this node. This
         should be used to render the children of this node into HTML tags to
         include in the rendering of this node. Should only be called on nodes
@@ -114,7 +111,7 @@ class TreescopeCustomWrapperHook(typing.Protocol):
   def __call__(
       self,
       node: Any,
-      path: tuple[Any, ...] | None,
+      path: str | None,
       node_renderer: TreescopeSubtreeRenderer,
   ) -> (
       part_interface.RenderableTreePart
@@ -199,7 +196,7 @@ class TreescopeRenderer:
       rendering_stack: list[Any],
       already_executed_wrapper_count: int,
       node: Any,
-      path: tuple[Any, ...] | None = None,
+      path: str | None = None,
   ) -> part_interface.RenderableAndLineAnnotations:
     """Renders a specific subtree using the renderer.
 
@@ -349,7 +346,7 @@ class TreescopeRenderer:
       self,
       value: Any,
       ignore_exceptions: bool = False,
-      root_keypath: tuple[Any, ...] | None = (),
+      root_keypath: str | None = "",
   ) -> part_interface.RenderableAndLineAnnotations:
     """Renders an object to the foldable intermediate representation.
 

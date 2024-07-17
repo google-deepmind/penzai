@@ -287,7 +287,7 @@ def _is_safe_to_share(node: Any) -> bool:
 
 def check_for_shared_values(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     node_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
     part_interface.RenderableTreePart

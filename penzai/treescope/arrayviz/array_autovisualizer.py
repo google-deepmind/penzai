@@ -76,7 +76,7 @@ class ArrayAutovisualizer:
   def _autovisualize_namedarray(
       self,
       named_array: named_axes.NamedArrayBase,
-      path: tuple[Any, ...] | None,
+      path: str | None,
       label: str,
       expand_state: part_interface.ExpandState,
   ) -> part_interface.RenderableTreePart:
@@ -213,7 +213,7 @@ class ArrayAutovisualizer:
     return custom_rendering.renderable
 
   def __call__(
-      self, value: Any, path: tuple[Any, ...] | None
+      self, value: Any, path: str | None
   ) -> autovisualize.CustomTreescopeVisualization | None:
     """Implementation of an autovisualizer, visualizing arrays."""
     with jax.core.ensure_compile_time_eval():

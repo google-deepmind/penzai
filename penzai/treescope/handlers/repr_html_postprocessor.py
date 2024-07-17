@@ -54,7 +54,7 @@ rich HTML representation of the outermost element.
 
 def append_repr_html_when_present(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     node_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
     part_interface.RenderableTreePart

@@ -373,5 +373,5 @@ class RenderableAndLineAnnotations:
   annotations: RenderableTreePart | None = None
 
 
-NodePath: TypeAlias = tuple[Any, ...]
+NodePath: TypeAlias = str
 Rendering: TypeAlias = RenderableTreePart | RenderableAndLineAnnotations

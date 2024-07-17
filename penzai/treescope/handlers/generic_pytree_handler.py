@@ -27,7 +27,7 @@ from penzai.treescope.handlers import generic_repr_handler
 
 def handle_arbitrary_pytrees(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
     part_interface.RenderableTreePart
@@ -55,7 +55,7 @@ def handle_arbitrary_pytrees(
   # Then add an extra block that pretty-prints its children.
   list_items = []
   for key, child in subtrees_with_paths:
-    child_path = None if path is None else (path + (key,))
+    child_path = None if path is None else path + str(key)
     list_items.append(
         basic_parts.siblings_with_annotations(
             subtree_renderer(key, path=None),

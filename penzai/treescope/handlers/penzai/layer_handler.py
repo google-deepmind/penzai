@@ -47,7 +47,7 @@ This is used to enable rendering effects only for the outermost layer object.
 
 def handle_layers(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
     obvious_input_output_structure_types: tuple[type[Any], ...] = (
         grouping.CheckStructure,
@@ -194,7 +194,6 @@ def handle_layers(
         path,
         subtree_renderer,
         fields_or_attribute_names=fields,
-        key_path_fn=node.key_for_field,
         attr_style_fn=struct_handler.struct_attr_style_fn_for_fields(fields),
     )
 

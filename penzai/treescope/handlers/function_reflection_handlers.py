@@ -67,7 +67,7 @@ def format_source_location(
 
 def handle_code_objects_with_reflection(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
     show_closure_vars: bool = False,
 ) -> (

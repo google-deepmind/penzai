@@ -102,7 +102,7 @@ class Autovisualizer(Protocol):
 
   @abc.abstractmethod
   def __call__(
-      self, value: Any, path: tuple[Any, ...] | None
+      self, value: Any, path: str | None
   ) -> (
       IPythonVisualization
       | CustomTreescopeVisualization
@@ -113,9 +113,8 @@ class Autovisualizer(Protocol):
 
     Args:
       value: A value being rendered in treescope.
-      path: Path to this value from the root, as a JAX keypath. May be None if
-        this object isn't part of the root PyTree and so treescope doesn't know
-        how to access it.
+      path: Optionally, a path to this node, represented as a string that can be
+        used to reach this node from the root (e.g. ".foo.bar['baz']").
 
     Returns:
       A visualization for this subtree, a child autovisualizer to use while

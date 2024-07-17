@@ -44,7 +44,7 @@ from penzai.treescope.foldable_representation import part_interface
 
 def replace_with_canonical_aliases(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     node_renderer: renderer.TreescopeSubtreeRenderer,
     summarization_threshold: int = 20,
 ) -> (

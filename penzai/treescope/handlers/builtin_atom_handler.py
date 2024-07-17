@@ -77,7 +77,7 @@ class StringLiteralColor(basic_parts.BaseSpanGroup):
 
 def handle_builtin_atoms(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
     part_interface.RenderableTreePart

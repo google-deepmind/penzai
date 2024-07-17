@@ -938,17 +938,17 @@ class TreescopeRendererTest(parameterized.TestCase):
                 basic_parts.Text(" # annotation for vis for foo"),
             ),
         )
-      elif path == (jax.tree_util.SequenceKey(4),):
+      elif path == "[4]":
         return autovisualize.IPythonVisualization(
             CustomReprHTMLObject(lambda: "(html rendering)"),
             replace=True,
         )
-      elif path == (jax.tree_util.SequenceKey(5),):
+      elif path == "[5]":
         return autovisualize.IPythonVisualization(
             CustomReprHTMLObject(lambda: "(html rendering)"),
             replace=False,
         )
-      elif path == (jax.tree_util.SequenceKey(6),):
+      elif path == "[6]":
         return autovisualize.ChildAutovisualizer(inner_autovisualizer)
 
     def inner_autovisualizer(node, path):

@@ -35,7 +35,7 @@ from penzai.treescope.handlers.penzai import layer_handler
 from penzai.treescope.handlers.penzai import struct_handler
 
 _known_handlers: context.ContextualValue[
-    dict[str, tuple[effect_base.EffectHandler, tuple[Any, ...] | None]] | None
+    dict[str, tuple[effect_base.EffectHandler, str | None]] | None
 ] = context.ContextualValue(
     module=__name__, qualname="_known_handlers", initial_value=None
 )
@@ -49,7 +49,7 @@ and implementations back to the handler that is responsible for them.
 
 def handle_data_effects_objects(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
     part_interface.RenderableTreePart
@@ -60,7 +60,7 @@ def handle_data_effects_objects(
 
   def handler_id_interceptor(
       node: Any,
-      path: tuple[Any, ...] | None = None,
+      path: str | None = None,
       *,
       handler_id: str,
       hyperlink_path=None,
@@ -132,7 +132,6 @@ def handle_data_effects_objects(
             hyperlink_path=handler_path,
         ),
         fields_or_attribute_names=fields,
-        key_path_fn=node.key_for_field,
         attr_style_fn=struct_handler.struct_attr_style_fn_for_fields(fields),
     )
     background_color = node.treescope_color()

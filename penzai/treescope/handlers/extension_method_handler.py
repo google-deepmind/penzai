@@ -25,7 +25,7 @@ from penzai.treescope.foldable_representation import part_interface
 
 def handle_via_penzai_repr_method(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
     part_interface.RenderableTreePart

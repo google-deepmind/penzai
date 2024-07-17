@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import dataclasses
 from typing import Any
-import warnings
 
+import jax
 from penzai.core import context
 from penzai.core import selectors
 from penzai.treescope import default_renderer
@@ -39,13 +39,16 @@ class SelectedNodeTracker:
   Attributes:
     selected_node_paths: The set of key paths for selected nodes.
     rendered_node_paths: The set of key paths we have rendered.
+    repeated_node_paths: The set of key paths we have rendered more than once;
+      this should usually be empty, and we emit a warning if it is not.
     visible_boundary: Whether we should actually visualize the boundary. If
       False, inserts boundary tags for layout purposes but does not actually
       modify the rendered HTML tree.
   """
 
-  selected_node_paths: set[tuple[Any, ...]]
-  rendered_node_paths: set[tuple[Any, ...]]
+  selected_node_paths: set[str]
+  rendered_node_paths: set[str]
+  repeated_node_paths: set[str]
   visible_boundary: bool
 
 
@@ -120,7 +123,7 @@ class SelectionBoundaryLabel(basic_parts.BaseSpanGroup):
 
 def _wrap_selected_nodes(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     node_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
     part_interface.RenderableTreePart
@@ -133,12 +136,7 @@ def _wrap_selected_nodes(
   assert tracker is not None
   if path is not None and path in tracker.selected_node_paths:
     if path in tracker.rendered_node_paths:
-      warnings.warn(
-          "Rendering a single selected node multiple times! This likely means"
-          " the current treescope handlers are not assigning keypaths"
-          " consistently with JAX for some custom PyTree type.\nRepeated"
-          f" keypath: {path}"
-      )
+      tracker.repeated_node_paths.add(path)
     else:
       tracker.rendered_node_paths.add(path)
 
@@ -214,8 +212,12 @@ def render_selection_to_foldable_representation(
   # Enter a scope where we know which values to select, and render with our
   # extended renderer.
   tracker = SelectedNodeTracker(
-      selected_node_paths=set(selection.selected_by_path.keys()),
+      selected_node_paths=set(
+          jax.tree_util.keystr(keypath)
+          for keypath in selection.selected_by_path.keys()
+      ),
       rendered_node_paths=set(),
+      repeated_node_paths=set(),
       visible_boundary=visible_selection,
   )
   with _selected_nodes.set_scoped(tracker):
@@ -226,18 +228,28 @@ def render_selection_to_foldable_representation(
         )
     )
 
+  warnings = []
+
   unrendered_node_paths = {
       path
       for path in tracker.selected_node_paths
       if path not in tracker.rendered_node_paths
   }
   if unrendered_node_paths:
-    warnings.warn(
-        "Some selected nodes were not rendered! This likely means the current"
-        " treescope handlers are not assigning keypaths consistently with JAX"
-        " for some custom PyTree type.\nMissing keypaths:"
-        f" {unrendered_node_paths}"
-    )
+    warnings.extend([
+        "# Some selected nodes were not rendered!",
+        "# This likely means the current treescope handlers are not assigning ",
+        "# keypaths consistently with JAX for some custom PyTree type.",
+        f"# Missing keypaths: {unrendered_node_paths}",
+    ])
+
+  if tracker.repeated_node_paths:
+    warnings.extend([
+        "# Rendered a single selected node multiple times!",
+        "# This likely means the current treescope handlers are not assigning ",
+        "# keypaths consistently with JAX for some custom PyTree type.",
+        f"# Repeated keypaths: {tracker.repeated_node_paths}",
+    ])
 
   # Expand the selected nodes.
   layout_algorithms.expand_to_tags(
@@ -260,7 +272,7 @@ def render_selection_to_foldable_representation(
 
     # Combine everything into a rendering of the selection itself.
     count = len(selection)
-    return basic_parts.Siblings.build(
+    result = basic_parts.Siblings.build(
         common_styles.CommentColor(basic_parts.Text("pz.select(")),
         basic_parts.IndentedChildren.build([rendered_ir]),
         common_styles.CommentColor(basic_parts.Text(").at_keypaths(")),
@@ -284,7 +296,15 @@ def render_selection_to_foldable_representation(
     )
   else:
     # Just return our existing rendering.
-    return rendered_ir
+    result = rendered_ir
+
+  if warnings:
+    result = basic_parts.OnSeparateLines.build([
+        common_styles.ErrorColor(basic_parts.OnSeparateLines.build(warnings)),
+        result,
+    ])
+
+  return result
 
 
 def display_selection_streaming(

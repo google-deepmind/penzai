@@ -116,7 +116,7 @@ def struct_attr_style_fn_for_fields(
 
 def handle_structs(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
     part_interface.RenderableTreePart
@@ -133,8 +133,6 @@ def handle_structs(
 
   * Colors are retrieved from the method ``treescope_color`` instead of
     ``__treescope_color__``.
-
-  * Keypaths are inferred using ``key_for_field``.
 
   * Dataclass fields that are pytree children are rendered in a different style.
 
@@ -164,7 +162,6 @@ def handle_structs(
       path,
       subtree_renderer,
       fields_or_attribute_names=fields,
-      key_path_fn=node.key_for_field,
       attr_style_fn=struct_attr_style_fn_for_fields(fields),
   )
 

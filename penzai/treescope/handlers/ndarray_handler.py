@@ -31,7 +31,7 @@ from penzai.treescope.foldable_representation import part_interface
 
 def handle_ndarrays(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
     part_interface.RenderableTreePart
@@ -137,7 +137,7 @@ def handle_ndarrays(
 
 def handle_dtype_instances(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
     part_interface.RenderableTreePart

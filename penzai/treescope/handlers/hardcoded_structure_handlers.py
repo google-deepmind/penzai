@@ -92,7 +92,7 @@ class IsEnumLike:
 def _dataclass_like(
     fields: Sequence[str],
     node: Any,
-    path: tuple[Any, ...],
+    path: str,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ):
   """Renders a dataclass-like object."""
@@ -113,7 +113,7 @@ def _dataclass_like(
 
 def _enum_like(
     node: Any,
-    path: tuple[Any, ...],
+    path: str,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ):
   """Renders a enum-like object."""
@@ -161,7 +161,7 @@ class HardcodedStructureHandler:
   def __call__(
       self,
       node: Any,
-      path: tuple[Any, ...] | None,
+      path: str | None,
       subtree_renderer: renderer.TreescopeSubtreeRenderer,
   ) -> (
       part_interface.RenderableTreePart

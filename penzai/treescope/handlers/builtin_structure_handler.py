@@ -21,7 +21,6 @@ import types
 from typing import Any, Callable, Optional, Sequence
 import warnings
 
-import jax
 from penzai.core import dataclass_util
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts
@@ -37,7 +36,7 @@ HtmlContextForSetup = part_interface.HtmlContextForSetup
 
 def _dict_to_foldable(
     node: dict[Any, Any],
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> part_interface.RenderableAndLineAnnotations:
   """Renders a dictionary."""
@@ -54,9 +53,7 @@ def _dict_to_foldable(
       # Last child: only show the comma when the node is expanded.
       comma_after = basic_parts.FoldCondition(expanded=basic_parts.Text(","))
 
-    child_path = (
-        None if path is None else (path + (jax.tree_util.DictKey(key),))
-    )
+    child_path = None if path is None else f"{path}[{repr(key)}]"
     # Figure out whether this key is simple enough to render inline with
     # its value.
     key_rendering = subtree_renderer(key)
@@ -117,16 +114,14 @@ def _dict_to_foldable(
 
 def _sequence_or_set_to_foldable(
     sequence: dict[Any, Any],
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> part_interface.RenderableAndLineAnnotations:
   """Renders a sequence or set to a foldable."""
 
   children = []
   for i, child in enumerate(sequence):
-    child_path = (
-        None if path is None else (path + (jax.tree_util.SequenceKey(i),))
-    )
+    child_path = None if path is None else f"{path}[{repr(i)}]"
     children.append(subtree_renderer(child, path=child_path))
 
   force_trailing_comma = False
@@ -197,10 +192,9 @@ def _sequence_or_set_to_foldable(
 
 def build_field_children(
     node: dict[Any, Any],
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
     fields_or_attribute_names: Sequence[dataclasses.Field[Any] | str],
-    key_path_fn: Callable[[str], Any] = jax.tree_util.GetAttrKey,
     attr_style_fn: (
         Callable[[str], part_interface.RenderableTreePart] | None
     ) = None,
@@ -228,10 +222,6 @@ def build_field_children(
     fields_or_attribute_names: Sequence of fields or attribute names to render.
       Any field with the metadata key "treescope_always_collapse" set to True
       will always render collapsed.
-    key_path_fn: Optional function which maps field names to their JAX keys, if
-      applicable. This should match their registered keypaths in the PyTree
-      registry when applicable (although it will also be called for fields that
-      are not necessarily PyTree children).
     attr_style_fn: Optional function which makes attributes to a part that
       should render them. If not provided, all parts are rendered as plain text.
 
@@ -255,7 +245,7 @@ def build_field_children(
 
   children = []
   for i, (field_name, maybe_field) in enumerate(zip(field_names, fields)):
-    child_path = None if path is None else (path + (key_path_fn(field_name),))
+    child_path = None if path is None else f"{path}.{field_name}"
 
     if i < len(fields) - 1:
       # Not the last child. Always show a comma, and add a space when
@@ -354,7 +344,7 @@ def parse_color_and_pattern(
 
 def handle_builtin_structures(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
     part_interface.RenderableTreePart

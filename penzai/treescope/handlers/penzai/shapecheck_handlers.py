@@ -133,7 +133,7 @@ def _arraystructure_summary(
 
 def handle_arraystructures(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
     part_interface.RenderableTreePart
@@ -161,7 +161,6 @@ def handle_arraystructures(
         path,
         subtree_renderer,
         fields_or_attribute_names=dataclasses.fields(node),
-        key_path_fn=node.key_for_field,
     )
     indented_children = basic_parts.IndentedChildren.build(children)
 

@@ -28,7 +28,6 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-import jax
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import common_structures
@@ -38,7 +37,7 @@ from penzai.treescope.foldable_representation import part_interface
 def render_object_constructor(
     object_type: type[Any],
     attributes: Mapping[str, Any],
-    path: part_interface.NodePath | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
     roundtrippable: bool = False,
     color: str | None = None,
@@ -100,9 +99,7 @@ def render_object_constructor(
 
   children = []
   for i, (name, value) in enumerate(attributes.items()):
-    child_path = (
-        None if path is None else path + (jax.tree_util.GetAttrKey(name),)
-    )
+    child_path = None if path is None else f"{path}.{name}"
 
     if i < len(attributes) - 1:
       # Not the last child. Always show a comma, and add a space when
@@ -135,7 +132,7 @@ def render_object_constructor(
 def render_dictionary_wrapper(
     object_type: type[Any],
     wrapped_dict: Mapping[str, Any],
-    path: part_interface.NodePath | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
     roundtrippable: bool = False,
     color: str | None = None,
@@ -198,7 +195,7 @@ def render_dictionary_wrapper(
 
   children = []
   for i, (key, value) in enumerate(wrapped_dict.items()):
-    child_path = None if path is None else path + (jax.tree_util.DictKey(key),)
+    child_path = None if path is None else f"{path}[{repr(key)}]"
 
     if i < len(wrapped_dict) - 1:
       # Not the last child. Always show a comma, and add a space when

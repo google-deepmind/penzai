@@ -32,7 +32,7 @@ HtmlContextForSetup = part_interface.HtmlContextForSetup
 
 def handle_anything_with_repr(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
     part_interface.RenderableTreePart

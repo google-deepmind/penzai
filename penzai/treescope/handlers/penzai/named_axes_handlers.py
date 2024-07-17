@@ -93,7 +93,7 @@ def named_array_and_contained_type_summary(
 
 def handle_named_arrays(
     node: Any,
-    path: tuple[Any, ...] | None,
+    path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
     part_interface.RenderableTreePart
@@ -137,7 +137,6 @@ def handle_named_arrays(
         path,
         subtree_renderer,
         fields_or_attribute_names=fields,
-        key_path_fn=node.key_for_field,
         attr_style_fn=struct_handler.struct_attr_style_fn_for_fields(fields),
     )
 
