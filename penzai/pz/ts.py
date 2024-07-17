@@ -16,10 +16,10 @@
 
 # pylint: disable=g-multiple-import,g-importing-member,unused-import
 
-from penzai.treescope.arrayviz.array_autovisualizer import (
+from penzai.treescope.array_autovisualizer import (
     ArrayAutovisualizer,
 )
-from penzai.treescope.arrayviz.arrayviz import (
+from penzai.treescope.arrayviz import (
     default_diverging_colormap,
     default_sequential_colormap,
     integer_digitbox,

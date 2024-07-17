@@ -23,9 +23,9 @@ import jax.numpy as jnp
 import numpy as np
 from penzai.core import named_axes
 from penzai.core._treescope_handlers import named_axes_handlers
+from penzai.treescope import arrayviz
 from penzai.treescope import autovisualize
 from penzai.treescope import ndarray_summarization
-from penzai.treescope.arrayviz import arrayviz
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import common_structures
 from penzai.treescope.foldable_representation import common_styles

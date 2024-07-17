@@ -30,6 +30,7 @@ See also the :doc:`pz.ts </api/pz.ts>` module for convenient access to the most
 commonly-used treescope functions and classes.
 """
 
+from . import array_autovisualizer
 from . import arrayviz
 from . import autovisualize
 from . import canonical_aliases

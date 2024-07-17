@@ -19,12 +19,12 @@ from typing import Any
 
 import jax.numpy as jnp
 
+from penzai.treescope import array_autovisualizer
 from penzai.treescope import autovisualize
 from penzai.treescope import context
 from penzai.treescope import default_renderer
 from penzai.treescope import figures
 from penzai.treescope import object_inspection
-from penzai.treescope.arrayviz import array_autovisualizer
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import foldable_impl
 
