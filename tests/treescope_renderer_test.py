@@ -29,12 +29,12 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from penzai import pz
+from penzai.core._treescope_handlers import selection_rendering
 import penzai.core.selectors
 import penzai.core.struct
 from tests.fixtures import treescope_examples_fixture as fixture_lib
 from penzai.treescope import autovisualize
 from penzai.treescope import default_renderer
-from penzai.treescope import selection_rendering
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import foldable_impl
 from penzai.treescope.foldable_representation import layout_algorithms

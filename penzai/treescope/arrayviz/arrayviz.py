@@ -34,8 +34,8 @@ from typing import Any, Literal, Mapping, Sequence
 import jax
 import jax.numpy as jnp
 import numpy as np
-from penzai.core import context
 from penzai.core import named_axes
+from penzai.treescope import context
 from penzai.treescope import figures
 from penzai.treescope import html_escaping
 from penzai.treescope import ndarray_summarization

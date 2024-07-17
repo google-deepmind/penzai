@@ -1213,7 +1213,7 @@ class NamedArrayBase(abc.ABC):
   # Rendering
   def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
     """Treescope handler for named arrays."""
-    from penzai.treescope.handlers.penzai import named_axes_handlers  # pylint: disable=g-import-not-at-top
+    from penzai.core._treescope_handlers import named_axes_handlers  # pylint: disable=g-import-not-at-top
 
     return named_axes_handlers.handle_named_arrays(self, path, subtree_renderer)
 

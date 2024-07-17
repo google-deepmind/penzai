@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import dataclasses
 
+from penzai.core._treescope_handlers import struct_handler
 from penzai.experimental.v2.nn import grouping
 from penzai.experimental.v2.nn import layer
 from penzai.treescope import renderer
@@ -26,7 +27,6 @@ from penzai.treescope.foldable_representation import common_structures
 from penzai.treescope.foldable_representation import common_styles
 from penzai.treescope.foldable_representation import part_interface
 from penzai.treescope.handlers import builtin_structure_handler
-from penzai.treescope.handlers.penzai import struct_handler
 
 
 def handle_layer(

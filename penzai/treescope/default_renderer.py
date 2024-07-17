@@ -19,8 +19,8 @@ import contextlib
 import functools
 from typing import Any, Callable
 import jax
-from penzai.core import context
 from penzai.treescope import canonical_aliases
+from penzai.treescope import context
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import foldable_impl

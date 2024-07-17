@@ -20,11 +20,12 @@ import contextlib
 import dataclasses
 from typing import Any
 
-from penzai.core import context
 from penzai.core import layer
 from penzai.core import shapecheck
+from penzai.core._treescope_handlers import struct_handler
 from penzai.data_effects import effect_base
 from penzai.nn import grouping
+from penzai.treescope import context
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import common_structures
@@ -33,7 +34,6 @@ from penzai.treescope.foldable_representation import layout_algorithms
 from penzai.treescope.foldable_representation import part_interface
 from penzai.treescope.handlers import builtin_structure_handler
 from penzai.treescope.handlers import shared_value_postprocessor
-from penzai.treescope.handlers.penzai import struct_handler
 
 
 _already_seen_layer: context.ContextualValue[bool] = context.ContextualValue(

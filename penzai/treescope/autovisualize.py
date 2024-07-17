@@ -31,7 +31,7 @@ import abc
 import dataclasses
 from typing import Any, Protocol
 
-from penzai.core import context
+from penzai.treescope import context
 from penzai.treescope.foldable_representation import embedded_iframe
 from penzai.treescope.foldable_representation import part_interface
 

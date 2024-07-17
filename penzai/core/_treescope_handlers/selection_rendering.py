@@ -19,8 +19,8 @@ import dataclasses
 from typing import Any
 
 import jax
-from penzai.core import context
 from penzai.core import selectors
+from penzai.treescope import context
 from penzai.treescope import default_renderer
 from penzai.treescope import html_escaping
 from penzai.treescope import renderer
@@ -67,6 +67,11 @@ selected nodes.
 This context manager is accessed only inside `render_selection_to_html`
 and the selection wrapper.
 """
+
+
+def is_rendering_a_selection() -> bool:
+  """Returns whether we are currently rendering a selection."""
+  return _selected_nodes.get() is not None
 
 
 @dataclasses.dataclass(frozen=True)

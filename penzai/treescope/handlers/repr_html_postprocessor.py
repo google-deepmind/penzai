@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from penzai.core import context
+from penzai.treescope import context
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import common_structures

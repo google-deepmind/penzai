@@ -14,8 +14,6 @@
 
 """Penzai core types and functions."""
 
-from . import context
-from . import dataclass_util
 from . import layer
 from . import named_axes
 from . import partitioning

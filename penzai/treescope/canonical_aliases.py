@@ -56,7 +56,7 @@ import types
 from typing import Any, Callable, Literal, Mapping
 import warnings
 
-from penzai.core import context
+from penzai.treescope import context
 
 
 @dataclasses.dataclass(frozen=True)

@@ -22,6 +22,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from penzai.core import named_axes
+from penzai.core._treescope_handlers import named_axes_handlers
 from penzai.treescope import autovisualize
 from penzai.treescope import ndarray_summarization
 from penzai.treescope.arrayviz import arrayviz
@@ -30,7 +31,6 @@ from penzai.treescope.foldable_representation import common_structures
 from penzai.treescope.foldable_representation import common_styles
 from penzai.treescope.foldable_representation import foldable_impl
 from penzai.treescope.foldable_representation import part_interface
-from penzai.treescope.handlers.penzai import named_axes_handlers
 
 
 def _supported_dtype(dtype):

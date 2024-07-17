@@ -19,8 +19,8 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, Callable
 
-from penzai.core import dataclass_util
 from penzai.core import struct
+from penzai.treescope import dataclass_util
 from penzai.treescope import html_escaping
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts

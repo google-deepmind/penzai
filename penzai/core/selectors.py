@@ -1193,7 +1193,7 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
     This method should only be used when IPython is available.
     """
     # Import selection_rendering here to avoid a circular import.
-    from penzai.treescope import selection_rendering  # pylint: disable=g-import-not-at-top
+    from penzai.core._treescope_handlers import selection_rendering  # pylint: disable=g-import-not-at-top
 
     selection_rendering.display_selection_streaming(
         self, visible_selection=True
@@ -1209,7 +1209,7 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
     This method should only be used when IPython is available.
     """
     # Import selection_rendering here to avoid a circular import.
-    from penzai.treescope import selection_rendering  # pylint: disable=g-import-not-at-top
+    from penzai.core._treescope_handlers import selection_rendering  # pylint: disable=g-import-not-at-top
 
     selection_rendering.display_selection_streaming(
         self, visible_selection=False
@@ -1298,6 +1298,14 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
       return new_selection
     else:
       return new_selection.deselect()
+
+  def __penzai_root_repr__(self):
+    """Renders this selection as the root object in a treescope rendering."""
+    from penzai.core._treescope_handlers import selection_rendering  # pylint: disable=g-import-not-at-top
+
+    return selection_rendering.render_selection_to_foldable_representation(
+        self, visible_selection=True, ignore_exceptions=True
+    )
 
 
 @contextlib.contextmanager

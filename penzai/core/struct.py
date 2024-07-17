@@ -30,7 +30,6 @@ import typing
 from typing import Any, Callable, Hashable, Literal, Sequence, Type, TypeVar
 
 import jax
-from penzai.core import dataclass_util
 from typing_extensions import dataclass_transform
 
 if typing.TYPE_CHECKING:
@@ -514,7 +513,21 @@ class Struct(metaclass=AbstractStructMetaclass):
     Returns:
       A new instance of the class.
     """
-    return dataclass_util.dataclass_from_attributes(cls, **field_values)
+    # Make sure our fields are correct.
+    expected_fields = dataclasses.fields(cls)  # pytype: disable=wrong-arg-types
+    expected_names = set(field.name for field in expected_fields)
+    given_names = set(field_values.keys())
+    if expected_names != given_names:
+      raise ValueError(
+          "Incorrect fields provided to `from_attributes`; expected"
+          f" {expected_names}, got {given_names}"
+      )
+    # Make a new object, bypassing the class's initializer.
+    value = object.__new__(cls)
+    # Set all the attributes, bypassing the class's __setattr__.
+    for k, v in field_values.items():
+      object.__setattr__(value, k, v)
+    return value
 
   @typing.final
   def attributes_dict(self) -> dict[str, Any]:
@@ -694,6 +707,6 @@ class Struct(metaclass=AbstractStructMetaclass):
       p.text(line)
 
   def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
-    from penzai.treescope.handlers.penzai import struct_handler  # pylint: disable=g-import-not-at-top
+    from penzai.core._treescope_handlers import struct_handler  # pylint: disable=g-import-not-at-top
 
     return struct_handler.handle_structs(self, path, subtree_renderer)

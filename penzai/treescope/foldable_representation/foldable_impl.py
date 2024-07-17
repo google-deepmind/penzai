@@ -27,7 +27,7 @@ import json
 from typing import Any, Callable, Iterator, Sequence
 import uuid
 
-from penzai.core import context
+from penzai.treescope import context
 from penzai.treescope import html_encapsulation
 from penzai.treescope import html_escaping
 from penzai.treescope.foldable_representation import basic_parts

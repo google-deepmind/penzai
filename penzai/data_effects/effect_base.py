@@ -390,9 +390,9 @@ class HandledEffectRef(struct.Struct, abc.ABC):
     return get_effect_color(self.effect_protocol())
 
   def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
-    from penzai.treescope.handlers.penzai import data_effects_handlers  # pylint: disable=g-import-not-at-top
+    from penzai.data_effects import _treescope_handlers  # pylint: disable=g-import-not-at-top
 
-    return data_effects_handlers.handle_data_effects_objects(
+    return _treescope_handlers.handle_data_effects_objects(
         self, path, subtree_renderer
     )
 
@@ -444,9 +444,9 @@ class EffectRuntimeImpl(abc.ABC):
     return get_effect_color(self.effect_protocol())
 
   def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
-    from penzai.treescope.handlers.penzai import data_effects_handlers  # pylint: disable=g-import-not-at-top
+    from penzai.data_effects import _treescope_handlers  # pylint: disable=g-import-not-at-top
 
-    return data_effects_handlers.handle_data_effects_objects(
+    return _treescope_handlers.handle_data_effects_objects(
         self, path, subtree_renderer
     )
 
@@ -518,8 +518,8 @@ class EffectHandler(layer_base.Layer, abc.ABC):
       return formatting_util.color_from_string(type(self).__qualname__)
 
   def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
-    from penzai.treescope.handlers.penzai import data_effects_handlers  # pylint: disable=g-import-not-at-top
+    from penzai.data_effects import _treescope_handlers  # pylint: disable=g-import-not-at-top
 
-    return data_effects_handlers.handle_data_effects_objects(
+    return _treescope_handlers.handle_data_effects_objects(
         self, path, subtree_renderer
     )

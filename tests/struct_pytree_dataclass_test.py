@@ -19,9 +19,9 @@ import dataclasses
 import re
 from absl.testing import absltest
 import jax
-import penzai.core.dataclass_util
 import penzai.core.selectors
 import penzai.core.struct
+import penzai.treescope.dataclass_util
 
 # pylint: disable=unused-variable
 
@@ -432,7 +432,7 @@ class StructTest(absltest.TestCase):
 
     with self.subTest("dataclass_from_attributes"):
       self.assertEqual(
-          penzai.core.dataclass_util.dataclass_from_attributes(
+          penzai.treescope.dataclass_util.dataclass_from_attributes(
               MyDataclass, foo=10, bar=11
           ),
           MyDataclass(init_arg=10),
@@ -440,7 +440,7 @@ class StructTest(absltest.TestCase):
 
     with self.subTest("init_takes_fields_false"):
       self.assertFalse(
-          penzai.core.dataclass_util.init_takes_fields(MyDataclass)
+          penzai.treescope.dataclass_util.init_takes_fields(MyDataclass)
       )
 
     @dataclasses.dataclass
@@ -450,7 +450,7 @@ class StructTest(absltest.TestCase):
 
     with self.subTest("init_takes_fields_true"):
       self.assertTrue(
-          penzai.core.dataclass_util.init_takes_fields(MyDataclass2)
+          penzai.treescope.dataclass_util.init_takes_fields(MyDataclass2)
       )
 
 

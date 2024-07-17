@@ -20,7 +20,7 @@ from typing import Any, Mapping, Union
 import jax
 import jax.numpy as jnp
 import numpy as np
-from penzai.core import context
+from penzai.treescope import context
 
 
 def get_dtype_name(dtype) -> str:

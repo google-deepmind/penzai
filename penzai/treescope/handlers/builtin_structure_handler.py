@@ -21,7 +21,7 @@ import types
 from typing import Any, Callable, Optional, Sequence
 import warnings
 
-from penzai.core import dataclass_util
+from penzai.treescope import dataclass_util
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import common_structures

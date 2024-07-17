@@ -25,7 +25,7 @@ import types
 from typing import Any, Optional, Sequence
 
 import jax
-from penzai.core import context
+from penzai.treescope import context
 from penzai.treescope import html_escaping
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts

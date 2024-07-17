@@ -16,15 +16,6 @@
 
 # pylint: disable=g-multiple-import,g-importing-member,unused-import
 
-from penzai.core.context import (
-    ContextualValue,
-    disable_interactive_context,
-    enable_interactive_context,
-)
-from penzai.core.dataclass_util import (
-    dataclass_from_attributes,
-    init_takes_fields,
-)
 import penzai.core.named_axes as nx
 from penzai.core.partitioning import (
     NotInThisPartition,
@@ -83,7 +74,15 @@ from penzai.experimental.v2.core.variables import (
     unbind_state_vars,
     freeze_state_vars,
 )
-
+from penzai.treescope.context import (
+    ContextualValue,
+    disable_interactive_context,
+    enable_interactive_context,
+)
+from penzai.treescope.dataclass_util import (
+    dataclass_from_attributes,
+    init_takes_fields,
+)
 from penzai.treescope.treescope_ipython import show
 
 from . import nn

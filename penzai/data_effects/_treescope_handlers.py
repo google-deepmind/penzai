@@ -20,9 +20,11 @@ import dataclasses
 import functools
 from typing import Any
 
-from penzai.core import context
 from penzai.core import struct
+from penzai.core._treescope_handlers import layer_handler
+from penzai.core._treescope_handlers import struct_handler
 from penzai.data_effects import effect_base
+from penzai.treescope import context
 from penzai.treescope import formatting_util
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts
@@ -31,8 +33,6 @@ from penzai.treescope.foldable_representation import common_styles
 from penzai.treescope.foldable_representation import foldable_impl
 from penzai.treescope.foldable_representation import part_interface
 from penzai.treescope.handlers import builtin_structure_handler
-from penzai.treescope.handlers.penzai import layer_handler
-from penzai.treescope.handlers.penzai import struct_handler
 
 _known_handlers: context.ContextualValue[
     dict[str, tuple[effect_base.EffectHandler, str | None]] | None

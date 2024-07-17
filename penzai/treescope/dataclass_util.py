@@ -48,7 +48,7 @@ def dataclass_from_attributes(cls: type[T], **field_values) -> T:
   given_names = set(field_values.keys())
   if expected_names != given_names:
     raise ValueError(
-        "Incorrect fields provided to `from_attributes`; expected"
+        "Incorrect fields provided to `dataclass_from_attributes`; expected"
         f" {expected_names}, got {given_names}"
     )
   # Make a new object, bypassing the class's initializer.

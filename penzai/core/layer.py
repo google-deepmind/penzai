@@ -219,7 +219,7 @@ class Layer(struct.Struct, abc.ABC):
         )
 
   def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
-    from penzai.treescope.handlers.penzai import layer_handler  # pylint: disable=g-import-not-at-top
+    from penzai.core._treescope_handlers import layer_handler  # pylint: disable=g-import-not-at-top
 
     return layer_handler.handle_layers(self, path, subtree_renderer)
 

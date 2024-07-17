@@ -53,7 +53,7 @@ class Wildcard(struct.Struct):
   )
 
   def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
-    from penzai.treescope.handlers.penzai import shapecheck_handlers  # pylint: disable=g-import-not-at-top
+    from penzai.core._treescope_handlers import shapecheck_handlers  # pylint: disable=g-import-not-at-top
 
     return shapecheck_handlers.handle_arraystructures(
         self, path, subtree_renderer
@@ -358,7 +358,7 @@ class ArraySpec(struct.Struct):
       return jax.ShapeDtypeStruct(self.shape, self.dtype)
 
   def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
-    from penzai.treescope.handlers.penzai import shapecheck_handlers  # pylint: disable=g-import-not-at-top
+    from penzai.core._treescope_handlers import shapecheck_handlers  # pylint: disable=g-import-not-at-top
 
     return shapecheck_handlers.handle_arraystructures(
         self, path, subtree_renderer

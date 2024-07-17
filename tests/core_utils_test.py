@@ -17,9 +17,9 @@ import dataclasses
 import re
 from absl.testing import absltest
 import jax
-from penzai.core import context
-from penzai.core import dataclass_util
 from penzai.core import tree_util
+from penzai.treescope import context
+from penzai.treescope import dataclass_util
 
 
 class ContextualValueTest(absltest.TestCase):
@@ -95,7 +95,8 @@ class DataclassUtilTest(absltest.TestCase):
     self.assertEqual(value.bar, 4)
 
     with self.assertRaisesRegex(
-        ValueError, re.escape("Incorrect fields provided to `from_attributes`")
+        ValueError,
+        re.escape("Incorrect fields provided to `dataclass_from_attributes`"),
     ):
       _ = dataclass_util.dataclass_from_attributes(MyWeirdInitClass, qux=5)
 

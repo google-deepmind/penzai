@@ -16,7 +16,7 @@
 
 from typing import Any
 
-from penzai.core import tree_util as penzai_tree_util
+import jax
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import common_structures
@@ -36,14 +36,14 @@ def handle_arbitrary_pytrees(
 ):
   """Generic foldable fallback for an unrecognized pytree type."""
   # Is this a pytree?
+  paths_and_subtrees, treedef = jax.tree_util.tree_flatten_with_path(
+      node, is_leaf=lambda subtree: subtree is not node
+  )
+  leaf_treedef = jax.tree_util.tree_structure(1)
 
-  maybe_result = penzai_tree_util.tree_flatten_exactly_one_level(node)
-
-  if maybe_result is None:
+  if treedef == leaf_treedef:
     # Not a pytree.
     return NotImplemented
-
-  subtrees_with_paths, _ = maybe_result
 
   # First, render the object with repr.
   repr_rendering = generic_repr_handler.handle_anything_with_repr(
@@ -54,7 +54,7 @@ def handle_arbitrary_pytrees(
 
   # Then add an extra block that pretty-prints its children.
   list_items = []
-  for key, child in subtrees_with_paths:
+  for (key,), child in paths_and_subtrees:
     child_path = None if path is None else path + str(key)
     list_items.append(
         basic_parts.siblings_with_annotations(
@@ -65,20 +65,18 @@ def handle_arbitrary_pytrees(
         )
     )
 
-  boxed_pytree_children = basic_parts.IndentedChildren.build(
-      [
-          common_styles.DashedGrayOutlineBox(
-              basic_parts.build_full_line_with_annotations(
-                  common_structures.build_custom_foldable_tree_node(
-                      label=common_styles.CommentColor(
-                          basic_parts.Text("# PyTree children: ")
-                      ),
-                      contents=basic_parts.IndentedChildren.build(list_items),
-                  )
-              ),
-          )
-      ]
-  )
+  boxed_pytree_children = basic_parts.IndentedChildren.build([
+      common_styles.DashedGrayOutlineBox(
+          basic_parts.build_full_line_with_annotations(
+              common_structures.build_custom_foldable_tree_node(
+                  label=common_styles.CommentColor(
+                      basic_parts.Text("# PyTree children: ")
+                  ),
+                  contents=basic_parts.IndentedChildren.build(list_items),
+              )
+          ),
+      )
+  ])
   return basic_parts.siblings_with_annotations(
       repr_rendering,
       basic_parts.FoldCondition(

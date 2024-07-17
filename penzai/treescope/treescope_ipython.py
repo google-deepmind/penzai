@@ -19,14 +19,11 @@ from typing import Any
 
 import jax.numpy as jnp
 
-from penzai.core import context
-from penzai.core import selectors
-from penzai.core import struct
 from penzai.treescope import autovisualize
+from penzai.treescope import context
 from penzai.treescope import default_renderer
 from penzai.treescope import figures
 from penzai.treescope import object_inspection
-from penzai.treescope import selection_rendering
 from penzai.treescope.arrayviz import array_autovisualizer
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import foldable_impl
@@ -40,8 +37,6 @@ else:
   import IPython.core.formatters
   import IPython.display
 # pylint: enable=g-import-not-at-top
-
-Selection = selectors.Selection
 
 
 def display(
@@ -103,7 +98,6 @@ def show(*args, wrap: bool = False, space_separated: bool = True):
 
 
 def register_as_default(
-    fancy_selections: bool = True,
     streaming: bool = True,
     compress_html: bool = True,
 ):
@@ -124,10 +118,15 @@ def register_as_default(
   method already, we defer to that. (But if it's a structure containing display
   objects, we still use treescope as normal.)
 
+  If the root object being rendered defines the special method
+  `__penzai_root_repr__`, that method will be assumed to take no arguments
+  and return a representation of the root object in Treescope's intermediate
+  representation. This can be used to fully customize the rendering of a
+  particular type of object. (Most types should instead define
+  `__penzai_repr__`, which allows the rendering to be customized at any level
+  of the tree, not just the root.)
+
   Args:
-    fancy_selections: Whether to use a fancy renderer for selections, outlining
-      the selected nodes, instead of directly showing the ``repr`` of the
-      selection object itself.
     streaming: Whether to render in streaming mode, which immediately displays
       the structure of the output while computing more expensive leaf
       renderings. This is useful in interactive contexts, but can mess with
@@ -153,7 +152,14 @@ def register_as_default(
       return repr_html_method()  # pylint: disable=protected-access
     elif isinstance(value, ipython_display.DisplayObject) or (
         object_inspection.safely_get_real_method(value, "_repr_pretty_")
-        and not isinstance(value, struct.Struct)
+        and not (
+            object_inspection.safely_get_real_method(
+                value, "__penzai_repr__"
+            )
+            or object_inspection.safely_get_real_method(
+                value, "__penzai_root_repr__"
+            )
+        )
     ):
       # Don't render this to HTML.
       return None
@@ -168,12 +174,12 @@ def register_as_default(
           )
         else:
           deferreds = None
-        if fancy_selections and isinstance(value, selectors.Selection):
-          foldable_ir = (
-              selection_rendering.render_selection_to_foldable_representation(
-                  value, visible_selection=True, ignore_exceptions=True
-              )
-          )
+
+        root_repr_method = object_inspection.safely_get_real_method(
+            value, "__penzai_root_repr__"
+        )
+        if root_repr_method:
+          foldable_ir = root_repr_method()
         else:
           foldable_ir = basic_parts.build_full_line_with_annotations(
               default_renderer.build_foldable_representation(

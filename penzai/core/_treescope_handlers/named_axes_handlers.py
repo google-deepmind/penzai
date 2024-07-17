@@ -22,6 +22,7 @@ from typing import Any
 import jax
 import numpy as np
 from penzai.core import named_axes
+from penzai.core._treescope_handlers import struct_handler
 from penzai.treescope import ndarray_summarization
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts
@@ -30,7 +31,6 @@ from penzai.treescope.foldable_representation import common_styles
 from penzai.treescope.foldable_representation import foldable_impl
 from penzai.treescope.foldable_representation import part_interface
 from penzai.treescope.handlers import builtin_structure_handler
-from penzai.treescope.handlers.penzai import struct_handler
 
 
 def named_array_and_contained_type_summary(
