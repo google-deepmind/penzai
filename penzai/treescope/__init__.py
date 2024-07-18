@@ -35,7 +35,6 @@ from . import arrayviz
 from . import autovisualize
 from . import canonical_aliases
 from . import context
-from . import copypaste_fallback
 from . import dataclass_util
 from . import default_renderer
 from . import figures

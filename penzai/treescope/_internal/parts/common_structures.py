@@ -41,8 +41,7 @@ def build_copy_button(path: str | None) -> RenderableTreePart:
     return basic_parts.EmptyPart()
   else:
     return foldable_impl.StringCopyButton(
-        annotation="Copy path: ",
-        copy_string=f"(lambda root: root{path})",
+        annotation="Copy path: ", copy_string=path
     )
 
 
@@ -52,7 +51,7 @@ def build_custom_foldable_tree_node(
     label: RenderableTreePart = basic_parts.EmptyPart(),
     expand_state: part_interface.ExpandState = part_interface.ExpandState.WEAKLY_COLLAPSED,
 ) -> RenderableAndLineAnnotations:
-  """Builds a custom foldable tree node with path buttons and hyperlink support.
+  """Builds a custom foldable tree node with path buttons.
 
   Args:
     contents: Contents of this foldable that should not open/close the custom
@@ -70,11 +69,8 @@ def build_custom_foldable_tree_node(
   maybe_copy_button = build_copy_button(path)
 
   return RenderableAndLineAnnotations(
-      renderable=foldable_impl.HyperlinkTarget(
-          foldable_impl.FoldableTreeNodeImpl(
-              label=label, contents=contents, expand_state=expand_state
-          ),
-          keypath=path,
+      renderable=foldable_impl.FoldableTreeNodeImpl(
+          label=label, contents=contents, expand_state=expand_state
       ),
       annotations=maybe_copy_button,
   )
@@ -86,12 +82,12 @@ def build_one_line_tree_node(
     background_color: str | None = None,
     background_pattern: str | None = None,
 ) -> RenderableAndLineAnnotations:
-  """Builds a single-line tree node with path buttons and hyperlink support.
+  """Builds a single-line tree node with path buttons.
 
   Args:
     line: Contents of the line.
     path: Keypath to this node from the root. If provided, copy-path buttons
-      will be added, and this node will be possible to target with hyperlinks.
+      will be added.
     background_color: Optional background and border color for this node.
     background_pattern: Optional background pattern as a CSS "image". If
       provided, `background_color` must also be provided, and will be used as
@@ -130,10 +126,7 @@ def build_one_line_tree_node(
     )
 
   return RenderableAndLineAnnotations(
-      renderable=foldable_impl.HyperlinkTarget(
-          line_primary,
-          keypath=path,
-      ),
+      renderable=line_primary,
       annotations=annotations,
   )
 
@@ -150,7 +143,7 @@ def build_foldable_tree_node_from_children(
     first_line_annotation: RenderableTreePart | None = None,
     expand_state: part_interface.ExpandState = part_interface.ExpandState.WEAKLY_COLLAPSED,
 ) -> RenderableAndLineAnnotations:
-  """Builds a foldable tree node with path buttons and hyperlink support.
+  """Builds a foldable tree node with path buttons.
 
   Args:
     prefix: Contents of the first line, before the children. Should not contain
@@ -164,7 +157,7 @@ def build_foldable_tree_node_from_children(
     force_trailing_comma: Whether to always insert a trailing comma after the
       last child.
     path: Keypath to this node from the root. If provided, copy-path buttons
-      will be added, and this node will be possible to target with hyperlinks.
+      will be added.
     background_color: Optional background and border color for this node.
     background_pattern: Optional background pattern as a CSS "image". If
       provided, `background_color` must also be provided, and will be used as
@@ -232,10 +225,7 @@ def build_foldable_tree_node_from_children(
   return RenderableAndLineAnnotations(
       renderable=wrap_block(
           foldable_impl.FoldableTreeNodeImpl(
-              label=foldable_impl.HyperlinkTarget(
-                  wrap_topline(prefix),
-                  keypath=path,
-              ),
+              label=wrap_topline(prefix),
               contents=basic_parts.siblings(
                   maybe_copy_button,
                   maybe_first_line_annotation,

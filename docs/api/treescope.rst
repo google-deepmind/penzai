@@ -195,10 +195,3 @@ Rendering to Strings
   default_renderer.render_to_text
   default_renderer.render_to_html
 
-
-Utility Types
-^^^^^^^^^^^^^
-
-.. autosummary::
-
-  copypaste_fallback.NotRoundtrippable

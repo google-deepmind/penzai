@@ -18,7 +18,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from penzai.treescope import copypaste_fallback
 from penzai.treescope import renderer
 from penzai.treescope import rendering_parts
 
@@ -34,7 +33,6 @@ def handle_anything_with_repr(
 ):
   """Builds a foldable from its repr."""
   del subtree_renderer
-  fallback = copypaste_fallback.render_not_roundtrippable(node)
   node_repr = repr(node)
   basic_repr = object.__repr__(node)
   if "\n" in node_repr:
@@ -59,11 +57,8 @@ def handle_anything_with_repr(
       lines_with_markers.append(rendering_parts.text(lines[-1]))
       return rendering_parts.siblings_with_annotations(
           rendering_parts.build_custom_foldable_tree_node(
-              contents=rendering_parts.roundtrip_condition(
-                  roundtrip=fallback,
-                  not_roundtrip=rendering_parts.abbreviation_color(
-                      rendering_parts.siblings(*lines_with_markers)
-                  ),
+              contents=rendering_parts.abbreviation_color(
+                  rendering_parts.siblings(*lines_with_markers)
               ),
               path=path,
           ),
@@ -76,18 +71,15 @@ def handle_anything_with_repr(
     else:
       # Use basic repr as the summary.
       return rendering_parts.build_custom_foldable_tree_node(
-          label=rendering_parts.roundtrip_condition(
-              roundtrip=fallback,
-              not_roundtrip=rendering_parts.abbreviation_color(
-                  rendering_parts.comment_color_when_expanded(
-                      rendering_parts.siblings(
-                          rendering_parts.fold_condition(
-                              expanded=rendering_parts.text("# ")
-                          ),
-                          basic_repr,
-                      )
+          label=rendering_parts.abbreviation_color(
+              rendering_parts.comment_color_when_expanded(
+                  rendering_parts.siblings(
+                      rendering_parts.fold_condition(
+                          expanded=rendering_parts.text("# ")
+                      ),
+                      basic_repr,
                   )
-              ),
+              )
           ),
           contents=rendering_parts.fold_condition(
               expanded=rendering_parts.indented_children([
@@ -101,11 +93,8 @@ def handle_anything_with_repr(
   elif node_repr == basic_repr:
     # Just use the basic repr as the summary, since we don't have anything else.
     return rendering_parts.build_one_line_tree_node(
-        line=rendering_parts.roundtrip_condition(
-            roundtrip=fallback,
-            not_roundtrip=rendering_parts.abbreviation_color(
-                rendering_parts.text(node_repr)
-            ),
+        line=rendering_parts.abbreviation_color(
+            rendering_parts.text(node_repr)
         ),
         path=path,
     )
@@ -115,11 +104,8 @@ def handle_anything_with_repr(
     # doesn't include that info.
     return rendering_parts.siblings_with_annotations(
         rendering_parts.build_one_line_tree_node(
-            line=rendering_parts.roundtrip_condition(
-                roundtrip=fallback,
-                not_roundtrip=rendering_parts.abbreviation_color(
-                    rendering_parts.text(node_repr)
-                ),
+            line=rendering_parts.abbreviation_color(
+                rendering_parts.text(node_repr)
             ),
             path=path,
         ),

@@ -20,7 +20,6 @@
 
   penzai.treescope.arrayviz
   penzai.treescope.autovisualize
-  penzai.treescope.copypaste_fallback
   penzai.treescope.default_renderer
   penzai.treescope.figures
   penzai.treescope.repr_lib

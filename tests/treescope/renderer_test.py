@@ -928,20 +928,6 @@ class TreescopeRendererTest(parameterized.TestCase):
         lowering.render_to_text_as_root(rendering),
         f"[{repr(target[0])}]",
     )
-    self.assertContainsInOrder(
-        [
-            (
-                "penzai.treescope.copypaste_fallback.NotRoundtrippable(original_repr='<tests.treescope.fixtures.treescope_examples_fixture.UnknownObjectWithBuiltinRepr"
-                " object at 0x"
-            ),
-            ">', original_id=",
-            (
-                ", original_type=tests.treescope.fixtures.treescope_examples_fixture"
-                ".UnknownObjectWithBuiltinRepr)"
-            ),
-        ],
-        lowering.render_to_text_as_root(rendering, roundtrip=True),
-    )
     layout_algorithms.expand_to_depth(rendering, 2)
     self.assertEqual(
         lowering.render_to_text_as_root(rendering),

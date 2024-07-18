@@ -279,58 +279,25 @@ def _common_block_rules(
 ) -> dict[str, CSSStyleRule]:
   return {
       "colored_line": CSSStyleRule(
-          html_escaping.without_repeated_whitespace(f"""
+          html_escaping.without_repeated_whitespace("""
             .colored_line
-            {{
+            {
               color: black;
               background-color: var(--block-color);
               border-top: 1px solid var(--block-color);
               border-bottom: 1px solid var(--block-color);
-            }}
-
-            {context.hyperlink_hover_selector} .colored_line {{
-              background-color: oklch(84% 0.145 109);
-            }}
-
-            {context.hyperlink_clicked_tick_selector} .colored_line {{
-              background-color: oklch(94.1% 0.09 136.7);
-            }}
-
-            {context.hyperlink_clicked_selector}:not(
-                {context.hyperlink_clicked_tick_selector}
-            ) .colored_line {{
-              transition: background-color 1s ease-in-out,
-                  font-weight 1s ease-in-out;
-            }}
+            }
           """)
       ),
       "patterned_line": CSSStyleRule(
-          html_escaping.without_repeated_whitespace(f"""
+          html_escaping.without_repeated_whitespace("""
             .patterned_line
-            {{
+            {
               color: black;
               border: 1px solid var(--block-color);
               background-image: var(--block-background-image);
               background-clip: padding-box;
-            }}
-
-            {context.hyperlink_hover_selector} .patterned_line {{
-              background-color: oklch(84% 0.145 109);
-              background-image: none;
-            }}
-
-            {context.hyperlink_clicked_tick_selector} .colored_line {{
-              background-color: oklch(94.1% 0.09 136.7);
-              background-image: none;
-            }}
-
-            {context.hyperlink_clicked_selector}:not(
-                {context.hyperlink_clicked_tick_selector}
-            ) .colored_line {{
-              transition: background-color 1s ease-in-out,
-                  background-image 1s ease-in-out,
-                  font-weight 1s ease-in-out;
-            }}
+            }
           """)
       ),
       "topline": CSSStyleRule(html_escaping.without_repeated_whitespace(f"""

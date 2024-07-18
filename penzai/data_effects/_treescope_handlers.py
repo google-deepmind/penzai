@@ -28,7 +28,6 @@ from penzai.treescope import context
 from penzai.treescope import formatting_util
 from penzai.treescope import renderer
 from penzai.treescope import rendering_parts
-from penzai.treescope._internal.parts import foldable_impl
 
 _known_handlers: context.ContextualValue[
     dict[str, tuple[effect_base.EffectHandler, str | None]] | None
@@ -38,8 +37,7 @@ _known_handlers: context.ContextualValue[
 """Tracks all of the effect handlers we have seen.
 
 This context dictionary maps known handler IDs to the keypath where that
-handler was defined. This can be used to add hyperlinks from effect refs
-and implementations back to the handler that is responsible for them.
+handler was defined.
 """
 
 
@@ -59,14 +57,9 @@ def handle_data_effects_objects(
       path: str | None = None,
       *,
       handler_id: str,
-      hyperlink_path=None,
   ):
     if isinstance(node, str) and node == handler_id:
       child = rendering_parts.text(repr(node))
-      if hyperlink_path is not None:
-        child = foldable_impl.NodeHyperlink(
-            child=child, target_keypath=hyperlink_path
-        )
       return rendering_parts.build_one_line_tree_node(
           rendering_parts.custom_text_color(
               child,
@@ -98,23 +91,17 @@ def handle_data_effects_objects(
     # Render and add comment linking it back
     cur_known = _known_handlers.get()
     if cur_known is not None and node.handler_id in cur_known:
-      handler, handler_path = cur_known[node.handler_id]
+      handler, _ = cur_known[node.handler_id]
       comment = [
           rendering_parts.comment_color(
               rendering_parts.siblings(
                   " # Handled by ",
-                  foldable_impl.NodeHyperlink(
-                      child=rendering_parts.maybe_qualified_type_name(
-                          type(handler)
-                      ),
-                      target_keypath=handler_path,
-                  ),
+                  rendering_parts.maybe_qualified_type_name(type(handler)),
               )
           )
       ]
     else:
       comment = []
-      handler_path = None
 
     assert dataclasses.is_dataclass(node), "Every struct.Struct is a dataclass"
     constructor_open = struct_handler.render_struct_constructor(node)
@@ -125,7 +112,6 @@ def handle_data_effects_objects(
         functools.partial(
             handler_id_interceptor,
             handler_id=node.handler_id,
-            hyperlink_path=handler_path,
         ),
         fields_or_attribute_names=fields,
         attr_style_fn=struct_handler.struct_attr_style_fn_for_fields(fields),

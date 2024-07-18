@@ -14,8 +14,8 @@
 
 """Low-level implementation details of the foldable system.
 
-This module contains low-level wrappers that handle folding and unfolding
-as well as hyperlinking (and unfolding) internal nodes.
+This module contains low-level wrappers that handle folding and unfolding,
+path copy button rendering, and deferred rendering.
 """
 
 from __future__ import annotations
@@ -42,10 +42,6 @@ SETUP_CONTEXT = HtmlContextForSetup(
         ".foldable_node:has(>label>.foldable_node_toggle:not(:checked))"
     ),
     roundtrip_selector=".treescope_root.roundtrip_mode",
-    hyperlink_hover_selector=".hyperlink_remote_hover",
-    hyperlink_clicked_selector=".was_scrolled_to",
-    hyperlink_clicked_tick_selector=".was_scrolled_to.first_tick",
-    hyperlink_target_selector=".hyperlink_target",
 )
 
 ################################################################################
@@ -234,194 +230,6 @@ class FoldableTreeNodeImpl(FoldableTreeNode):
         roundtrip_mode=roundtrip_mode,
         render_context=render_context,
     )
-
-
-################################################################################
-# Node hyperlinks implementation
-################################################################################
-
-
-@dataclasses.dataclass
-class HyperlinkTarget(basic_parts.DeferringToChild):
-  """Wraps a node so that it can be targeted by a hyperlink.
-
-  Attributes:
-    child: Child part to render.
-    keypath: Keypath to this node, which can be referenced by hyperlinks.
-  """
-
-  child: RenderableTreePart
-  keypath: str | None
-
-  def render_to_html(
-      self,
-      stream: io.TextIOBase,
-      *,
-      at_beginning_of_line: bool = False,
-      render_context: dict[Any, Any],
-  ):
-    if self.keypath is None:
-      stream.write('<span class="hyperlink_target">')
-    else:
-      keypath_as_html_attr = html_escaping.escape_html_attribute(
-          "".join(str(key) for key in self.keypath)
-      )
-      stream.write(
-          html_escaping.without_repeated_whitespace(
-              '<span class="hyperlink_target" '
-              f'data-keypath="{keypath_as_html_attr}"'
-              ">"
-          )
-      )
-    self.child.render_to_html(
-        stream,
-        at_beginning_of_line=at_beginning_of_line,
-        render_context=render_context,
-    )
-    stream.write("</span>")
-
-
-@dataclasses.dataclass
-class NodeHyperlink(basic_parts.DeferringToChild):
-  """Builds a hyperlink to another node, based on that node's JAX keypath.
-
-  This does nothing in text rendering mode.
-
-  Attributes:
-    child: Child part to render.
-    target_keypath: Keypath to the target.
-  """
-
-  child: RenderableTreePart
-  target_keypath: str | None
-
-  def html_setup_parts(
-      self, setup_context: HtmlContextForSetup
-  ) -> set[CSSStyleRule | JavaScriptDefn]:
-    rules = {
-        JavaScriptDefn(html_escaping.without_repeated_whitespace("""
-        (()=>{
-          const _get_target = (root, target_path) => {
-            /* Look for the requested path string. */
-            let target = root.querySelector(
-                `[data-keypath="${CSS.escape(target_path)}"]`
-            );
-            return target;
-          };
-          const _get_scroll_target = (target) => {
-              /* Try to jump to the label. */
-              const possible = target.querySelector(":scope > label");
-              return possible ? possible : target;
-          };
-
-          const defns = this.getRootNode().host.defns;
-          defns.expand_and_scroll_to = (
-            (linkelement, target_path) => {
-              const root = linkelement.getRootNode().shadowRoot;
-              const target = _get_target(root, target_path);
-              /* Expand all of its parents. */
-              let may_need_expand = target.parentElement;
-              while (may_need_expand != root) {
-                if (may_need_expand.classList.contains("foldable_node")) {
-                  const checkbox = may_need_expand.querySelector(
-                      ":scope > label > .foldable_node_toggle");
-                  checkbox.checked = true;
-                }
-                may_need_expand = may_need_expand.parentElement;
-              }
-              /* Scroll it into view. */
-              _get_scroll_target(target).scrollIntoView({
-                  "behavior":"smooth", "block":"center", "inline":"center"
-              });
-              if (!target.classList.contains("was_scrolled_to")) {
-                target.classList.add("was_scrolled_to", "first_tick");
-                setTimeout(() => {
-                  target.classList.remove("first_tick");
-                }, 100);
-                setTimeout(() => {
-                  target.classList.remove("was_scrolled_to");
-                }, 1200);
-              }
-            }
-          );
-
-          defns.handle_hyperlink_mouse = (
-            (linkelement, event, target_path) => {
-              const root = linkelement.getRootNode().shadowRoot;
-              const target = _get_target(root, target_path);
-              if (event.type == "mouseover") {
-                target.classList.add("hyperlink_remote_hover");
-              } else {
-                target.classList.remove("hyperlink_remote_hover");
-              }
-            }
-          );
-        })();
-        """)),
-        CSSStyleRule(html_escaping.without_repeated_whitespace("""
-          .path_hyperlink {
-              text-decoration: underline oklch(45.2% 0.198 264) dashed;
-          }
-          .path_hyperlink:hover {
-              cursor: pointer;
-              background-color: oklch(95.4% 0.034 109);
-              text-decoration: underline oklch(84.3% 0.205 109) solid;
-          }
-
-          .hyperlink_remote_hover {
-              font-weight: bold;
-              background-color: oklch(95.4% 0.034 109);
-              --highlight-color-light: oklch(95.4% 0.034 109);
-              --highlight-color-dark: oklch(84% 0.145 109);
-          }
-
-          .was_scrolled_to {
-              --highlight-color-light: oklch(84% 0.133 151.065);
-              --highlight-color-dark: oklch(74% 0.133 151.065);
-          }
-          .was_scrolled_to:not(.first_tick) {
-              transition: background-color 1s ease-in-out,
-                  font-weight 1s ease-in-out;
-          }
-          .was_scrolled_to.first_tick {
-              background-color: oklch(69.2% 0.133 151.065);
-              font-weight: bold;
-          }
-        """)),
-    }
-    return rules | self.child.html_setup_parts(setup_context)
-
-  def render_to_html(
-      self,
-      stream: io.TextIOBase,
-      *,
-      at_beginning_of_line: bool = False,
-      render_context: dict[Any, Any],
-  ):
-    if self.target_keypath is None:
-      stream.write("<span>")
-    else:
-      target_path_as_html_attr = html_escaping.escape_html_attribute(
-          "".join(str(key) for key in self.target_keypath)
-      )
-      stream.write(
-          html_escaping.without_repeated_whitespace(
-              '<span class="path_hyperlink"'
-              ' onClick="this.getRootNode().host.defns.expand_and_scroll_to(this,'
-              ' this.dataset.targetpath)"'
-              ' onMouseOver="this.getRootNode().host.defns.handle_hyperlink_mouse('
-              ' this, event, this.dataset.targetpath)"'
-              ' onMouseOut="this.getRootNode().host.defns.handle_hyperlink_mouse('
-              ' this, event, this.dataset.targetpath)"'
-              f' data-targetpath="{target_path_as_html_attr}">'
-          )
-      )
-    self.child.render_to_html(
-        stream,
-        at_beginning_of_line=at_beginning_of_line,
-        render_context=render_context,
-    )
-    stream.write("</span>")
 
 
 ################################################################################

@@ -67,25 +67,10 @@ class HtmlContextForSetup:
       this as a prefix in the CSS selector.
     roundtrip_selector: A CSS selector that will match an ancestor of this node
       whenever rendering in roundtrip mode.
-    hyperlink_hover_selector: A CSS selector that will match nodes when they are
-      the target of a hyperlink the viewer is hovering their mouse over.
-    hyperlink_clicked_selector: A CSS selector that will match nodes that are
-      the target of a hyperlink the viewer has recently clicked.
-    hyperlink_clicked_tick_selector: Like `hyperlink_clicked_selector`, but only
-      matches for a single "tick" of rendering. Can be used in combination with
-      CSS transitions to animate when clicked.
-    hyperlink_target_selector: A CSS selector that matches any node that could
-      be the target of a hyperlink, even if it isn't currently being hovered or
-      clicked. Can be used in combination with the above selectors to filter out
-      descendants of the currently active hyperlink target.
   """
 
   collapsed_selector: str
   roundtrip_selector: str
-  hyperlink_hover_selector: str
-  hyperlink_clicked_selector: str
-  hyperlink_clicked_tick_selector: str
-  hyperlink_target_selector: str
 
 
 ################################################################################

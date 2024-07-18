@@ -99,10 +99,6 @@ class MockRenderableTreePart(part_interface.RenderableTreePart):
 mock_context = part_interface.HtmlContextForSetup(
     collapsed_selector='[mock collapsed_selector]',
     roundtrip_selector='[mock roundtrip_selector]',
-    hyperlink_hover_selector='[mock hyperlink_hover_selector]',
-    hyperlink_clicked_selector='[mock hyperlink_clicked_selector]',
-    hyperlink_clicked_tick_selector='[mock hyperlink_clicked_tick_selector]',
-    hyperlink_target_selector='[mock hyperlink_target_selector]',
 )
 
 

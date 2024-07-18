@@ -34,9 +34,6 @@ from penzai.treescope.autovisualize import (
     CustomTreescopeVisualization,
     active_autovisualizer,
 )
-from penzai.treescope.copypaste_fallback import (
-    NotRoundtrippable,
-)
 from penzai.treescope.default_renderer import (
     active_renderer,
     active_expansion_strategy,
