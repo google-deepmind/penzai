@@ -20,8 +20,8 @@ import dataclasses
 from typing import Any, Callable, Optional, Sequence
 
 from penzai.treescope import dataclass_util
+from penzai.treescope import layout_algorithms
 from penzai.treescope import renderer
-from penzai.treescope._internal import layout_algorithms
 from penzai.treescope._internal.parts import basic_parts
 from penzai.treescope._internal.parts import common_structures
 from penzai.treescope._internal.parts import common_styles

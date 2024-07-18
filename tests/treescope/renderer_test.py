@@ -36,9 +36,9 @@ from tests.treescope.fixtures import treescope_examples_fixture as fixture_lib
 from penzai.treescope import autovisualize
 from penzai.treescope import default_renderer
 from penzai.treescope import handlers
+from penzai.treescope import layout_algorithms
 from penzai.treescope import lowering
 from penzai.treescope import rendering_parts
-from penzai.treescope._internal import layout_algorithms
 import torch
 
 

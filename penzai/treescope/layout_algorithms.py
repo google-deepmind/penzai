@@ -21,19 +21,17 @@ from typing import Any, Collection
 
 from penzai.treescope._internal.parts import part_interface
 
-ExpandState = part_interface.ExpandState
-RenderableTreePart = part_interface.RenderableTreePart
-FoldableTreeNode = part_interface.FoldableTreeNode
 
-
-def expand_to_tags(
-    tree: RenderableTreePart, tags: Collection[Any], collapse_weak_others: bool
+def expand_to_layout_marks(
+    tree: part_interface.RenderableTreePart,
+    marks: Collection[Any],
+    collapse_weak_others: bool,
 ) -> None:
-  """Expands a tree so that any part with a tag in the given set is fisible.
+  """Expands a tree so that any part with a marker in the given set is fisible.
 
   This function ignores the existing expand state, and instead just ensures that
-  every foldable node that contains a tag in `tags` is expanded. Optionally it
-  will also ensure that all sibling foldable nodes are collapsed.
+  every foldable node that contains a layout marker in `marks` is expanded.
+  Optionally it will also ensure that all sibling foldable nodes are collapsed.
 
   Expand states for those nodes are set to EXPANDED or COLLAPSED, and expand
   states for other nodes are not modified. This means you can call
@@ -44,50 +42,50 @@ def expand_to_tags(
 
   Args:
     tree: The tree to update.
-    tags: The tags that should be made visible.
+    marks: The marks that should be made visible.
     collapse_weak_others: Whether to collapse foldables that do NOT have the
-      given tags and have a weak expansion state.
+      given marks and have a weak expansion state.
   """
   for foldable in tree.foldables_in_this_part():
-    found = _process_foldable_by_tags(foldable, tags, collapse_weak_others)
+    found = _process_foldable_by_marks(foldable, marks, collapse_weak_others)
     if collapse_weak_others and not found:
-      foldable.set_expand_state(ExpandState.COLLAPSED)
+      foldable.set_expand_state(part_interface.ExpandState.COLLAPSED)
 
 
-def _process_foldable_by_tags(
-    foldable: FoldableTreeNode,
-    tags: Collection[Any],
+def _process_foldable_by_marks(
+    foldable: part_interface.FoldableTreeNode,
+    marks: Collection[Any],
     collapse_weak_others: bool,
 ) -> bool:
-  """Possibly expands a foldable by tag, and may also collapse its children.
+  """Expands a foldable based on marks, and may also collapse its children.
 
   Args:
     foldable: The foldable to process.
-    tags: The tags that should be made visible.
+    marks: The marks that should be made visible.
     collapse_weak_others: Whether to collapse foldables that do NOT have the
-      given tags and have a weak expansion state.
+      given marks and have a weak expansion state.
 
   Returns:
     True if this node should be made visible (e.g. all parents expanded) based
-    on the tags.
+    on the marks.
   """
   # Check children.
   might_need_collapsing = []
   for child_foldable in foldable.as_expanded_part().foldables_in_this_part():
-    if not _process_foldable_by_tags(
-        child_foldable, tags, collapse_weak_others
+    if not _process_foldable_by_marks(
+        child_foldable, marks, collapse_weak_others
     ):
       might_need_collapsing.append(child_foldable)
 
-  if any(tag in foldable.tags_in_this_part for tag in tags):
+  if any(mark in foldable.layout_marks_in_this_part for mark in marks):
     # We need to expand this node.
-    foldable.set_expand_state(ExpandState.EXPANDED)
+    foldable.set_expand_state(part_interface.ExpandState.EXPANDED)
     if collapse_weak_others:
       # We should also collapse any child that wasn't marked as needing to be
       # expanded.
       for child_foldable in might_need_collapsing:
         if child_foldable.get_expand_state().is_weak():
-          child_foldable.set_expand_state(ExpandState.COLLAPSED)
+          child_foldable.set_expand_state(part_interface.ExpandState.COLLAPSED)
     # Inform caller that we found something.
     return True
   else:
@@ -98,7 +96,7 @@ def _process_foldable_by_tags(
 
 
 def expand_for_balanced_layout(
-    tree: RenderableTreePart,
+    tree: part_interface.RenderableTreePart,
     max_height: int | None = 20,
     target_width: int = 60,
     relax_height_constraint_for_only_child: bool = True,
@@ -164,12 +162,13 @@ def expand_for_balanced_layout(
         # This node doesn't fit in the target width.
         and candidate_foldables[0].collapsed_width > target_width
         # This node isn't already forced to be collapsed.
-        and candidate_foldables[0].get_expand_state() != ExpandState.COLLAPSED
+        and candidate_foldables[0].get_expand_state()
+        != part_interface.ExpandState.COLLAPSED
     ):
       # We should expand this node.
       foldable = candidate_foldables.popleft()
       expanded_foldable_contents = foldable.as_expanded_part()
-      foldable.set_expand_state(ExpandState.EXPANDED)
+      foldable.set_expand_state(part_interface.ExpandState.EXPANDED)
       committed_height += expanded_foldable_contents.newlines_in_expanded_parent
       candidate_foldables.extend(
           expanded_foldable_contents.foldables_in_this_part()
@@ -188,19 +187,22 @@ def expand_for_balanced_layout(
       )
       if max_height is not None and height_if_expanded > max_height:
         # This node takes up too much space if expanded. Collapse it.
-        foldable.set_expand_state(ExpandState.COLLAPSED)
+        foldable.set_expand_state(part_interface.ExpandState.COLLAPSED)
       elif foldable.collapsed_width > target_width:
         # This node is too long to render on one line. Expand it.
-        foldable.set_expand_state(ExpandState.EXPANDED)
+        foldable.set_expand_state(part_interface.ExpandState.EXPANDED)
       else:
         # This node could render either collapsed or expanded. Commit to its
         # current weak preference.
-        if foldable.get_expand_state() == ExpandState.WEAKLY_EXPANDED:
-          foldable.set_expand_state(ExpandState.EXPANDED)
+        if (
+            foldable.get_expand_state()
+            == part_interface.ExpandState.WEAKLY_EXPANDED
+        ):
+          foldable.set_expand_state(part_interface.ExpandState.EXPANDED)
         else:
-          foldable.set_expand_state(ExpandState.COLLAPSED)
+          foldable.set_expand_state(part_interface.ExpandState.COLLAPSED)
 
-    if foldable.get_expand_state() == ExpandState.EXPANDED:
+    if foldable.get_expand_state() == part_interface.ExpandState.EXPANDED:
       # Record it as expanded and add children to our queue.
       committed_height += expanded_foldable_contents.newlines_in_expanded_parent
       candidate_foldables.extend(
@@ -222,7 +224,9 @@ def expand_for_balanced_layout(
       )
 
 
-def expand_to_depth(tree: RenderableTreePart, depth: int) -> None:
+def expand_to_depth(
+    tree: part_interface.RenderableTreePart, depth: int
+) -> None:
   """Expands a tree up to a given depth.
 
   This function ignores the existing expand state, and instead rewrites it to
@@ -234,7 +238,7 @@ def expand_to_depth(tree: RenderableTreePart, depth: int) -> None:
   """
   for foldable in tree.foldables_in_this_part():
     if depth > 0:
-      foldable.set_expand_state(ExpandState.EXPANDED)
+      foldable.set_expand_state(part_interface.ExpandState.EXPANDED)
       expand_to_depth(foldable.as_expanded_part(), depth - 1)
     else:
-      foldable.set_expand_state(ExpandState.COLLAPSED)
+      foldable.set_expand_state(part_interface.ExpandState.COLLAPSED)

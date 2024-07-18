@@ -28,7 +28,6 @@ from penzai.treescope import ndarray_adapters
 from penzai.treescope import rendering_parts
 from penzai.treescope import type_registries
 from penzai.treescope._internal import arrayviz_impl
-from penzai.treescope._internal.parts import part_interface
 
 
 PositionalAxisInfo = ndarray_adapters.PositionalAxisInfo
@@ -240,9 +239,7 @@ class ArrayAutovisualizer:
     """Implementation of an autovisualizer, visualizing arrays."""
     # Retrieve the adapter for this array, which we will use to construct
     # the rendering.
-    adapter = type_registries.lookup_by_mro(
-        type_registries.NDARRAY_ADAPTER_REGISTRY, type(value)
-    )
+    adapter = type_registries.lookup_ndarray_adapter(value)
     if adapter is not None:
       if not adapter.should_autovisualize(value):
         return None
@@ -261,19 +258,15 @@ class ArrayAutovisualizer:
 
       def _placeholder() -> rendering_parts.RenderableTreePart:
         summary = adapter.get_array_summary(value, fast=True)
-        return rendering_parts.fake_placeholder_foldable(
-            rendering_parts.deferred_placeholder_style(
-                rendering_parts.text(f"<{summary}>")
-            ),
-            extra_newlines_guess=8,
+        return rendering_parts.deferred_placeholder_style(
+            rendering_parts.text(f"<{summary}>")
         )
 
-      def _thunk(placeholder) -> rendering_parts.RenderableTreePart:
+      def _thunk(
+          expand_state: rendering_parts.ExpandState | None,
+      ) -> rendering_parts.RenderableTreePart:
         # Full rendering of the array.
-        if isinstance(placeholder, part_interface.FoldableTreeNode):
-          expand_state = placeholder.get_expand_state()
-        else:
-          assert placeholder is None
+        if expand_state is None:
           expand_state = rendering_parts.ExpandState.WEAKLY_EXPANDED
         summary = adapter.get_array_summary(value, fast=False)
         label = rendering_parts.abbreviation_color(
@@ -285,7 +278,9 @@ class ArrayAutovisualizer:
 
       return autovisualize.CustomTreescopeVisualization(
           rendering_parts.RenderableAndLineAnnotations(
-              renderable=lowering.maybe_defer_rendering(_thunk, _placeholder),
+              renderable=lowering.maybe_defer_rendering(
+                  _thunk, _placeholder, expanded_newlines_for_layout=8
+              ),
               annotations=rendering_parts.build_copy_button(path),
           )
       )

@@ -265,9 +265,8 @@ def render_array(
   """
   # Retrieve the adapter for this array, which we will use to construct
   # the rendering.
-  adapter = type_registries.lookup_by_mro(
-      type_registries.NDARRAY_ADAPTER_REGISTRY, type(array)
-  )
+  type_registries.update_registries_for_imports()
+  adapter = type_registries.lookup_ndarray_adapter(array)
   if adapter is None:
     raise TypeError(
         f"Cannot render array with unrecognized type {type(array)} (not found"
@@ -975,9 +974,8 @@ def render_array_sharding(
   """
   # Retrieve the adapter for this array, which we will use to construct
   # the rendering.
-  adapter = type_registries.lookup_by_mro(
-      type_registries.NDARRAY_ADAPTER_REGISTRY, type(array)
-  )
+  type_registries.update_registries_for_imports()
+  adapter = type_registries.lookup_ndarray_adapter(array)
   if adapter is None:
     raise TypeError(
         "Cannot render sharding for array with unrecognized type"

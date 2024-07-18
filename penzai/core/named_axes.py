@@ -1222,6 +1222,12 @@ class NamedArrayBase(abc.ABC):
 
     return named_axes_handlers.handle_named_arrays(self, path, subtree_renderer)
 
+  def __treescope_ndarray_adapter__(self):
+    """Treescope handler for named arrays."""
+    from penzai.core._treescope_handlers import named_axes_handlers  # pylint: disable=g-import-not-at-top
+
+    return named_axes_handlers.NamedArrayAdapter()
+
   # Convenience wrappers: Elementwise infix operators.
   __lt__ = _nmap_with_doc(operator.lt, "jax.Array.__lt__")
   __le__ = _nmap_with_doc(operator.le, "jax.Array.__le__")

@@ -19,11 +19,11 @@ import functools
 from typing import Any, Callable
 from penzai.treescope import context
 from penzai.treescope import handlers
+from penzai.treescope import layout_algorithms
 from penzai.treescope import lowering
 from penzai.treescope import renderer
 from penzai.treescope import rendering_parts
 from penzai.treescope import type_registries
-from penzai.treescope._internal import layout_algorithms
 
 
 active_renderer: context.ContextualValue[renderer.TreescopeRenderer] = (

@@ -24,52 +24,12 @@ from penzai.core import shapecheck
 from penzai.treescope import dtype_util
 from penzai.treescope import renderer
 from penzai.treescope import rendering_parts
-from penzai.treescope._internal import html_escaping
-from penzai.treescope._internal.parts import basic_parts
-from penzai.treescope._internal.parts import part_interface
-
-
-class ArrayVariableStyle(basic_parts.BaseSpanGroup):
-  """A dimension variable in an array structure summary."""
-
-  def _span_css_class(self) -> str:
-    return "shapecheck_dimvar"
-
-  def _span_css_rule(
-      self, setup_context: part_interface.HtmlContextForSetup
-  ) -> part_interface.CSSStyleRule:
-    return part_interface.CSSStyleRule(
-        html_escaping.without_repeated_whitespace("""
-            .shapecheck_dimvar
-            {
-                color: #1bb2c3;
-                font-style: italic;
-            }
-        """)
-    )
-
-
-class ArraySpecStyle(basic_parts.BaseSpanGroup):
-  """An array structure summary."""
-
-  def _span_css_class(self) -> str:
-    return "shapecheck_struct"
-
-  def _span_css_rule(
-      self, setup_context: part_interface.HtmlContextForSetup
-  ) -> part_interface.CSSStyleRule:
-    return part_interface.CSSStyleRule(
-        html_escaping.without_repeated_whitespace("""
-            .shapecheck_struct
-            {
-                color: #1b3e73;
-            }
-        """)
-    )
 
 
 def _wrap_dimvar(msg: str) -> rendering_parts.RenderableTreePart:
-  return ArrayVariableStyle(rendering_parts.text(msg))
+  return rendering_parts.custom_style(
+      rendering_parts.text(msg), css_style="color: #1bb2c3; font-style: italic;"
+  )
 
 
 def _arraystructure_summary(
@@ -165,8 +125,8 @@ def handle_arraystructures(
 
     return rendering_parts.build_custom_foldable_tree_node(
         label=rendering_parts.summarizable_condition(
-            summary=ArraySpecStyle(
-                rendering_parts.siblings("<ArraySpec ", summary, ">")
+            summary=rendering_parts.custom_text_color(
+                rendering_parts.siblings("<ArraySpec ", summary, ">"), "#1b3e73"
             ),
             detail=rendering_parts.siblings(
                 rendering_parts.maybe_qualified_type_name(type(node)),

@@ -99,7 +99,7 @@ def handle_code_objects_with_reflection(
     )
 
   if closure_vars:
-    boxed_closure_var_rendering = rendering_parts.dashed_gray_outline_box(
+    boxed_closure_var_rendering = rendering_parts.in_outlined_box(
         rendering_parts.on_separate_lines([
             rendering_parts.comment_color(
                 rendering_parts.text("# Closure variables:")

@@ -27,7 +27,6 @@ from penzai.treescope import ndarray_adapters
 from penzai.treescope import renderer
 from penzai.treescope import rendering_parts
 from penzai.treescope import type_registries
-from penzai.treescope._internal.parts import part_interface
 
 # pylint: disable=g-import-not-at-top
 try:
@@ -272,14 +271,11 @@ def render_torch_tensors(
   adapter = TorchTensorAdapter()
 
   def _placeholder() -> rendering_parts.RenderableTreePart:
-    return rendering_parts.fake_placeholder_foldable(
-        rendering_parts.deferred_placeholder_style(
-            rendering_parts.text(adapter.get_array_summary(node, fast=True))
-        ),
-        extra_newlines_guess=8,
+    return rendering_parts.deferred_placeholder_style(
+        rendering_parts.text(adapter.get_array_summary(node, fast=True))
     )
 
-  def _thunk(placeholder):
+  def _thunk(placeholder_expand_state: rendering_parts.ExpandState | None):
     # Is this array simple enough to render without a summary?
     node_repr = repr(node)
     if "\n" not in node_repr and "..." not in node_repr:
@@ -289,11 +285,10 @@ def render_torch_tensors(
       rendering = rendering_parts.text(node_repr)
     else:
       if node_repr.count("\n") <= 15:
-        if isinstance(placeholder, part_interface.FoldableTreeNode):
-          default_expand_state = placeholder.get_expand_state()
+        if placeholder_expand_state is None:
+          default_expand_state = rendering_parts.ExpandState.WEAKLY_EXPANDED
         else:
-          assert placeholder is None
-          default_expand_state = part_interface.ExpandState.WEAKLY_EXPANDED
+          default_expand_state = placeholder_expand_state
       else:
         # Always start big NDArrays in collapsed mode to hide irrelevant detail.
         default_expand_state = rendering_parts.ExpandState.COLLAPSED
@@ -328,7 +323,9 @@ def render_torch_tensors(
 
   return rendering_parts.RenderableAndLineAnnotations(
       renderable=lowering.maybe_defer_rendering(
-          main_thunk=_thunk, placeholder_thunk=_placeholder
+          main_thunk=_thunk,
+          placeholder_thunk=_placeholder,
+          expanded_newlines_for_layout=8,
       ),
       annotations=rendering_parts.build_copy_button(path),
   )

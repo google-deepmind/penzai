@@ -23,9 +23,9 @@ import typing
 from typing import Any, Callable, Iterable
 import warnings
 
+from penzai.treescope import layout_algorithms
 from penzai.treescope import lowering
 from penzai.treescope import rendering_parts
-from penzai.treescope._internal import layout_algorithms
 
 
 class TreescopeSubtreeRenderer(typing.Protocol):

@@ -22,13 +22,10 @@ import jax
 from penzai.core import selectors
 from penzai.treescope import context
 from penzai.treescope import default_renderer
+from penzai.treescope import layout_algorithms
 from penzai.treescope import lowering
 from penzai.treescope import renderer
 from penzai.treescope import rendering_parts
-from penzai.treescope._internal import html_escaping
-from penzai.treescope._internal import layout_algorithms
-from penzai.treescope._internal.parts import basic_parts
-from penzai.treescope._internal.parts import part_interface
 
 
 @dataclasses.dataclass
@@ -74,55 +71,8 @@ def is_rendering_a_selection() -> bool:
 
 
 @dataclasses.dataclass(frozen=True)
-class SelectionBoundaryTag:
-  """A tag that can be used to identify selected nodes."""
-
-
-class SelectionTaggedGroup(basic_parts.BaseTaggedGroup):
-  """Tags its child as being selected."""
-
-  def _tags(self) -> frozenset[Any]:
-    return frozenset({SelectionBoundaryTag()})
-
-
-class SelectionBoundaryBox(basic_parts.BaseBoxWithOutline):
-  """A highlighted box that identifies a part as being selected."""
-
-  def _box_css_class(self) -> str:
-    return "selection_boundary"
-
-  def _box_css_rule(
-      self, setup_context: part_interface.HtmlContextForSetup, /
-  ) -> part_interface.CSSStyleRule:
-    return part_interface.CSSStyleRule(
-        html_escaping.without_repeated_whitespace("""
-            .selection_boundary
-            {
-                border: 2px solid cyan;
-                border-left: 2ch solid cyan;
-            }
-        """)
-    )
-
-
-class SelectionBoundaryLabel(basic_parts.BaseSpanGroup):
-  """A comment identifying this part as being selected."""
-
-  def _span_css_class(self) -> str:
-    return "selection_label"
-
-  def _span_css_rule(
-      self, setup_context: part_interface.HtmlContextForSetup
-  ) -> part_interface.CSSStyleRule:
-    return part_interface.CSSStyleRule(
-        html_escaping.without_repeated_whitespace("""
-            .selection_label
-            {
-                color: darkcyan;
-                font-weight: bold;
-            }
-        """)
-    )
+class SelectionBoundaryLayoutMark:
+  """A layout mark that can be used to identify selected nodes."""
 
 
 def _wrap_selected_nodes(
@@ -148,22 +98,28 @@ def _wrap_selected_nodes(
     rendering = node_renderer(node, path)
 
     tagged_rendering = rendering_parts.RenderableAndLineAnnotations(
-        renderable=SelectionTaggedGroup(rendering.renderable),
+        renderable=rendering_parts.with_layout_mark(
+            rendering.renderable, SelectionBoundaryLayoutMark()
+        ),
         annotations=rendering.annotations,
     )
 
     if tracker.visible_boundary:
       wrapped_rendering = rendering_parts.siblings_with_annotations(
           rendering_parts.build_custom_foldable_tree_node(
-              contents=SelectionBoundaryBox(
+              contents=rendering_parts.in_outlined_box(
                   rendering_parts.on_separate_lines([
                       rendering_parts.fold_condition(
-                          expanded=SelectionBoundaryLabel(
-                              rendering_parts.text("# Selected:")
+                          expanded=rendering_parts.custom_style(
+                              rendering_parts.text("# Selected:"),
+                              css_style="color: darkcyan; font-weight: bold;",
                           )
                       ),
                       tagged_rendering.renderable,
-                  ])
+                  ]),
+                  css_style=(
+                      "border: 2px solid cyan; border-left: 2ch solid cyan;"
+                  ),
               )
           ),
           extra_annotations=[tagged_rendering.annotations],
@@ -256,8 +212,10 @@ def render_selection_to_foldable_representation(
     ])
 
   # Expand the selected nodes.
-  layout_algorithms.expand_to_tags(
-      rendered_ir, tags=[SelectionBoundaryTag()], collapse_weak_others=True
+  layout_algorithms.expand_to_layout_marks(
+      rendered_ir,
+      marks=[SelectionBoundaryLayoutMark()],
+      collapse_weak_others=True,
   )
 
   # For convenience, make a default balanced layout for the remaining nodes.

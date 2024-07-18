@@ -77,7 +77,7 @@ def styled(subfigure: Any, style: str) -> figures_impl.TreescopeFigure:
     style: A CSS style string.
   """
   return figures_impl.TreescopeFigure(
-      figures_impl.CSSStyled(
+      rendering_parts.custom_style(
           treescope_part_from_display_object(subfigure), style
       )
   )
@@ -98,7 +98,7 @@ def with_font_size(
   else:
     style = f"font-size: {size}em"
   return figures_impl.TreescopeFigure(
-      figures_impl.CSSStyled(
+      rendering_parts.custom_style(
           treescope_part_from_display_object(subfigure), style
       )
   )
@@ -112,7 +112,7 @@ def with_color(subfigure: Any, color: str) -> figures_impl.TreescopeFigure:
     color: Any CSS color string.
   """
   return figures_impl.TreescopeFigure(
-      figures_impl.CSSStyled(
+      rendering_parts.custom_style(
           treescope_part_from_display_object(subfigure), f"color: {color}"
       )
   )
@@ -125,7 +125,7 @@ def bolded(subfigure: Any) -> figures_impl.TreescopeFigure:
     subfigure: A value to render.
   """
   return figures_impl.TreescopeFigure(
-      figures_impl.CSSStyled(
+      rendering_parts.custom_style(
           treescope_part_from_display_object(subfigure), "font-weight: bold"
       )
   )

@@ -211,36 +211,6 @@ def custom_text_color(
   return CustomTextColor(child, css_color)
 
 
-class DashedGrayOutlineBox(basic_parts.BaseBoxWithOutline):
-  """A dashed gray box."""
-
-  def _box_css_class(self) -> str:
-    return "dashed_gray_outline"
-
-  def _box_css_rule(
-      self, context: HtmlContextForSetup
-  ) -> part_interface.CSSStyleRule:
-    return part_interface.CSSStyleRule(
-        html_escaping.without_repeated_whitespace("""
-            .box_with_outline.dashed_gray_outline
-            {
-                outline: 1px dashed #aaaaaa;
-            }
-        """)
-    )
-
-
-def dashed_gray_outline_box(
-    child: part_interface.RenderableTreePart,
-) -> part_interface.RenderableTreePart:
-  """Returns a wrapped child that displays in a dashed gray box."""
-  if not isinstance(child, RenderableTreePart):
-    raise ValueError(
-        f"`child` must be a renderable part, but got {type(child).__name__}"
-    )
-  return DashedGrayOutlineBox(child)
-
-
 @dataclasses.dataclass(frozen=True)
 class ColoredBorderIndentedChildren(basic_parts.IndentedChildren):
   """A sequence of children that also draws a colored line on the left.
@@ -580,3 +550,57 @@ def qualified_type_name_style(
         f"`child` must be a renderable part, but got {type(child).__name__}"
     )
   return QualifiedTypeNameSpanGroup(child)
+
+
+@dataclasses.dataclass(frozen=True)
+class CSSStyled(basic_parts.DeferringToChild):
+  """Adjusts the CSS style of its child.
+
+  Attributes:
+    child: Child to render.
+    css: A CSS style string.
+  """
+
+  child: part_interface.RenderableTreePart
+  style: str
+
+  def render_to_html(
+      self,
+      stream: io.TextIOBase,
+      *,
+      at_beginning_of_line: bool = False,
+      render_context: dict[Any, Any],
+  ):
+    style = html_escaping.escape_html_attribute(self.style)
+    stream.write(f'<span style="{style}">')
+    self.child.render_to_html(
+        stream,
+        at_beginning_of_line=at_beginning_of_line,
+        render_context=render_context,
+    )
+    stream.write("</span>")
+
+
+def custom_style(
+    child: part_interface.RenderableTreePart,
+    css_style: str,
+) -> part_interface.RenderableTreePart:
+  """Returns a wrapped child with a custom CSS style.
+
+  Args:
+    child: Child to render.
+    css_style: A CSS style string.
+
+  Returns:
+    A wrapped child with a custom CSS style applied. Intended for an inline
+    text component.
+  """
+  if not isinstance(child, RenderableTreePart):
+    raise ValueError(
+        f"`child` must be a renderable part, but got {type(child).__name__}"
+    )
+  if not isinstance(css_style, str):
+    raise ValueError(
+        f"`css_style` must be a string, but got {type(css_style).__name__}"
+    )
+  return CSSStyled(child, css_style)

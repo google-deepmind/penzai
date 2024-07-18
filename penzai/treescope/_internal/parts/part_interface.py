@@ -155,23 +155,25 @@ class RenderableTreePart(abc.ABC):
     )
 
   @functools.cached_property
-  def tags_in_this_part(self) -> frozenset[Any]:
-    """Returns a set of "tag" objects contained in this part.
+  def layout_marks_in_this_part(self) -> frozenset[Any]:
+    """Returns a set of "layout mark" objects contained in this part.
 
-    Tags allow surfacing of internal information to guide layout decisions.
-    For instance, if nodes of a particular type need to be made visible, they
-    can add a tag and propagate it upward through the tree. Then, foldables can
-    be expanded whenever they contain a tag of the given type. (This is how
-    expansion of selections is implemented.)
+    Layout marks allow surfacing of internal information to guide layout
+    decisions. For instance, if nodes of a particular type need to be made
+    visible, they can add a layout mark and propagate it upward through the
+    tree. Then, foldables can be expanded whenever they contain a mark of the
+    given type. (This is how expansion of selections is implemented.)
 
     Cached to avoid O(n^2) computations while iteratively expanding children.
     """
-    return self._compute_tags_in_this_part()
+    return self._compute_layout_marks_in_this_part()
 
   @abc.abstractmethod
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
-    """Computes a value for `tags_in_this_part`."""
-    raise NotImplementedError("_compute_tags_in_this_part must be overridden")
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
+    """Computes a value for `layout_marks_in_this_part`."""
+    raise NotImplementedError(
+        "_compute_layout_marks_in_this_part must be overridden"
+    )
 
   @abc.abstractmethod
   def foldables_in_this_part(self) -> Sequence[FoldableTreeNode]:
@@ -350,9 +352,9 @@ class FoldableTreeNode(RenderableTreePart):
     """Returns this node itself, since it is a foldable node."""
     return (self,)
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
-    """Computes a value for `tags_in_this_part`."""
-    return self.as_expanded_part().tags_in_this_part
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
+    """Computes a value for `layout_marks_in_this_part`."""
+    return self.as_expanded_part().layout_marks_in_this_part
 
 
 @dataclasses.dataclass(frozen=True)

@@ -74,14 +74,10 @@ class NdarrayAdaptersTest(parameterized.TestCase):
     else:
       raise ValueError(f"Unsupported array_type: {array_type}")
 
-    np_adapter = type_registries.lookup_by_mro(
-        type_registries.NDARRAY_ADAPTER_REGISTRY, np.ndarray
-    )
+    np_adapter = type_registries.lookup_ndarray_adapter(array_np)
     self.assertIsNotNone(np_adapter)
 
-    cur_adapter = type_registries.lookup_by_mro(
-        type_registries.NDARRAY_ADAPTER_REGISTRY, type(array)
-    )
+    cur_adapter = type_registries.lookup_ndarray_adapter(array)
     self.assertIsNotNone(cur_adapter)
 
     with self.subTest("axis_info"):
@@ -174,12 +170,11 @@ class NdarrayAdaptersTest(parameterized.TestCase):
         )
 
   def test_penzai_named_axes_info(self):
-    adapter = type_registries.lookup_by_mro(
-        type_registries.NDARRAY_ADAPTER_REGISTRY, named_axes.NamedArray
-    )
     data = np.arange(19 * 23).reshape((19, 23))
-
     array = named_axes.wrap(data).tag("foo", "bar")
+    adapter = type_registries.lookup_ndarray_adapter(array)
+    self.assertIsNotNone(adapter)
+
     self.assertEqual(
         adapter.get_axis_info_for_array_data(array),
         (
@@ -207,11 +202,10 @@ class NdarrayAdaptersTest(parameterized.TestCase):
     )
 
   def test_pytorch_named_axes_info(self):
-    adapter = type_registries.lookup_by_mro(
-        type_registries.NDARRAY_ADAPTER_REGISTRY, torch.Tensor
-    )
     data = np.arange(19 * 23).reshape((19, 23))
     array = torch.tensor(data).rename("foo", None)
+    adapter = type_registries.lookup_ndarray_adapter(array)
+    self.assertIsNotNone(adapter)
     self.assertEqual(
         adapter.get_axis_info_for_array_data(array),
         (

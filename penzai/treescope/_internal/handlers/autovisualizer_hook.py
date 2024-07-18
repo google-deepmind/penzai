@@ -123,7 +123,7 @@ def use_autovisualizer_if_present(
         replace = False
         rendering_and_annotations = rendering_parts.RenderableAndLineAnnotations(
             renderable=rendering_parts.floating_annotation_with_separate_focus(
-                rendering_parts.dashed_gray_outline_box(ipy_rendering)
+                rendering_parts.in_outlined_box(ipy_rendering)
             ),
             annotations=rendering_parts.empty_part(),
         )

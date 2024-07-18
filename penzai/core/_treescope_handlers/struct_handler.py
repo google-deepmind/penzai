@@ -24,29 +24,6 @@ from penzai.treescope import dataclass_util
 from penzai.treescope import formatting_util
 from penzai.treescope import renderer
 from penzai.treescope import rendering_parts
-from penzai.treescope._internal import html_escaping
-from penzai.treescope._internal.parts import basic_parts
-from penzai.treescope._internal.parts import part_interface
-
-
-class PyTreeNodeFieldName(basic_parts.BaseSpanGroup):
-  """Style for attributes that are pytree node children."""
-
-  def _span_css_class(self) -> str:
-    return "struct_pytree_attr"
-
-  def _span_css_rule(
-      self, setup_context: part_interface.HtmlContextForSetup
-  ) -> part_interface.CSSStyleRule:
-    return part_interface.CSSStyleRule(
-        html_escaping.without_repeated_whitespace("""
-            .struct_pytree_attr
-            {
-                font-style: italic;
-                color: #00225f;
-            }
-        """)
-    )
 
 
 def render_struct_constructor(
@@ -110,7 +87,10 @@ def struct_attr_style_fn_for_fields(
 
   def attr_style_fn(field_name):
     if struct.is_pytree_node_field(fields_by_name[field_name]):
-      return PyTreeNodeFieldName(rendering_parts.text(field_name))
+      return rendering_parts.custom_style(
+          rendering_parts.text(field_name),
+          css_style="font-style: italic; color: #00225f;",
+      )
     else:
       return rendering_parts.text(field_name)
 

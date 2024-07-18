@@ -63,7 +63,7 @@ class MockRenderableTreePart(part_interface.RenderableTreePart):
   def _compute_newlines_in_expanded_parent(self) -> int:
     return 10
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
     return frozenset([self.tag])
 
   def foldables_in_this_part(self):
@@ -106,13 +106,6 @@ mock_context = part_interface.HtmlContextForSetup(
 )
 
 
-class TaggedGroupForTest(basic_parts.BaseTaggedGroup):
-  """Test subclass of BaseTaggedGroup."""
-
-  def _tags(self) -> frozenset[Any]:
-    return frozenset({'test_tag'})
-
-
 class SpanGroupForTest_OneRule(basic_parts.BaseSpanGroup):  # pylint: disable=invalid-name
   """Test subclass of BaseSpanGroup."""
 
@@ -134,16 +127,6 @@ class SpanGroupForTest_TwoRules(basic_parts.BaseSpanGroup):  # pylint: disable=i
         CSSStyleRule('test_span_css_rule'),
         CSSStyleRule('test_span_css_rule_2'),
     }
-
-
-class BoxForTest(basic_parts.BaseBoxWithOutline):
-  """Test subclass of BaseBoxWithOutline."""
-
-  def _box_css_class(self) -> str:
-    return 'test_box_css_class'
-
-  def _box_css_rule(self, context):
-    return CSSStyleRule('test_span_css_rule')
 
 
 class RepresentationPartsTest(parameterized.TestCase):
@@ -216,7 +199,9 @@ class RepresentationPartsTest(parameterized.TestCase):
       ),
       dict(
           testcase_name='tagged_group',
-          part=TaggedGroupForTest(MockRenderableTreePart('A')),
+          part=basic_parts.WithLayoutMark(
+              MockRenderableTreePart('A'), 'test_tag'
+          ),
           expected_width=100,
           expected_newlines=10,
           expected_tags=frozenset({'test_tag', 'A'}),
@@ -588,7 +573,9 @@ class RepresentationPartsTest(parameterized.TestCase):
       ),
       dict(
           testcase_name='box_with_outline',
-          part=BoxForTest(MockRenderableTreePart('A')),
+          part=basic_parts.StyledBoxWithOutline(
+              MockRenderableTreePart('A'), css_style='--foo: "1";'
+          ),
           indent=4,
           expected_width=100,
           expected_newlines=12,
@@ -615,12 +602,14 @@ class RepresentationPartsTest(parameterized.TestCase):
               '\n    '
           ),
           expected_html=(
-              '<span class="outerbox_for_outline"><span class="box_with_outline'
-              ' test_box_css_class">[mock A, b:y]</span></span>'
+              '<span class="outerbox_for_outline"><span'
+              ' class="box_with_outline" style="--foo: &quot;1&quot;;">[mock A,'
+              ' b:y]</span></span>'
           ),
           expected_html_at_begining=(
-              '<span class="outerbox_for_outline"><span class="box_with_outline'
-              ' test_box_css_class">[mock A, b:y]</span></span>'
+              '<span class="outerbox_for_outline"><span'
+              ' class="box_with_outline" style="--foo: &quot;1&quot;;">[mock A,'
+              ' b:y]</span></span>'
           ),
       ),
       dict(
@@ -702,8 +691,8 @@ class RepresentationPartsTest(parameterized.TestCase):
     with self.subTest('newlines_in_expanded_parent'):
       self.assertEqual(part.newlines_in_expanded_parent, expected_newlines)
 
-    with self.subTest('tags_in_this_part'):
-      self.assertEqual(part.tags_in_this_part, expected_tags)
+    with self.subTest('layout_marks_in_this_part'):
+      self.assertEqual(part.layout_marks_in_this_part, expected_tags)
 
     with self.subTest('foldables_in_this_part'):
       self.assertEqual(part.foldables_in_this_part(), expected_foldables)

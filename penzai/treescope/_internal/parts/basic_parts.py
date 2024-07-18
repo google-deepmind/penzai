@@ -24,7 +24,7 @@ import io
 import itertools
 import operator
 import typing
-from typing import Any, Sequence
+from typing import Any, Hashable, Sequence
 
 from penzai.treescope._internal import html_escaping
 from penzai.treescope._internal.parts import part_interface
@@ -56,7 +56,7 @@ class BaseContentlessLeaf(RenderableTreePart):
   def foldables_in_this_part(self) -> Sequence[FoldableTreeNode]:
     return ()
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
     return frozenset()
 
   def html_setup_parts(
@@ -117,7 +117,7 @@ class Text(RenderableTreePart):
   def foldables_in_this_part(self) -> Sequence[FoldableTreeNode]:
     return ()
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
     return frozenset()
 
   def html_setup_parts(
@@ -176,10 +176,10 @@ class Siblings(RenderableTreePart):
         )
     )
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
     return functools.reduce(
         operator.or_,
-        (part.tags_in_this_part for part in self.children),
+        (part.layout_marks_in_this_part for part in self.children),
         frozenset(),
     )
 
@@ -270,8 +270,8 @@ class DeferringToChild(RenderableTreePart):
   def foldables_in_this_part(self) -> Sequence[FoldableTreeNode]:
     return self.child.foldables_in_this_part()
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
-    return self.child.tags_in_this_part
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
+    return self.child.layout_marks_in_this_part
 
   def html_setup_parts(
       self, context: HtmlContextForSetup, /
@@ -307,26 +307,6 @@ class DeferringToChild(RenderableTreePart):
         roundtrip_mode=roundtrip_mode,
         render_context=render_context,
     )
-
-
-@dataclasses.dataclass(frozen=True)
-class BaseTaggedGroup(DeferringToChild):
-  """A group that marks its child as having a tag for layout purposes.
-
-  Subclasses can define a particular tag to add.
-
-  Attributes:
-    child: Contents of the group.
-  """
-
-  child: RenderableTreePart
-
-  def _tags(self) -> frozenset[Any]:
-    """Returns a CSS class for the span's style. Intended to be overridden."""
-    return frozenset()
-
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
-    return self._tags() | self.child.tags_in_this_part
 
 
 @dataclasses.dataclass(frozen=True)
@@ -389,6 +369,43 @@ class BaseSpanGroup(DeferringToChild, abc.ABC):
 
 
 @dataclasses.dataclass(frozen=True)
+class WithLayoutMark(DeferringToChild):
+  """A group that marks its child for layout purposes.
+
+  Attributes:
+    child: Contents of the group.
+    mark: A layout mark to apply to the child. This can later be used by layout
+      algorithms to show this node.
+  """
+
+  child: RenderableTreePart
+  mark: Hashable
+
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
+    return frozenset((self.mark,)) | self.child.layout_marks_in_this_part
+
+
+def with_layout_mark(
+    child: RenderableTreePart, mark: Hashable
+) -> RenderableTreePart:
+  """Returns a part that marks its child for layout purposes.
+
+  Args:
+    child: Contents of the group.
+    mark: A layout mark to apply to the child. This can later be used by layout
+      algorithms to show this node.
+
+  Returns:
+    A new part that marks its child for layout purposes.
+  """
+  if not isinstance(child, RenderableTreePart):
+    raise ValueError(f"child must be a renderable part, got {type(child)}")
+  if not isinstance(mark, Hashable):
+    raise ValueError(f"Layout marks must be hashable, got {mark}")
+  return WithLayoutMark(child=child, mark=mark)
+
+
+@dataclasses.dataclass(frozen=True)
 class VerticalSpace(RenderableTreePart):
   """A vertical space in HTML mode."""
 
@@ -403,7 +420,7 @@ class VerticalSpace(RenderableTreePart):
   def foldables_in_this_part(self) -> Sequence[FoldableTreeNode]:
     return ()
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
     return frozenset()
 
   def html_setup_parts(
@@ -503,8 +520,11 @@ class FoldCondition(RenderableTreePart):
     # possible to fold/unfold.
     return self.expanded.foldables_in_this_part()
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
-    return self.collapsed.tags_in_this_part | self.expanded.tags_in_this_part
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
+    return (
+        self.collapsed.layout_marks_in_this_part
+        | self.expanded.layout_marks_in_this_part
+    )
 
   def render_to_html(
       self,
@@ -631,9 +651,10 @@ class RoundtripCondition(RenderableTreePart):
     # Defer to the not_roundtrip version for expansion decisions.
     return self.not_roundtrip.newlines_in_expanded_parent
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
     return (
-        self.roundtrip.tags_in_this_part | self.not_roundtrip.tags_in_this_part
+        self.roundtrip.layout_marks_in_this_part
+        | self.not_roundtrip.layout_marks_in_this_part
     )
 
   def foldables_in_this_part(self) -> Sequence[FoldableTreeNode]:
@@ -772,8 +793,11 @@ class SummarizableCondition(RenderableTreePart):
     # Defer to the detail version for expansion decisions.
     return self.detail.newlines_in_expanded_parent
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
-    return self.summary.tags_in_this_part | self.detail.tags_in_this_part
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
+    return (
+        self.summary.layout_marks_in_this_part
+        | self.detail.layout_marks_in_this_part
+    )
 
   def foldables_in_this_part(self) -> Sequence[FoldableTreeNode]:
     # Defer to the detail version for expansion decisions.
@@ -981,10 +1005,10 @@ class OnSeparateLines(RenderableTreePart):
         sum(part.newlines_in_expanded_parent + 1 for part in self.children) + 1
     )
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
     return functools.reduce(
         operator.or_,
-        (part.tags_in_this_part for part in self.children),
+        (part.layout_marks_in_this_part for part in self.children),
         frozenset(),
     )
 
@@ -1135,10 +1159,10 @@ class IndentedChildren(RenderableTreePart):
         sum(part.newlines_in_expanded_parent + 1 for part in self.children) + 1
     )
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
     return functools.reduce(
         operator.or_,
-        (part.tags_in_this_part for part in self.children),
+        (part.layout_marks_in_this_part for part in self.children),
         frozenset(),
     )
 
@@ -1252,7 +1276,7 @@ def indented_children(
 
 
 @dataclasses.dataclass(frozen=True)
-class BaseBoxWithOutline(RenderableTreePart, abc.ABC):
+class StyledBoxWithOutline(RenderableTreePart, abc.ABC):
   """An outlined box, which displays in "block" mode when rendered to HTML.
 
   Outlined boxes ensure that their child appears as a contiguous chunk, instead
@@ -1264,38 +1288,18 @@ class BaseBoxWithOutline(RenderableTreePart, abc.ABC):
   line. When rendered to text, we always insert extra comments above and below
   the line.
 
-  A specific type of outlined box can be implemented by subclassing this class.
-
   To allow the box to be collapsed separately, consider wrapping it in a
   foldable node.
 
   Attributes:
     child: The child to render.
+    css_style: The style for the inner box.
   """
 
   child: RenderableTreePart
-
-  # Overridable methods defined here.
-
-  @abc.abstractmethod
-  def _box_css_class(self) -> str:
-    """Returns a CSS class for the box's style. Intended to be overridden."""
-    raise NotImplementedError()
-
-  @abc.abstractmethod
-  def _box_css_rule(self, context: HtmlContextForSetup, /) -> CSSStyleRule:
-    """Returns a CSS style rule for the class in `_box_css_class`.
-
-    Intended to be overridden. Subclasses can assume the box will also have
-    class ".box_with_outline".
-
-    Args:
-      context: Context for setting up.
-    """
-    raise NotImplementedError()
+  css_style: str
 
   # Implementations of parent class abstract methods.
-
   def _compute_collapsed_width(self) -> int:
     return self.child.collapsed_width
 
@@ -1305,8 +1309,8 @@ class BaseBoxWithOutline(RenderableTreePart, abc.ABC):
     count = 2 + self.child.newlines_in_expanded_parent
     return count
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
-    return self.child.tags_in_this_part
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
+    return self.child.layout_marks_in_this_part
 
   def foldables_in_this_part(self) -> Sequence[FoldableTreeNode]:
     return self.child.foldables_in_this_part()
@@ -1334,10 +1338,7 @@ class BaseBoxWithOutline(RenderableTreePart, abc.ABC):
             width: max-content;
         }}
         """)
-    return {
-        CSSStyleRule(base_rule),
-        self._box_css_rule(context),
-    } | self.child.html_setup_parts(context)
+    return {CSSStyleRule(base_rule)} | self.child.html_setup_parts(context)
 
   def render_to_html(
       self,
@@ -1346,10 +1347,10 @@ class BaseBoxWithOutline(RenderableTreePart, abc.ABC):
       at_beginning_of_line: bool = False,
       render_context: dict[Any, Any],
   ):
-    extra_class = self._box_css_class()
+    style = html_escaping.escape_html_attribute(self.css_style)
     stream.write(
-        '<span class="outerbox_for_outline"><span class="box_with_outline'
-        f' {extra_class}">'
+        '<span class="outerbox_for_outline"><span class="box_with_outline" '
+        f'style="{style}">'
     )
     # Always treat the child as if it is at the beginning of the line, since it
     # will be once the box is expanded.
@@ -1386,6 +1387,43 @@ class BaseBoxWithOutline(RenderableTreePart, abc.ABC):
     if expanded_parent:
       stream.write("\n" + " " * indent + "#╰" + "┄" * boxwidth + "╯")
       stream.write("\n" + " " * indent)
+
+
+def in_outlined_box(
+    child: part_interface.RenderableTreePart,
+    css_style: str = "outline: 1px dashed #aaaaaa;",
+) -> RenderableTreePart:
+  """Wraps a child into an outlined box.
+
+  Outlined boxes ensure that their child appears as a contiguous chunk, instead
+  of having its first line indented, so that it can be fully encapsulated in
+  a box.
+
+  When rendered to HTML, this class may or may not insert extra newlines before
+  and after the child, depending on whether this child was already alone on its
+  line. When rendered to text, we always insert extra comments above and below
+  the line.
+
+  To allow the box to be collapsed separately, consider wrapping it in a
+  foldable node.
+
+  Args:
+    child: The child to render.
+    css_style: The CSS style for the box element. By default, renders with a
+      dashed grey outline.
+
+  Returns:
+    A renderable part that renders the child inside a standalone box.
+  """
+  if not isinstance(child, RenderableTreePart):
+    raise ValueError(
+        f"`child` must be a renderable part, but got {type(child).__name__}"
+    )
+  if not isinstance(css_style, str):
+    raise ValueError(
+        f"`css_style` must be a string, but got {type(css_style).__name__}"
+    )
+  return StyledBoxWithOutline(child, css_style)
 
 
 @dataclasses.dataclass(frozen=True)

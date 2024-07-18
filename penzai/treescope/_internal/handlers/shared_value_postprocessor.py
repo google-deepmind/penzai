@@ -132,7 +132,7 @@ class DynamicSharedCheck(rendering_parts.RenderableTreePart):
   def foldables_in_this_part(self) -> Sequence[part_interface.FoldableTreeNode]:
     return []
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
     return frozenset()
 
   def html_setup_parts(
@@ -268,9 +268,7 @@ def _is_safe_to_share(node: Any) -> bool:
       type(node).__hash__ is not None
       and type(node).__hash__ is not object.__hash__
       and type(node).__eq__ is not object.__eq__
-  ) or type_registries.lookup_by_mro(
-      type_registries.IMMUTABLE_TYPES_REGISTRY, type(node)
-  )
+  ) or type_registries.lookup_immutability_for_type(type(node))
 
 
 def check_for_shared_values(

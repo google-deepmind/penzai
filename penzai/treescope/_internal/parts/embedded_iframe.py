@@ -59,7 +59,7 @@ class EmbeddedIFrame(RenderableTreePart):
   def foldables_in_this_part(self) -> Sequence[FoldableTreeNode]:
     return ()
 
-  def _compute_tags_in_this_part(self) -> frozenset[Any]:
+  def _compute_layout_marks_in_this_part(self) -> frozenset[Any]:
     return frozenset()
 
   def render_to_text(

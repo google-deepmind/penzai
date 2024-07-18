@@ -96,7 +96,7 @@ def append_repr_html_when_present(
 
   boxed_html_repr = rendering_parts.indented_children([
       rendering_parts.floating_annotation_with_separate_focus(
-          rendering_parts.dashed_gray_outline_box(
+          rendering_parts.in_outlined_box(
               rendering_parts.build_full_line_with_annotations(
                   rendering_parts.build_custom_foldable_tree_node(
                       label=rendering_parts.comment_color(

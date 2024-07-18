@@ -18,8 +18,6 @@
 from __future__ import annotations
 
 import dataclasses
-import io
-from typing import Any
 
 from penzai.treescope import lowering
 from penzai.treescope._internal import html_escaping
@@ -102,32 +100,3 @@ class PreventWordWrap(basic_parts.BaseSpanGroup):
           }
         """)
     )
-
-
-@dataclasses.dataclass(frozen=True)
-class CSSStyled(basic_parts.DeferringToChild):
-  """Adjusts the CSS style of its child.
-
-  Attributes:
-    child: Child to render.
-    css: A CSS style string.
-  """
-
-  child: part_interface.RenderableTreePart
-  style: str
-
-  def render_to_html(
-      self,
-      stream: io.TextIOBase,
-      *,
-      at_beginning_of_line: bool = False,
-      render_context: dict[Any, Any],
-  ):
-    style = html_escaping.escape_html_attribute(self.style)
-    stream.write(f'<span style="{style}">')
-    self.child.render_to_html(
-        stream,
-        at_beginning_of_line=at_beginning_of_line,
-        render_context=render_context,
-    )
-    stream.write("</span>")

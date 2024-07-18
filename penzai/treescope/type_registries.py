@@ -40,6 +40,7 @@ from typing import Any, TypeVar
 
 from penzai.treescope import ndarray_adapters
 from penzai.treescope import renderer
+from penzai.treescope._internal import object_inspection
 
 T = TypeVar("T")
 
@@ -55,6 +56,10 @@ be used to render any arrays of that type.
 If a type is not present in this registry, the entries of that type's `__mro__`
 will also be searched. Additionally, virtual base classes will be checked if
 the abtract base class is in `VIRTUAL_BASE_CLASSES`.
+
+NDArray adapters are usually looked up using the `lookup_ndarray_adapter`
+function, which will also check for the __treescope_ndarray_adapter__ method
+on the type.
 """
 
 TREESCOPE_HANDLER_REGISTRY: dict[type[Any], renderer.TreescopeNodeHandler] = {}
@@ -110,19 +115,15 @@ _LAZY_MODULE_SETUP_FUNCTIONS: dict[str, tuple[str, str]] = {
     # rendering system, but we define its setup function here as well for
     # consistency with the other array modules.
     "numpy": (
-        "penzai.treescope._internal.handlers.interop.numpy_support",
+        "penzai.treescope.external.numpy_support",
         "set_up_treescope",
     ),
     "jax": (
-        "penzai.treescope._internal.handlers.interop.jax_support",
-        "set_up_treescope",
-    ),
-    "penzai.core": (
-        "penzai.treescope._internal.handlers.interop.penzai_core_support",
+        "penzai.treescope.external.jax_support",
         "set_up_treescope",
     ),
     "torch": (
-        "penzai.treescope._internal.handlers.interop.torch_support",
+        "penzai.treescope.external.torch_support",
         "set_up_treescope",
     ),
 }
@@ -158,15 +159,13 @@ def update_registries_for_imports():
       del _LAZY_MODULE_SETUP_FUNCTIONS[module_name]
 
 
-def lookup_by_mro(
+def _lookup_by_mro(
     registry: dict[type[Any], T], candidate_type: type[Any]
 ) -> T | None:
   """Looks up the given type in the given registry, or in its base classes.
 
-  This function will first run any lazy setup functions for the module of the
-  given type, if applicable. It will then look up the given type in the given
-  registry, or in the registry for any base class of the given type, in method
-  resolution order.
+  This function looks up the given type in the given registry, or in the
+  registry for any base class of the given type, in method resolution order.
 
   If no concrete base class is found in the registry, each of the entries of
   `VIRTUAL_BASE_CLASSES` will be checked to see if it is a virtual base class.
@@ -187,3 +186,66 @@ def lookup_by_mro(
     if issubclass(candidate_type, base_class) and base_class in registry:
       return registry[base_class]
   return None
+
+
+def lookup_immutability_for_type(candidate_type: type[Any]) -> bool:
+  """Checks if an object is marked as immutable in the global registry.
+
+  This function can be used to look up whether an object should be considered
+  immutable for treescope according to `IMMUTABLE_TYPES_REGISTRY`. The status
+  will be looked up by the type of the given object, any of its base classes, or
+  any virtual base classes listed in `VIRTUAL_BASE_CLASSES`.
+
+  Args:
+    candidate_type: The type to check immutability of.
+
+  Returns:
+    True if this type is registered as immutable, False otherwise.
+  """
+  return bool(_lookup_by_mro(IMMUTABLE_TYPES_REGISTRY, candidate_type))
+
+
+def lookup_treescope_handler_for_type(
+    candidate_type: type[Any],
+) -> renderer.TreescopeNodeHandler | None:
+  """Looks up a treescope handler for the given type.
+
+  This function can be used to look up a treescope handler for an object using
+  the global registry `TREESCOPE_HANDLER_REGISTRY`. The handler will be looked
+  up by the type of the given object, any of its base classes, or any virtual
+  base classes listed in `VIRTUAL_BASE_CLASSES`.
+
+  This function does NOT check for methods on the type; those should be checked
+  separately.
+
+  Args:
+    candidate_type: The type to look up a handler for.
+
+  Returns:
+    A treescope handler for the given type, or None if no handler was found.
+  """
+  return _lookup_by_mro(TREESCOPE_HANDLER_REGISTRY, candidate_type)
+
+
+def lookup_ndarray_adapter(
+    possible_array: Any,
+) -> ndarray_adapters.NDArrayAdapter[Any] | None:
+  """Looks up an NDArray adapter for the given type.
+
+  This function looks for an NDArray adapter by first checking for the
+  `__treescope_ndarray_adapter__` method on the type, and then by looking up
+  the type in the global registry `NDARRAY_ADAPTER_REGISTRY`.
+
+  Args:
+    possible_array: The object to look up an adapter for.
+
+  Returns:
+    An NDArray adapter for the given type, or None if no adapter was found.
+  """
+  has_adapter_method = object_inspection.safely_get_real_method(
+      possible_array, "__treescope_ndarray_adapter__"
+  )
+  if has_adapter_method:
+    return has_adapter_method()
+  else:
+    return _lookup_by_mro(NDARRAY_ADAPTER_REGISTRY, type(possible_array))

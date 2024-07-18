@@ -32,6 +32,7 @@ from penzai.treescope._internal.parts.basic_parts import (
     empty_part,
     floating_annotation_with_separate_focus,
     fold_condition,
+    in_outlined_box,
     indented_children,
     on_separate_lines,
     roundtrip_condition,
@@ -40,13 +41,13 @@ from penzai.treescope._internal.parts.basic_parts import (
     summarizable_condition,
     text,
     vertical_space,
+    with_layout_mark,
 )
 from penzai.treescope._internal.parts.common_structures import (
     build_copy_button,
     build_custom_foldable_tree_node,
     build_foldable_tree_node_from_children,
     build_one_line_tree_node,
-    fake_placeholder_foldable,
     maybe_qualified_type_name,
 )
 from penzai.treescope._internal.parts.common_styles import (
@@ -54,10 +55,10 @@ from penzai.treescope._internal.parts.common_styles import (
     comment_color_when_expanded,
     comment_color,
     custom_text_color,
-    dashed_gray_outline_box,
     deferred_placeholder_style,
     error_color,
     qualified_type_name_style,
+    custom_style,
 )
 from penzai.treescope._internal.parts.custom_dataclass_util import (
     build_field_children,

@@ -28,9 +28,9 @@ from penzai.nn import grouping
 from penzai.treescope import context
 from penzai.treescope import formatting_util
 from penzai.treescope import handlers
+from penzai.treescope import layout_algorithms
 from penzai.treescope import renderer
 from penzai.treescope import rendering_parts
-from penzai.treescope._internal import layout_algorithms
 
 _already_seen_layer: context.ContextualValue[bool] = context.ContextualValue(
     module=__name__, qualname="_already_seen_layer", initial_value=False
@@ -99,7 +99,7 @@ def handle_layers(
       if exc_message is not None:
         structure_annotation = rendering_parts.fold_condition(
             expanded=rendering_parts.floating_annotation_with_separate_focus(
-                rendering_parts.dashed_gray_outline_box(
+                rendering_parts.in_outlined_box(
                     rendering_parts.error_color(
                         rendering_parts.text(
                             "Error while inferring input/output structure:"
@@ -117,7 +117,7 @@ def handle_layers(
         with handlers.setup_shared_value_context():
           structure_annotation = rendering_parts.fold_condition(
               expanded=rendering_parts.floating_annotation_with_separate_focus(
-                  rendering_parts.dashed_gray_outline_box(
+                  rendering_parts.in_outlined_box(
                       rendering_parts.comment_color(
                           rendering_parts.on_separate_lines([
                               rendering_parts.siblings_with_annotations(
@@ -150,7 +150,7 @@ def handle_layers(
         extra_annotations.append(
             rendering_parts.fold_condition(
                 expanded=rendering_parts.floating_annotation_with_separate_focus(
-                    rendering_parts.dashed_gray_outline_box(
+                    rendering_parts.in_outlined_box(
                         rendering_parts.comment_color(
                             rendering_parts.siblings(
                                 "# Unhandled effects:", *effect_type_blobs
@@ -165,7 +165,7 @@ def handle_layers(
         with handlers.setup_shared_value_context():
           broken_annotation = rendering_parts.fold_condition(
               expanded=rendering_parts.floating_annotation_with_separate_focus(
-                  rendering_parts.dashed_gray_outline_box(
+                  rendering_parts.in_outlined_box(
                       rendering_parts.build_full_line_with_annotations(
                           rendering_parts.error_color(
                               rendering_parts.text("# Broken handler refs: ")

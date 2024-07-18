@@ -69,7 +69,7 @@ def handle_arbitrary_pytrees(
     )
 
   boxed_pytree_children = rendering_parts.indented_children([
-      rendering_parts.dashed_gray_outline_box(
+      rendering_parts.in_outlined_box(
           rendering_parts.build_full_line_with_annotations(
               rendering_parts.build_custom_foldable_tree_node(
                   label=rendering_parts.comment_color(

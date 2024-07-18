@@ -94,9 +94,7 @@ def handle_via_global_registry(
   Returns:
     A rendering of this node, if it was found in the global registry.
   """
-  maybe_handler = type_registries.lookup_by_mro(
-      type_registries.TREESCOPE_HANDLER_REGISTRY, type(node)
-  )
+  maybe_handler = type_registries.lookup_treescope_handler_for_type(type(node))
   if maybe_handler:
     return maybe_handler(node, path, subtree_renderer)
   else:
