@@ -29,10 +29,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from penzai.treescope import renderer
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope import rendering_parts
 
 
 def render_object_constructor(
@@ -42,7 +39,7 @@ def render_object_constructor(
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
     roundtrippable: bool = False,
     color: str | None = None,
-) -> part_interface.Rendering:
+) -> rendering_parts.Rendering:
   """Renders an object in "constructor format", similar to a dataclass.
 
   This produces a rendering like `Foo(bar=1, baz=2)`, where Foo identifies the
@@ -69,8 +66,8 @@ def render_object_constructor(
       from `__penzai_repr__`, this should come from the `path` argument to
       `__penzai_repr__`.
     subtree_renderer: The renderer to use to render subtrees. When
-      `render_object_constructor` is called from `__penzai_repr__`, this
-      should come from the `subtree_renderer` argument to `__penzai_repr__`.
+      `render_object_constructor` is called from `__penzai_repr__`, this should
+      come from the `subtree_renderer` argument to `__penzai_repr__`.
     roundtrippable: Whether evaluating the rendering as Python code will produce
       an object that is equal to the original object. This implies that the
       keyword arguments are actually the keyword arguments to the constructor,
@@ -83,19 +80,23 @@ def render_object_constructor(
     A rendering of the object, suitable for returning from `__penzai_repr__`.
   """
   if roundtrippable:
-    constructor = basic_parts.siblings(
-        common_structures.maybe_qualified_type_name(object_type), "("
+    constructor = rendering_parts.siblings(
+        rendering_parts.maybe_qualified_type_name(object_type), "("
     )
-    closing_suffix = basic_parts.Text(")")
+    closing_suffix = rendering_parts.text(")")
   else:
-    constructor = basic_parts.siblings(
-        basic_parts.RoundtripCondition(roundtrip=basic_parts.Text("<")),
-        common_structures.maybe_qualified_type_name(object_type),
+    constructor = rendering_parts.siblings(
+        rendering_parts.roundtrip_condition(
+            roundtrip=rendering_parts.text("<")
+        ),
+        rendering_parts.maybe_qualified_type_name(object_type),
         "(",
     )
-    closing_suffix = basic_parts.siblings(
+    closing_suffix = rendering_parts.siblings(
         ")",
-        basic_parts.RoundtripCondition(roundtrip=basic_parts.Text(">")),
+        rendering_parts.roundtrip_condition(
+            roundtrip=rendering_parts.text(">")
+        ),
     )
 
   children = []
@@ -105,15 +106,18 @@ def render_object_constructor(
     if i < len(attributes) - 1:
       # Not the last child. Always show a comma, and add a space when
       # collapsed.
-      comma_after = basic_parts.siblings(
-          ",", basic_parts.FoldCondition(collapsed=basic_parts.Text(" "))
+      comma_after = rendering_parts.siblings(
+          ",",
+          rendering_parts.fold_condition(collapsed=rendering_parts.text(" ")),
       )
     else:
       # Last child: only show the comma when the node is expanded.
-      comma_after = basic_parts.FoldCondition(expanded=basic_parts.Text(","))
+      comma_after = rendering_parts.fold_condition(
+          expanded=rendering_parts.text(",")
+      )
 
-    child_line = basic_parts.build_full_line_with_annotations(
-        basic_parts.siblings_with_annotations(
+    child_line = rendering_parts.build_full_line_with_annotations(
+        rendering_parts.siblings_with_annotations(
             f"{name}=",
             subtree_renderer(value, path=child_path),
         ),
@@ -121,7 +125,7 @@ def render_object_constructor(
     )
     children.append(child_line)
 
-  return common_structures.build_foldable_tree_node_from_children(
+  return rendering_parts.build_foldable_tree_node_from_children(
       prefix=constructor,
       children=children,
       suffix=closing_suffix,
@@ -137,7 +141,7 @@ def render_dictionary_wrapper(
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
     roundtrippable: bool = False,
     color: str | None = None,
-) -> part_interface.Rendering:
+) -> rendering_parts.Rendering:
   """Renders an object in "wrapped dictionary format".
 
   This produces a rendering like `Foo({"bar": 1, "baz": 2})`, where Foo
@@ -163,8 +167,8 @@ def render_dictionary_wrapper(
       from `__penzai_repr__`, this should come from the `path` argument to
       `__penzai_repr__`.
     subtree_renderer: The renderer to use to render subtrees. When
-      `render_object_constructor` is called from `__penzai_repr__`, this
-      should come from the `subtree_renderer` argument to `__penzai_repr__`.
+      `render_object_constructor` is called from `__penzai_repr__`, this should
+      come from the `subtree_renderer` argument to `__penzai_repr__`.
     roundtrippable: Whether evaluating the rendering as Python code will produce
       an object that is equal to the original object. This implies that the
       constructor for `object_type` takes a single argument, which is a
@@ -179,19 +183,23 @@ def render_dictionary_wrapper(
     A rendering of the object, suitable for returning from `__penzai_repr__`.
   """
   if roundtrippable:
-    constructor = basic_parts.siblings(
-        common_structures.maybe_qualified_type_name(object_type), "({"
+    constructor = rendering_parts.siblings(
+        rendering_parts.maybe_qualified_type_name(object_type), "({"
     )
-    closing_suffix = basic_parts.Text("})")
+    closing_suffix = rendering_parts.text("})")
   else:
-    constructor = basic_parts.siblings(
-        basic_parts.RoundtripCondition(roundtrip=basic_parts.Text("<")),
-        common_structures.maybe_qualified_type_name(object_type),
+    constructor = rendering_parts.siblings(
+        rendering_parts.roundtrip_condition(
+            roundtrip=rendering_parts.text("<")
+        ),
+        rendering_parts.maybe_qualified_type_name(object_type),
         "({",
     )
-    closing_suffix = basic_parts.siblings(
+    closing_suffix = rendering_parts.siblings(
         "})",
-        basic_parts.RoundtripCondition(roundtrip=basic_parts.Text(">")),
+        rendering_parts.roundtrip_condition(
+            roundtrip=rendering_parts.text(">")
+        ),
     )
 
   children = []
@@ -201,12 +209,15 @@ def render_dictionary_wrapper(
     if i < len(wrapped_dict) - 1:
       # Not the last child. Always show a comma, and add a space when
       # collapsed.
-      comma_after = basic_parts.siblings(
-          ",", basic_parts.FoldCondition(collapsed=basic_parts.Text(" "))
+      comma_after = rendering_parts.siblings(
+          ",",
+          rendering_parts.fold_condition(collapsed=rendering_parts.text(" ")),
       )
     else:
       # Last child: only show the comma when the node is expanded.
-      comma_after = basic_parts.FoldCondition(expanded=basic_parts.Text(","))
+      comma_after = rendering_parts.fold_condition(
+          expanded=rendering_parts.text(",")
+      )
 
     key_rendering = subtree_renderer(key)
     value_rendering = subtree_renderer(value, path=child_path)
@@ -221,31 +232,33 @@ def render_dictionary_wrapper(
     ):
       # Simple enough to render on one line.
       children.append(
-          basic_parts.siblings_with_annotations(
+          rendering_parts.siblings_with_annotations(
               key_rendering, ": ", value_rendering, comma_after
           )
       )
     else:
       # Should render on multiple lines.
       children.append(
-          basic_parts.siblings(
-              basic_parts.build_full_line_with_annotations(
+          rendering_parts.siblings(
+              rendering_parts.build_full_line_with_annotations(
                   key_rendering,
                   ":",
-                  basic_parts.FoldCondition(collapsed=basic_parts.Text(" ")),
+                  rendering_parts.fold_condition(
+                      collapsed=rendering_parts.text(" ")
+                  ),
               ),
-              basic_parts.IndentedChildren.build([
-                  basic_parts.siblings_with_annotations(
+              rendering_parts.indented_children([
+                  rendering_parts.siblings_with_annotations(
                       value_rendering, comma_after
                   ),
-                  basic_parts.FoldCondition(
-                      expanded=basic_parts.VerticalSpace("0.5em")
+                  rendering_parts.fold_condition(
+                      expanded=rendering_parts.vertical_space("0.5em")
                   ),
               ]),
           )
       )
 
-  return common_structures.build_foldable_tree_node_from_children(
+  return rendering_parts.build_foldable_tree_node_from_children(
       prefix=constructor,
       children=children,
       suffix=closing_suffix,
@@ -261,8 +274,8 @@ def render_enumlike_item(
     path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
 ):
   """Renders a value of an enum-like type (e.g. like `enum.Enum`).
 
@@ -286,13 +299,13 @@ def render_enumlike_item(
     A rendering of the object, suitable for returning from `__treescope_repr__`.
   """
   del subtree_renderer
-  return common_structures.build_one_line_tree_node(
-      basic_parts.siblings_with_annotations(
-          common_structures.maybe_qualified_type_name(object_type),
+  return rendering_parts.build_one_line_tree_node(
+      rendering_parts.siblings_with_annotations(
+          rendering_parts.maybe_qualified_type_name(object_type),
           "." + item_name,
           extra_annotations=[
-              common_styles.CommentColor(
-                  basic_parts.Text(f"  # value: {repr(item_value)}")
+              rendering_parts.comment_color(
+                  rendering_parts.text(f"  # value: {repr(item_value)}")
               )
           ],
       ),

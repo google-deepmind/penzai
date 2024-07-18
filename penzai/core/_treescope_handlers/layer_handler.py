@@ -26,15 +26,11 @@ from penzai.core._treescope_handlers import struct_handler
 from penzai.data_effects import effect_base
 from penzai.nn import grouping
 from penzai.treescope import context
+from penzai.treescope import formatting_util
+from penzai.treescope import handlers
 from penzai.treescope import renderer
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import layout_algorithms
-from penzai.treescope.foldable_representation import part_interface
-from penzai.treescope.handlers import builtin_structure_handler
-from penzai.treescope.handlers import shared_value_postprocessor
-
+from penzai.treescope import rendering_parts
+from penzai.treescope._internal import layout_algorithms
 
 _already_seen_layer: context.ContextualValue[bool] = context.ContextualValue(
     module=__name__, qualname="_already_seen_layer", initial_value=False
@@ -54,8 +50,8 @@ def handle_layers(
         grouping.CheckedSequential,
     ),
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Renders a penzai  layer.
@@ -101,11 +97,11 @@ def handle_layers(
         or exc_message is not None
     ):
       if exc_message is not None:
-        structure_annotation = basic_parts.FoldCondition(
-            expanded=basic_parts.ScopedSelectableAnnotation(
-                common_styles.DashedGrayOutlineBox(
-                    common_styles.ErrorColor(
-                        basic_parts.Text(
+        structure_annotation = rendering_parts.fold_condition(
+            expanded=rendering_parts.floating_annotation_with_separate_focus(
+                rendering_parts.dashed_gray_outline_box(
+                    rendering_parts.error_color(
+                        rendering_parts.text(
                             "Error while inferring input/output structure:"
                             f" {exc_message}"
                         )
@@ -118,17 +114,17 @@ def handle_layers(
         # Add input and output type annotations.
         # Don't worry about shared values while rendering these, since they
         # don't actually appear in the tree.
-        with shared_value_postprocessor.setup_shared_value_context():
-          structure_annotation = basic_parts.FoldCondition(
-              expanded=basic_parts.ScopedSelectableAnnotation(
-                  common_styles.DashedGrayOutlineBox(
-                      common_styles.CommentColor(
-                          basic_parts.OnSeparateLines.build([
-                              basic_parts.siblings_with_annotations(
+        with handlers.setup_shared_value_context():
+          structure_annotation = rendering_parts.fold_condition(
+              expanded=rendering_parts.floating_annotation_with_separate_focus(
+                  rendering_parts.dashed_gray_outline_box(
+                      rendering_parts.comment_color(
+                          rendering_parts.on_separate_lines([
+                              rendering_parts.siblings_with_annotations(
                                   "# Input: ",
                                   subtree_renderer(input_structure),
                               ),
-                              basic_parts.siblings_with_annotations(
+                              rendering_parts.siblings_with_annotations(
                                   "# Output: ",
                                   subtree_renderer(output_structure),
                               ),
@@ -149,21 +145,14 @@ def handle_layers(
         for effect_protocol in free_effects:
           effect_type_blobs.append(" ")
           effect_type_blobs.append(
-              common_styles.WithBlockColor(
-                  common_styles.ColoredSingleLineSpanGroup(
-                      common_structures.maybe_qualified_type_name(
-                          effect_protocol
-                      )
-                  ),
-                  color=effect_base.get_effect_color(effect_protocol),
-              )
+              rendering_parts.maybe_qualified_type_name(effect_protocol)
           )
         extra_annotations.append(
-            basic_parts.FoldCondition(
-                expanded=basic_parts.ScopedSelectableAnnotation(
-                    common_styles.DashedGrayOutlineBox(
-                        common_styles.CommentColor(
-                            basic_parts.siblings(
+            rendering_parts.fold_condition(
+                expanded=rendering_parts.floating_annotation_with_separate_focus(
+                    rendering_parts.dashed_gray_outline_box(
+                        rendering_parts.comment_color(
+                            rendering_parts.siblings(
                                 "# Unhandled effects:", *effect_type_blobs
                             )
                         )
@@ -173,13 +162,13 @@ def handle_layers(
         )
       broken_refs = effect_base.broken_handler_refs(node)
       if broken_refs:
-        with shared_value_postprocessor.setup_shared_value_context():
-          broken_annotation = basic_parts.FoldCondition(
-              expanded=basic_parts.ScopedSelectableAnnotation(
-                  common_styles.DashedGrayOutlineBox(
-                      basic_parts.build_full_line_with_annotations(
-                          common_styles.ErrorColor(
-                              basic_parts.Text("# Broken handler refs: ")
+        with handlers.setup_shared_value_context():
+          broken_annotation = rendering_parts.fold_condition(
+              expanded=rendering_parts.floating_annotation_with_separate_focus(
+                  rendering_parts.dashed_gray_outline_box(
+                      rendering_parts.build_full_line_with_annotations(
+                          rendering_parts.error_color(
+                              rendering_parts.text("# Broken handler refs: ")
                           ),
                           subtree_renderer(broken_refs, path=None),
                       )
@@ -189,7 +178,7 @@ def handle_layers(
           layout_algorithms.expand_to_depth(broken_annotation, 0)
           extra_annotations.append(broken_annotation)
 
-    children = builtin_structure_handler.build_field_children(
+    children = rendering_parts.build_field_children(
         node,
         path,
         subtree_renderer,
@@ -198,7 +187,7 @@ def handle_layers(
     )
 
   background_color, background_pattern = (
-      builtin_structure_handler.parse_color_and_pattern(
+      formatting_util.parse_simple_color_and_pattern_spec(
           node.treescope_color(), type(node).__name__
       )
   )
@@ -208,21 +197,21 @@ def handle_layers(
       isinstance(node, grouping.Sequential)
       and type(node) is not grouping.Sequential
   ):
-    first_line_annotation = common_styles.CommentColor(
-        basic_parts.Text(" # Sequential")
+    first_line_annotation = rendering_parts.comment_color(
+        rendering_parts.text(" # Sequential")
     )
   elif (
       isinstance(node, grouping.CheckedSequential)
       and type(node) is not grouping.CheckedSequential
   ):
-    first_line_annotation = common_styles.CommentColor(
-        basic_parts.Text(" # CheckedSequential")
+    first_line_annotation = rendering_parts.comment_color(
+        rendering_parts.text(" # CheckedSequential")
     )
   else:
     first_line_annotation = None
   # pylint: enable=unidiomatic-typecheck
 
-  return common_structures.build_foldable_tree_node_from_children(
+  return rendering_parts.build_foldable_tree_node_from_children(
       prefix=constructor_open,
       children=extra_annotations + children,
       suffix=")",

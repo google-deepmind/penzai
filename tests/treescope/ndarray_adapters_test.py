@@ -258,17 +258,17 @@ class NdarrayAdaptersTest(parameterized.TestCase):
 
     with self.subTest("explicit_unmasked"):
       res = arrayviz.render_array(array)
-      self.assertIsInstance(res, arrayviz.ArrayvizRendering)
+      self.assertTrue(hasattr(res, "_repr_html_"))
 
     with self.subTest("explicit_masked"):
       res = arrayviz.render_array(array, valid_mask=array > 100)
-      self.assertIsInstance(res, arrayviz.ArrayvizRendering)
+      self.assertTrue(hasattr(res, "_repr_html_"))
 
     with self.subTest("explicit_masked_truncated"):
       res = arrayviz.render_array(
           array, valid_mask=array > 100, truncate=True, maximum_size=100
       )
-      self.assertIsInstance(res, arrayviz.ArrayvizRendering)
+      self.assertTrue(hasattr(res, "_repr_html_"))
 
     with self.subTest("automatic"):
       with autovisualize.active_autovisualizer.set_scoped(

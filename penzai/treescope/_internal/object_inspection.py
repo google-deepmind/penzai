@@ -16,6 +16,7 @@
 
 
 from __future__ import annotations
+import abc
 import types
 from typing import Any, Callable
 
@@ -47,3 +48,30 @@ def safely_get_real_method(
     return retrieved
   except Exception:  # pylint: disable=broad-exception-caught
     return None
+
+
+class HasReprHtml(abc.ABC):
+  """Abstract base class for rich-display objects in IPython."""
+
+  @abc.abstractmethod
+  def _repr_html_(self) -> str | tuple[str, Any]:
+    """Returns a rich HTML representation of an object."""
+    ...
+
+  @classmethod
+  def __subclasshook__(cls, subclass, /):
+    """Checks if a class is a subclass of HasReprHtml."""
+    return hasattr(subclass, '_repr_html_') and callable(subclass._repr_html_)  # pylint: disable=protected-access
+
+
+def to_html(node: Any) -> str | None:
+  """Extracts a rich HTML representation of node using _repr_html_."""
+  repr_html_method = safely_get_real_method(node, '_repr_html_')
+  if repr_html_method is None:
+    return None
+  html_for_node_and_maybe_metadata = repr_html_method()
+  if isinstance(html_for_node_and_maybe_metadata, tuple):
+    html_for_node, _ = html_for_node_and_maybe_metadata
+  else:
+    html_for_node = html_for_node_and_maybe_metadata
+  return html_for_node

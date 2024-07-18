@@ -23,11 +23,9 @@ import typing
 from typing import Any, Callable, Iterable
 import warnings
 
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import foldable_impl
-from penzai.treescope.foldable_representation import layout_algorithms
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope import lowering
+from penzai.treescope import rendering_parts
+from penzai.treescope._internal import layout_algorithms
 
 
 class TreescopeSubtreeRenderer(typing.Protocol):
@@ -41,7 +39,7 @@ class TreescopeSubtreeRenderer(typing.Protocol):
       self,
       node: Any,
       path: str | None = None,
-  ) -> part_interface.RenderableAndLineAnnotations:
+  ) -> rendering_parts.RenderableAndLineAnnotations:
     """Signature for a (recursive) subtree renderer.
 
     Args:
@@ -70,8 +68,8 @@ class TreescopeNodeHandler(typing.Protocol):
       path: str | None,
       subtree_renderer: TreescopeSubtreeRenderer,
   ) -> (
-      part_interface.RenderableTreePart
-      | part_interface.RenderableAndLineAnnotations
+      rendering_parts.RenderableTreePart
+      | rendering_parts.RenderableAndLineAnnotations
       | type(NotImplemented)
   ):
     """Signature for a rendering handler for a particular node type.
@@ -114,8 +112,8 @@ class TreescopeCustomWrapperHook(typing.Protocol):
       path: str | None,
       node_renderer: TreescopeSubtreeRenderer,
   ) -> (
-      part_interface.RenderableTreePart
-      | part_interface.RenderableAndLineAnnotations
+      rendering_parts.RenderableTreePart
+      | rendering_parts.RenderableAndLineAnnotations
       | type(NotImplemented)
   ):
     """Signature for a custom wrapper hook.
@@ -197,7 +195,7 @@ class TreescopeRenderer:
       already_executed_wrapper_count: int,
       node: Any,
       path: str | None = None,
-  ) -> part_interface.RenderableAndLineAnnotations:
+  ) -> rendering_parts.RenderableAndLineAnnotations:
     """Renders a specific subtree using the renderer.
 
     Args:
@@ -234,15 +232,15 @@ class TreescopeRenderer:
           continue
 
         elif isinstance(
-            postprocessed_result, part_interface.RenderableAndLineAnnotations
+            postprocessed_result, rendering_parts.RenderableAndLineAnnotations
         ):
           return postprocessed_result
         elif isinstance(
-            postprocessed_result, part_interface.RenderableTreePart
+            postprocessed_result, rendering_parts.RenderableTreePart
         ):
-          return part_interface.RenderableAndLineAnnotations(
+          return rendering_parts.RenderableAndLineAnnotations(
               renderable=postprocessed_result,
-              annotations=basic_parts.EmptyPart(),
+              annotations=rendering_parts.empty_part(),
           )
         else:
           raise ValueError(
@@ -267,14 +265,14 @@ class TreescopeRenderer:
 
     if node_id in rendering_stack:
       # Cycle! This object contains itself.
-      return part_interface.RenderableAndLineAnnotations(
-          renderable=common_styles.ErrorColor(
-              basic_parts.Text(
+      return rendering_parts.RenderableAndLineAnnotations(
+          renderable=rendering_parts.error_color(
+              rendering_parts.text(
                   f"<cyclic reference to {type(node).__name__} at"
                   f" 0x{node_id:x}>"
               )
           ),
-          annotations=basic_parts.EmptyPart(),
+          annotations=rendering_parts.empty_part(),
       )
     else:
       # Track cyclic references. We use `try: ... finally: ...` to ensure we
@@ -296,15 +294,15 @@ class TreescopeRenderer:
               # Try the next handler.
               continue
             elif isinstance(
-                maybe_result, part_interface.RenderableAndLineAnnotations
+                maybe_result, rendering_parts.RenderableAndLineAnnotations
             ):
               # Found a result!
               return maybe_result
-            elif isinstance(maybe_result, part_interface.RenderableTreePart):
+            elif isinstance(maybe_result, rendering_parts.RenderableTreePart):
               # Wrap it with empty annotations.
-              return part_interface.RenderableAndLineAnnotations(
+              return rendering_parts.RenderableAndLineAnnotations(
                   renderable=maybe_result,
-                  annotations=basic_parts.EmptyPart(),
+                  annotations=rendering_parts.empty_part(),
               )
             else:
               raise ValueError(
@@ -330,11 +328,11 @@ class TreescopeRenderer:
           )
           # Fall back to a basic `repr` so that we still render something even
           # without a handler for it.
-          return part_interface.RenderableAndLineAnnotations(
-              renderable=common_styles.AbbreviationColor(
-                  basic_parts.Text(repr(node))
+          return rendering_parts.RenderableAndLineAnnotations(
+              renderable=rendering_parts.abbreviation_color(
+                  rendering_parts.text(repr(node))
               ),
-              annotations=basic_parts.EmptyPart(),
+              annotations=rendering_parts.empty_part(),
           )
         else:
           raise ValueError(
@@ -351,7 +349,7 @@ class TreescopeRenderer:
       value: Any,
       ignore_exceptions: bool = False,
       root_keypath: str | None = "",
-  ) -> part_interface.RenderableAndLineAnnotations:
+  ) -> rendering_parts.RenderableAndLineAnnotations:
     """Renders an object to the foldable intermediate representation.
 
     Args:
@@ -393,11 +391,11 @@ class TreescopeRenderer:
     Returns:
       A text representation of the object.
     """
-    foldable_ir = basic_parts.build_full_line_with_annotations(
+    foldable_ir = rendering_parts.build_full_line_with_annotations(
         self.to_foldable_representation(value)
     )
     layout_algorithms.expand_for_balanced_layout(foldable_ir)
-    return foldable_impl.render_to_text_as_root(foldable_ir, roundtrip_mode)
+    return lowering.render_to_text_as_root(foldable_ir, roundtrip_mode)
 
   def to_html(self, value: Any, roundtrip_mode: bool = False) -> str:
     """Convenience method to render an object to HTML.
@@ -409,8 +407,8 @@ class TreescopeRenderer:
     Returns:
       HTML source code for the foldable representation of the object.
     """
-    foldable_ir = basic_parts.build_full_line_with_annotations(
+    foldable_ir = rendering_parts.build_full_line_with_annotations(
         self.to_foldable_representation(value)
     )
     layout_algorithms.expand_for_balanced_layout(foldable_ir)
-    return foldable_impl.render_to_html_as_root(foldable_ir, roundtrip_mode)
+    return lowering.render_to_html_as_root(foldable_ir, roundtrip_mode)

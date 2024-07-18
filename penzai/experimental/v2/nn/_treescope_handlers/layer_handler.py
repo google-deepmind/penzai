@@ -21,12 +21,9 @@ import dataclasses
 from penzai.core._treescope_handlers import struct_handler
 from penzai.experimental.v2.nn import grouping
 from penzai.experimental.v2.nn import layer
+from penzai.treescope import formatting_util
 from penzai.treescope import renderer
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import part_interface
-from penzai.treescope.handlers import builtin_structure_handler
+from penzai.treescope import rendering_parts
 
 
 def handle_layer(
@@ -34,8 +31,8 @@ def handle_layer(
     path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
 ):
   """Renders a penzai layer.
 
@@ -55,7 +52,7 @@ def handle_layer(
   constructor_open = struct_handler.render_struct_constructor(node)
   fields = dataclasses.fields(node)
 
-  children = builtin_structure_handler.build_field_children(
+  children = rendering_parts.build_field_children(
       node,
       path,
       subtree_renderer,
@@ -64,7 +61,7 @@ def handle_layer(
   )
 
   background_color, background_pattern = (
-      builtin_structure_handler.parse_color_and_pattern(
+      formatting_util.parse_simple_color_and_pattern_spec(
           node.treescope_color(), type(node).__name__
       )
   )
@@ -74,21 +71,21 @@ def handle_layer(
       isinstance(node, grouping.Sequential)
       and type(node) is not grouping.Sequential
   ):
-    first_line_annotation = common_styles.CommentColor(
-        basic_parts.Text(" # Sequential")
+    first_line_annotation = rendering_parts.comment_color(
+        rendering_parts.text(" # Sequential")
     )
   elif (
       isinstance(node, grouping.CheckedSequential)
       and type(node) is not grouping.CheckedSequential
   ):
-    first_line_annotation = common_styles.CommentColor(
-        basic_parts.Text(" # CheckedSequential")
+    first_line_annotation = rendering_parts.comment_color(
+        rendering_parts.text(" # CheckedSequential")
     )
   else:
     first_line_annotation = None
   # pylint: enable=unidiomatic-typecheck
 
-  return common_structures.build_foldable_tree_node_from_children(
+  return rendering_parts.build_foldable_tree_node_from_children(
       prefix=constructor_open,
       children=children,
       suffix=")",

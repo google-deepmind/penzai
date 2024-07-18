@@ -22,12 +22,11 @@ from typing import Any
 import numpy as np
 from penzai.core import shapecheck
 from penzai.treescope import dtype_util
-from penzai.treescope import html_escaping
 from penzai.treescope import renderer
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import part_interface
-from penzai.treescope.handlers import builtin_structure_handler
+from penzai.treescope import rendering_parts
+from penzai.treescope._internal import html_escaping
+from penzai.treescope._internal.parts import basic_parts
+from penzai.treescope._internal.parts import part_interface
 
 
 class ArrayVariableStyle(basic_parts.BaseSpanGroup):
@@ -69,13 +68,13 @@ class ArraySpecStyle(basic_parts.BaseSpanGroup):
     )
 
 
-def _wrap_dimvar(msg: str) -> part_interface.RenderableTreePart:
-  return ArrayVariableStyle(basic_parts.Text(msg))
+def _wrap_dimvar(msg: str) -> rendering_parts.RenderableTreePart:
+  return ArrayVariableStyle(rendering_parts.text(msg))
 
 
 def _arraystructure_summary(
     structure: shapecheck.ArraySpec,
-) -> basic_parts.Siblings:
+) -> rendering_parts.RenderableTreePart:
   """Creates a summary line for an array structure."""
 
   # Give a short summary for our named arrays.
@@ -128,7 +127,7 @@ def _arraystructure_summary(
       summary_parts.append(f"{name}:{dim}")
   summary_parts.append(")")
 
-  return basic_parts.siblings(*summary_parts)
+  return rendering_parts.siblings(*summary_parts)
 
 
 def handle_arraystructures(
@@ -136,17 +135,17 @@ def handle_arraystructures(
     path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Renders ArraySpec and contained variables."""
   if isinstance(node, shapecheck.Wildcard):
     summary = "*" if node.description is None else f"<{node.description}>"
-    return common_structures.build_one_line_tree_node(
-        line=basic_parts.RoundtripCondition(
-            roundtrip=basic_parts.siblings(
-                common_structures.maybe_qualified_type_name(type(node)),
+    return rendering_parts.build_one_line_tree_node(
+        line=rendering_parts.roundtrip_condition(
+            roundtrip=rendering_parts.siblings(
+                rendering_parts.maybe_qualified_type_name(type(node)),
                 f"({repr(node.description)})",
             ),
             not_roundtrip=_wrap_dimvar(summary),
@@ -156,32 +155,32 @@ def handle_arraystructures(
 
   elif isinstance(node, shapecheck.ArraySpec):
     summary = _arraystructure_summary(node)
-    children = builtin_structure_handler.build_field_children(
+    children = rendering_parts.build_field_children(
         node,
         path,
         subtree_renderer,
         fields_or_attribute_names=dataclasses.fields(node),
     )
-    indented_children = basic_parts.IndentedChildren.build(children)
+    indented_children = rendering_parts.indented_children(children)
 
-    return common_structures.build_custom_foldable_tree_node(
-        label=basic_parts.SummarizableCondition(
+    return rendering_parts.build_custom_foldable_tree_node(
+        label=rendering_parts.summarizable_condition(
             summary=ArraySpecStyle(
-                basic_parts.siblings("<ArraySpec ", summary, ">")
+                rendering_parts.siblings("<ArraySpec ", summary, ">")
             ),
-            detail=basic_parts.siblings(
-                common_structures.maybe_qualified_type_name(type(node)),
+            detail=rendering_parts.siblings(
+                rendering_parts.maybe_qualified_type_name(type(node)),
                 "(",
             ),
         ),
-        contents=basic_parts.SummarizableCondition(
-            detail=basic_parts.siblings(
+        contents=rendering_parts.summarizable_condition(
+            detail=rendering_parts.siblings(
                 indented_children,
                 ")",
             )
         ),
         path=path,
-        expand_state=part_interface.ExpandState.COLLAPSED,
+        expand_state=rendering_parts.ExpandState.COLLAPSED,
     )
 
   else:

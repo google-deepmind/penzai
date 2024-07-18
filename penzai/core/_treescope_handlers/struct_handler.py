@@ -21,13 +21,12 @@ from typing import Any, Callable
 
 from penzai.core import struct
 from penzai.treescope import dataclass_util
-from penzai.treescope import html_escaping
+from penzai.treescope import formatting_util
 from penzai.treescope import renderer
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import part_interface
-from penzai.treescope.handlers import builtin_structure_handler
+from penzai.treescope import rendering_parts
+from penzai.treescope._internal import html_escaping
+from penzai.treescope._internal.parts import basic_parts
+from penzai.treescope._internal.parts import part_interface
 
 
 class PyTreeNodeFieldName(basic_parts.BaseSpanGroup):
@@ -52,17 +51,17 @@ class PyTreeNodeFieldName(basic_parts.BaseSpanGroup):
 
 def render_struct_constructor(
     node: struct.Struct,
-) -> part_interface.RenderableTreePart:
+) -> rendering_parts.RenderableTreePart:
   """Renders the constructor of a Struct, with an open parenthesis."""
   if dataclass_util.init_takes_fields(type(node)):
-    return basic_parts.siblings(
-        common_structures.maybe_qualified_type_name(type(node)), "("
+    return rendering_parts.siblings(
+        rendering_parts.maybe_qualified_type_name(type(node)), "("
     )
   else:
-    return basic_parts.siblings(
-        common_structures.maybe_qualified_type_name(type(node)),
-        basic_parts.RoundtripCondition(
-            roundtrip=basic_parts.Text(".from_attributes")
+    return rendering_parts.siblings(
+        rendering_parts.maybe_qualified_type_name(type(node)),
+        rendering_parts.roundtrip_condition(
+            roundtrip=rendering_parts.text(".from_attributes")
         ),
         "(",
     )
@@ -70,7 +69,7 @@ def render_struct_constructor(
 
 def render_short_struct_summary(
     the_struct: struct.Struct,
-) -> part_interface.RenderableTreePart:
+) -> rendering_parts.RenderableTreePart:
   """Renders a short summary of a struct.
 
   Can be used by other handlers that manipulate structs.
@@ -81,17 +80,21 @@ def render_short_struct_summary(
   Returns:
     A short, single-line summary of the struct.
   """
-  return common_styles.WithBlockColor(
-      common_styles.ColoredSingleLineSpanGroup(
-          basic_parts.Text(type(the_struct).__name__ + "(...)")
-      ),
-      color=the_struct.treescope_color(),
+  background_color, background_pattern = (
+      formatting_util.parse_simple_color_and_pattern_spec(
+          the_struct.treescope_color(), type(the_struct).__name__
+      )
   )
+  return rendering_parts.build_one_line_tree_node(
+      rendering_parts.text(type(the_struct).__name__ + "(...)"),
+      background_color=background_color,
+      background_pattern=background_pattern,
+  ).renderable
 
 
 def struct_attr_style_fn_for_fields(
     fields,
-) -> Callable[[str], part_interface.RenderableTreePart]:
+) -> Callable[[str], rendering_parts.RenderableTreePart]:
   """Builds a function to render attributes of a struct.
 
   The resulting function will render pytree node fields in a different style.
@@ -107,9 +110,9 @@ def struct_attr_style_fn_for_fields(
 
   def attr_style_fn(field_name):
     if struct.is_pytree_node_field(fields_by_name[field_name]):
-      return PyTreeNodeFieldName(basic_parts.Text(field_name))
+      return PyTreeNodeFieldName(rendering_parts.text(field_name))
     else:
-      return basic_parts.Text(field_name)
+      return rendering_parts.text(field_name)
 
   return attr_style_fn
 
@@ -119,8 +122,8 @@ def handle_structs(
     path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Renders a penzai struct or layer.
@@ -152,12 +155,12 @@ def handle_structs(
   fields = dataclasses.fields(node)
 
   background_color, background_pattern = (
-      builtin_structure_handler.parse_color_and_pattern(
+      formatting_util.parse_simple_color_and_pattern_spec(
           node.treescope_color(), type(node).__name__
       )
   )
 
-  children = builtin_structure_handler.build_field_children(
+  children = rendering_parts.build_field_children(
       node,
       path,
       subtree_renderer,
@@ -165,7 +168,7 @@ def handle_structs(
       attr_style_fn=struct_attr_style_fn_for_fields(fields),
   )
 
-  return common_structures.build_foldable_tree_node_from_children(
+  return rendering_parts.build_foldable_tree_node_from_children(
       prefix=constructor_open,
       children=children,
       suffix=")",

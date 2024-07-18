@@ -15,14 +15,12 @@
 """Embedding of external HTML content into treescope's IR."""
 from __future__ import annotations
 
-import abc
 import dataclasses
 import io
 from typing import Any, Sequence
 
-from penzai.treescope import html_escaping
-from penzai.treescope import object_inspection
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope._internal import html_escaping
+from penzai.treescope._internal.parts import part_interface
 
 CSSStyleRule = part_interface.CSSStyleRule
 JavaScriptDefn = part_interface.JavaScriptDefn
@@ -30,35 +28,6 @@ HtmlContextForSetup = part_interface.HtmlContextForSetup
 RenderableTreePart = part_interface.RenderableTreePart
 ExpandState = part_interface.ExpandState
 FoldableTreeNode = part_interface.FoldableTreeNode
-
-
-class HasReprHtml(abc.ABC):
-  """Abstract base class for rich-display objects in IPython."""
-
-  @abc.abstractmethod
-  def _repr_html_(self) -> str | tuple[str, Any]:
-    """Returns a rich HTML representation of an object."""
-    ...
-
-  @classmethod
-  def __subclasshook__(cls, subclass, /):
-    """Checks if a class is a subclass of HasReprHtml."""
-    return hasattr(subclass, '_repr_html_') and callable(subclass._repr_html_)  # pylint: disable=protected-access
-
-
-def to_html(node: Any) -> str | None:
-  """Extracts a rich HTML representation of node using _repr_html_."""
-  repr_html_method = object_inspection.safely_get_real_method(
-      node, '_repr_html_'
-  )
-  if repr_html_method is None:
-    return None
-  html_for_node_and_maybe_metadata = repr_html_method()
-  if isinstance(html_for_node_and_maybe_metadata, tuple):
-    html_for_node, _ = html_for_node_and_maybe_metadata
-  else:
-    html_for_node = html_for_node_and_maybe_metadata
-  return html_for_node
 
 
 @dataclasses.dataclass(frozen=True)
@@ -168,3 +137,38 @@ class EmbeddedIFrame(RenderableTreePart):
         ' onload="this.getRootNode().host.defns.resize_iframe_by_content(this)">'
         '</iframe></div>'
     )
+
+
+def embedded_iframe(
+    embedded_html: str,
+    fallback_in_text_mode: RenderableTreePart,
+    virtual_width: int = 80,
+    virtual_height: int = 2,
+) -> part_interface.RenderableTreePart:
+  """Returns a wrapped child in a color for non-roundtrippable abbreviations."""
+  if not isinstance(embedded_html, str):
+    raise ValueError(
+        '`embedded_html` must be a string, but got'
+        f' {type(embedded_html).__name__}'
+    )
+  if not isinstance(fallback_in_text_mode, RenderableTreePart):
+    raise ValueError(
+        '`fallback_in_text_mode` must be a renderable part, but got'
+        f' {type(fallback_in_text_mode).__name__}'
+    )
+  if not isinstance(virtual_width, int):
+    raise ValueError(
+        '`virtual_width` must be an integer, but got'
+        f' {type(virtual_width).__name__}'
+    )
+  if not isinstance(virtual_height, int):
+    raise ValueError(
+        '`virtual_height` must be an integer, but got'
+        f' {type(virtual_height).__name__}'
+    )
+  return EmbeddedIFrame(
+      embedded_html=embedded_html,
+      fallback_in_text_mode=fallback_in_text_mode,
+      virtual_width=virtual_width,
+      virtual_height=virtual_height,
+  )

@@ -39,13 +39,12 @@ from . import copypaste_fallback
 from . import dataclass_util
 from . import default_renderer
 from . import figures
-from . import foldable_representation
 from . import formatting_util
 from . import handlers
-from . import html_encapsulation
-from . import html_escaping
+from . import lowering
 from . import ndarray_adapters
 from . import renderer
+from . import rendering_parts
 from . import repr_lib
 from . import treescope_ipython
 from . import type_registries

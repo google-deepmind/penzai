@@ -24,7 +24,6 @@ import jax.numpy as jnp
 import numpy as np
 from penzai import pz
 from penzai.treescope import figures
-from penzai.treescope.foldable_representation import basic_parts
 
 # pylint: disable=invalid-name
 
@@ -152,13 +151,7 @@ def show_token_array(
 
     # Add an indentation level, but allow sequences to wrap in the indented
     # block.
-    parts.append(
-        figures.TreescopeRenderingFigure(
-            basic_parts.IndentedChildren.build(
-                [pz.ts.inline(*subparts, wrap=True)]
-            ),
-        )
-    )
+    parts.append(figures.indented(pz.ts.inline(*subparts, wrap=True)))
 
   return pz.ts.inline(*parts)
 
@@ -211,12 +204,6 @@ def show_token_scores(
 
     # Add an indentation level, but allow sequences to wrap in the indented
     # block.
-    parts.append(
-        figures.TreescopeRenderingFigure(
-            basic_parts.IndentedChildren.build(
-                [pz.ts.inline(*subparts, wrap=True)]
-            ),
-        )
-    )
+    parts.append(figures.indented(pz.ts.inline(*subparts, wrap=True)))
 
   return pz.ts.inline(*parts)

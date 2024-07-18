@@ -32,8 +32,8 @@ import dataclasses
 from typing import Any, Protocol
 
 from penzai.treescope import context
-from penzai.treescope.foldable_representation import embedded_iframe
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope import rendering_parts
+from penzai.treescope._internal import object_inspection
 
 
 @dataclasses.dataclass
@@ -46,7 +46,7 @@ class IPythonVisualization:
       object. If False, the display object will be rendered below the object.
   """
 
-  display_object: embedded_iframe.HasReprHtml
+  display_object: object_inspection.HasReprHtml
   replace: bool = False
 
 
@@ -59,7 +59,7 @@ class CustomTreescopeVisualization:
       subtree.
   """
 
-  rendering: part_interface.RenderableAndLineAnnotations
+  rendering: rendering_parts.RenderableAndLineAnnotations
 
 
 @dataclasses.dataclass

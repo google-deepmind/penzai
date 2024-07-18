@@ -25,7 +25,7 @@ from penzai.core import named_axes
 from penzai.core._treescope_handlers import named_axes_handlers
 from penzai.treescope import ndarray_adapters
 from penzai.treescope import type_registries
-from penzai.treescope.handlers.interop import jax_support
+from penzai.treescope._internal.handlers.interop import jax_support
 
 
 class NamedArrayAdapter(

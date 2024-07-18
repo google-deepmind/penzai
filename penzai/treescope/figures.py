@@ -22,79 +22,144 @@ as figures.
 
 from __future__ import annotations
 
-import dataclasses
-import io
 from typing import Any
 
 from penzai.treescope import default_renderer
-from penzai.treescope import html_escaping
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import embedded_iframe
-from penzai.treescope.foldable_representation import foldable_impl
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope import rendering_parts
+from penzai.treescope._internal import figures_impl
+from penzai.treescope._internal import object_inspection
+from penzai.treescope._internal.parts import basic_parts
+from penzai.treescope._internal.parts import embedded_iframe
 
 
-class RendersAsRootInIPython(part_interface.RenderableTreePart):
-  """Base class / mixin that implements ``_repr_html_`` for treescope parts.
+def inline(
+    *subfigures: Any, wrap: bool = False
+) -> figures_impl.TreescopeFigure:
+  """Returns a figure that arranges a set of displayable objects along a line.
 
-  Subclasses of this class will render themselves as rich display objects when
-  displayed in IPython, instead of having their contents formatted with a
-  pretty printer or ``repr``.
+  Args:
+    *subfigures: Subfigures to display inline.
+    wrap: Whether to wrap (insert newlines) between words at the end of a line.
+
+  Returns:
+    A figure which can be rendered in IPython or used to build more complex
+    figures.
   """
-
-  def _repr_html_(self) -> str:
-    """Returns a rich HTML representation of this part."""
-    return foldable_impl.render_to_html_as_root(self, compressed=True)
-
-  def _repr_pretty_(self, p, cycle):
-    """Builds a representation of this part for the IPython text prettyprinter."""
-    del cycle
-    p.text(foldable_impl.render_to_text_as_root(self))
+  siblings = rendering_parts.siblings(
+      *(treescope_part_from_display_object(subfig) for subfig in subfigures)
+  )
+  if wrap:
+    return figures_impl.TreescopeFigure(figures_impl.AllowWordWrap(siblings))
+  else:
+    return figures_impl.TreescopeFigure(figures_impl.PreventWordWrap(siblings))
 
 
-@dataclasses.dataclass(frozen=True)
-class TreescopeRenderingFigure(
-    basic_parts.DeferringToChild, RendersAsRootInIPython
-):
-  """Wrapper that renders its child rendering as a HTML figure.
+def indented(subfigure: Any) -> figures_impl.TreescopeFigure:
+  """Returns a figure object that displays a value with an indent.
 
-  Attributes:
-    child: Child to render as a figure.
+  Args:
+    subfigure: A value to render indented.
   """
-
-  child: part_interface.RenderableTreePart
-
-
-class InlineBlock(basic_parts.BaseSpanGroup):
-  """Renders an object in "inline-block" mode."""
-
-  def _span_css_class(self) -> str:
-    return "inline_block"
-
-  def _span_css_rule(
-      self, context: part_interface.HtmlContextForSetup
-  ) -> part_interface.CSSStyleRule:
-    return part_interface.CSSStyleRule(
-        html_escaping.without_repeated_whitespace("""
-          .inline_block {
-            display: inline-block;
-          }
-        """)
-    )
+  return figures_impl.TreescopeFigure(
+      rendering_parts.indented_children([
+          rendering_parts.vertical_space("0.25em"),
+          treescope_part_from_display_object(subfigure),
+          rendering_parts.vertical_space("0.25em"),
+      ])
+  )
 
 
-def wrap_as_treescope_figure(value: Any) -> part_interface.RenderableTreePart:
+def styled(subfigure: Any, style: str) -> figures_impl.TreescopeFigure:
+  """Returns a CSS-styled version of the first figure.
+
+  Args:
+    subfigure: A value to render.
+    style: A CSS style string.
+  """
+  return figures_impl.TreescopeFigure(
+      figures_impl.CSSStyled(
+          treescope_part_from_display_object(subfigure), style
+      )
+  )
+
+
+def with_font_size(
+    subfigure: Any, size: str | float
+) -> figures_impl.TreescopeFigure:
+  """Returns a scaled version of the first figure.
+
+  Args:
+    subfigure: A value to render.
+    size: A multiplier for the font size (as a float) or a string giving a
+      specific CSS font size (e.g. "14pt" or "2em").
+  """
+  if isinstance(size, str):
+    style = f"font-size: {size}"
+  else:
+    style = f"font-size: {size}em"
+  return figures_impl.TreescopeFigure(
+      figures_impl.CSSStyled(
+          treescope_part_from_display_object(subfigure), style
+      )
+  )
+
+
+def with_color(subfigure: Any, color: str) -> figures_impl.TreescopeFigure:
+  """Returns a colored version of the first figure.
+
+  Args:
+    subfigure: A value to render.
+    color: Any CSS color string.
+  """
+  return figures_impl.TreescopeFigure(
+      figures_impl.CSSStyled(
+          treescope_part_from_display_object(subfigure), f"color: {color}"
+      )
+  )
+
+
+def bolded(subfigure: Any) -> figures_impl.TreescopeFigure:
+  """Returns a bolded version of the first figure.
+
+  Args:
+    subfigure: A value to render.
+  """
+  return figures_impl.TreescopeFigure(
+      figures_impl.CSSStyled(
+          treescope_part_from_display_object(subfigure), "font-weight: bold"
+      )
+  )
+
+
+def figure_from_treescope_rendering_part(
+    part: rendering_parts.RenderableTreePart,
+) -> figures_impl.TreescopeFigure:
+  """Returns a figure object that displays a Treescope rendering part.
+
+  Args:
+    part: A Treescope rendering part to display, usually constructed via
+      `repr_lib` or `rendering_parts`.
+
+  Returns:
+    A figure object that can be rendered in IPython.
+  """
+  return figures_impl.TreescopeFigure(part)
+
+
+def treescope_part_from_display_object(
+    value: Any,
+) -> rendering_parts.RenderableTreePart:
   """Converts an arbitrary object to a renderable treescope part if possible.
 
   Behavior depends on the type of `value`:
 
-  * If ``value`` is an instance of `RendersAsRootInIPython`, returns it
-    unchanged, since it knows how to render itself.
+  * If ``value`` is an instance of `TreescopeFigure`, unwraps the
+    underlying treescope part.
   * If ``value`` is a string, returns a rendering of that string.
   * If ``value`` has a ``_repr_html_`` method (but isn't an instance of
-    `RendersAsRootInIPython`), returns an embedded iframe with the given HTML
+    `TreescopeFigure`), returns an embedded iframe with the given HTML
     contents.
-  * Otherwise, renders the value  using the default treescope renderer, but
+  * Otherwise, renders the value using the default treescope renderer, but
     strips off any top-level comments / copy button annotations.
 
   The typical use is to provide helper constructors for containers to allow
@@ -106,172 +171,18 @@ def wrap_as_treescope_figure(value: Any) -> part_interface.RenderableTreePart:
   Returns:
     A renderable treescope part showing the value.
   """
-  if isinstance(value, RendersAsRootInIPython):
-    return value
+  if isinstance(value, figures_impl.TreescopeFigure):
+    return value.treescope_part
   elif isinstance(value, str):
     return basic_parts.Text(value)
   else:
-    maybe_html = embedded_iframe.to_html(value)
+    maybe_html = object_inspection.to_html(value)
     if maybe_html:
-      return InlineBlock(
-          embedded_iframe.EmbeddedIFrame(
+      return figures_impl.InlineBlock(
+          embedded_iframe.embedded_iframe(
               maybe_html,
               fallback_in_text_mode=basic_parts.Text(object.__repr__(value)),
           )
       )
     else:
       return default_renderer.build_foldable_representation(value).renderable
-
-
-class AllowWordWrap(basic_parts.BaseSpanGroup):
-  """Allows line breaks in its child.."""
-
-  def _span_css_class(self) -> str:
-    return "allow_wrap"
-
-  def _span_css_rule(
-      self, context: part_interface.HtmlContextForSetup
-  ) -> part_interface.CSSStyleRule:
-    return part_interface.CSSStyleRule(
-        html_escaping.without_repeated_whitespace("""
-          .allow_wrap {
-            white-space: pre-wrap;
-          }
-        """)
-    )
-
-
-class PreventWordWrap(basic_parts.BaseSpanGroup):
-  """Allows line breaks in its child.."""
-
-  def _span_css_class(self) -> str:
-    return "prevent_wrap"
-
-  def _span_css_rule(
-      self, context: part_interface.HtmlContextForSetup
-  ) -> part_interface.CSSStyleRule:
-    return part_interface.CSSStyleRule(
-        html_escaping.without_repeated_whitespace("""
-          .prevent_wrap {
-            white-space: pre;
-          }
-        """)
-    )
-
-
-def inline(*parts: Any, wrap: bool = False) -> RendersAsRootInIPython:
-  """Returns a figure that arranges a set of displayable objects along a line.
-
-  Args:
-    *parts: Subfigures to display inline. These will be displayed using
-      `wrap_as_treescope_figure`.
-    wrap: Whether to wrap (insert newlines) between words at the end of a line.
-
-  Returns:
-    A figure which can be rendered in IPython or used to build more complex
-    figures.
-  """
-  siblings = basic_parts.siblings(
-      *(wrap_as_treescope_figure(part) for part in parts)
-  )
-  if wrap:
-    return TreescopeRenderingFigure(AllowWordWrap(siblings))
-  else:
-    return TreescopeRenderingFigure(PreventWordWrap(siblings))
-
-
-def indented(subfigure: Any) -> RendersAsRootInIPython:
-  """Returns a figure object that displays a value with an indent.
-
-  Args:
-    subfigure: A value to render indented. Will be wrapped using
-      `wrap_as_treescope_figure`.
-  """
-  return TreescopeRenderingFigure(
-      basic_parts.IndentedChildren.build([wrap_as_treescope_figure(subfigure)])
-  )
-
-
-@dataclasses.dataclass(frozen=True)
-class CSSStyled(basic_parts.DeferringToChild):
-  """Adjusts the CSS style of its child.
-
-  Attributes:
-    child: Child to render.
-    css: A CSS style string.
-  """
-
-  child: part_interface.RenderableTreePart
-  style: str
-
-  def render_to_html(
-      self,
-      stream: io.TextIOBase,
-      *,
-      at_beginning_of_line: bool = False,
-      render_context: dict[Any, Any],
-  ):
-    style = html_escaping.escape_html_attribute(self.style)
-    stream.write(f'<span style="{style}">')
-    self.child.render_to_html(
-        stream,
-        at_beginning_of_line=at_beginning_of_line,
-        render_context=render_context,
-    )
-    stream.write("</span>")
-
-
-def styled(subfigure: Any, style: str) -> RendersAsRootInIPython:
-  """Returns a CSS-styled version of the first figure.
-
-  Args:
-    subfigure: A value to render. Will be wrapped using
-      `wrap_as_treescope_figure`.
-    style: A CSS style string.
-  """
-  return TreescopeRenderingFigure(
-      CSSStyled(wrap_as_treescope_figure(subfigure), style)
-  )
-
-
-def with_font_size(subfigure: Any, size: str | float) -> RendersAsRootInIPython:
-  """Returns a scaled version of the first figure.
-
-  Args:
-    subfigure: A value to render. Will be wrapped using
-      `wrap_as_treescope_figure`.
-    size: A multiplier for the font size (as a float) or a string giving a
-      specific CSS font size (e.g. "14pt" or "2em").
-  """
-  if isinstance(size, str):
-    style = f"font-size: {size}"
-  else:
-    style = f"font-size: {size}em"
-  return TreescopeRenderingFigure(
-      CSSStyled(wrap_as_treescope_figure(subfigure), style)
-  )
-
-
-def with_color(subfigure: Any, color: str) -> RendersAsRootInIPython:
-  """Returns a colored version of the first figure.
-
-  Args:
-    subfigure: A value to render. Will be wrapped using
-      `wrap_as_treescope_figure`.
-    color: Any CSS color string.
-  """
-  return TreescopeRenderingFigure(
-      CSSStyled(wrap_as_treescope_figure(subfigure), f"color: {color}")
-  )
-
-
-def bolded(subfigure: Any) -> RendersAsRootInIPython:
-  """Returns a bolded version of the first figure.
-
-  Args:
-    subfigure: A value to render. Will be wrapped using
-      `wrap_as_treescope_figure`.
-  """
-  return TreescopeRenderingFigure(
-      CSSStyled(wrap_as_treescope_figure(subfigure), "font-weight: bold")
-  )

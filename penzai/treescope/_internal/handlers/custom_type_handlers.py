@@ -18,10 +18,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from penzai.treescope import object_inspection
 from penzai.treescope import renderer
+from penzai.treescope import rendering_parts
 from penzai.treescope import type_registries
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope._internal import object_inspection
 
 
 def handle_via_penzai_repr_method(
@@ -29,8 +29,8 @@ def handle_via_penzai_repr_method(
     path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Renders a type by calling its __penzai_repr__ method, if it exists.
@@ -71,8 +71,8 @@ def handle_via_global_registry(
     path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Renders a type by looking it up in the global handler registry.

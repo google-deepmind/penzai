@@ -23,13 +23,12 @@ import numpy as np
 from penzai.treescope import arrayviz
 from penzai.treescope import autovisualize
 from penzai.treescope import dtype_util
+from penzai.treescope import lowering
 from penzai.treescope import ndarray_adapters
+from penzai.treescope import rendering_parts
 from penzai.treescope import type_registries
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import foldable_impl
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope._internal import arrayviz_impl
+from penzai.treescope._internal.parts import part_interface
 
 
 PositionalAxisInfo = ndarray_adapters.PositionalAxisInfo
@@ -90,8 +89,8 @@ class ArrayAutovisualizer:
       adapter: ndarray_adapters.NDArrayAdapter,
       path: str | None,
       label: str,
-      expand_state: part_interface.ExpandState,
-  ) -> part_interface.RenderableTreePart:
+      expand_state: rendering_parts.ExpandState,
+  ) -> rendering_parts.RenderableTreePart:
     """Helper to visualize an array."""
     # Extract information about axis names, indices, and sizes.
     array_axis_info = adapter.get_axis_info_for_array_data(array)
@@ -107,14 +106,14 @@ class ArrayAutovisualizer:
           row_axes.append(info.axis_name)
 
     # Infer a good truncated shape for this array.
-    edge_items_per_axis = arrayviz.infer_balanced_truncation(
+    edge_items_per_axis = arrayviz_impl.infer_balanced_truncation(
         tuple(info.size for info in array_axis_info),
         maximum_size=self.maximum_size,
         cutoff_size_per_axis=self.cutoff_size_per_axis,
         minimum_edge_items=self.edge_items,
     )
 
-    row_axes, column_axes = arrayviz.infer_rows_and_columns(
+    row_axes, column_axes = arrayviz_impl.infer_rows_and_columns(
         all_axes=array_axis_info,
         known_rows=row_axes,
         known_columns=column_axes,
@@ -162,7 +161,7 @@ class ArrayAutovisualizer:
         value_item_labels=value_item_labels,
         axis_labels=None,
     )
-    rendering_parts = [array_rendering]
+    outputs = [array_rendering]
     last_line_parts = []
 
     # Render the sharding as well.
@@ -189,20 +188,24 @@ class ArrayAutovisualizer:
             array,
             columns=[c.logical_key() for c in column_axes],
             rows=[r.logical_key() for r in row_axes],
-        )
-        rendering_parts.append(
-            common_structures.build_custom_foldable_tree_node(
-                label=common_styles.AbbreviationColor(
-                    basic_parts.siblings(
-                        basic_parts.Text(sharding_summary_str),
-                        basic_parts.FoldCondition(
-                            expanded=basic_parts.Text(":"),
-                            collapsed=basic_parts.Text(" (click to expand)"),
+        ).treescope_part
+        outputs.append(
+            rendering_parts.build_custom_foldable_tree_node(
+                label=rendering_parts.abbreviation_color(
+                    rendering_parts.siblings(
+                        rendering_parts.text(sharding_summary_str),
+                        rendering_parts.fold_condition(
+                            expanded=rendering_parts.text(":"),
+                            collapsed=rendering_parts.text(
+                                " (click to expand)"
+                            ),
                         ),
                     )
                 ),
-                contents=basic_parts.FoldCondition(
-                    expanded=basic_parts.IndentedChildren([sharding_rendering]),
+                contents=rendering_parts.fold_condition(
+                    expanded=rendering_parts.indented_children(
+                        [sharding_rendering]
+                    ),
                 ),
             )
         )
@@ -210,21 +213,21 @@ class ArrayAutovisualizer:
     # We render it with a path, but remove the copy path button. This will be
     # added back by the caller.
     if last_line_parts:
-      last_line = basic_parts.siblings(
-          basic_parts.FoldCondition(
-              expanded=basic_parts.Text("".join(last_line_parts)),
+      last_line = rendering_parts.siblings(
+          rendering_parts.fold_condition(
+              expanded=rendering_parts.text("".join(last_line_parts)),
           ),
-          basic_parts.Text(">"),
+          rendering_parts.text(">"),
       )
     else:
-      last_line = basic_parts.Text(">")
-    custom_rendering = common_structures.build_custom_foldable_tree_node(
-        label=common_styles.AbbreviationColor(label),
-        contents=basic_parts.siblings(
-            basic_parts.FoldCondition(
-                expanded=basic_parts.IndentedChildren.build(rendering_parts)
+      last_line = rendering_parts.text(">")
+    custom_rendering = rendering_parts.build_custom_foldable_tree_node(
+        label=rendering_parts.abbreviation_color(label),
+        contents=rendering_parts.siblings(
+            rendering_parts.fold_condition(
+                expanded=rendering_parts.indented_children(outputs)
             ),
-            common_styles.AbbreviationColor(last_line),
+            rendering_parts.abbreviation_color(last_line),
         ),
         path=path,
         expand_state=expand_state,
@@ -256,34 +259,34 @@ class ArrayAutovisualizer:
       if not _supported_dtype(np_dtype):
         return None
 
-      def _placeholder() -> part_interface.RenderableTreePart:
+      def _placeholder() -> rendering_parts.RenderableTreePart:
         summary = adapter.get_array_summary(value, fast=True)
-        return common_structures.fake_placeholder_foldable(
-            common_styles.DeferredPlaceholderStyle(
-                basic_parts.Text(f"<{summary}>")
+        return rendering_parts.fake_placeholder_foldable(
+            rendering_parts.deferred_placeholder_style(
+                rendering_parts.text(f"<{summary}>")
             ),
             extra_newlines_guess=8,
         )
 
-      def _thunk(placeholder) -> part_interface.RenderableTreePart:
+      def _thunk(placeholder) -> rendering_parts.RenderableTreePart:
         # Full rendering of the array.
         if isinstance(placeholder, part_interface.FoldableTreeNode):
           expand_state = placeholder.get_expand_state()
         else:
           assert placeholder is None
-          expand_state = part_interface.ExpandState.WEAKLY_EXPANDED
+          expand_state = rendering_parts.ExpandState.WEAKLY_EXPANDED
         summary = adapter.get_array_summary(value, fast=False)
-        label = common_styles.AbbreviationColor(basic_parts.Text(f"<{summary}"))
+        label = rendering_parts.abbreviation_color(
+            rendering_parts.text(f"<{summary}")
+        )
         return self._autovisualize_array(
             value, adapter, path, label, expand_state
         )
 
       return autovisualize.CustomTreescopeVisualization(
-          basic_parts.RenderableAndLineAnnotations(
-              renderable=foldable_impl.maybe_defer_rendering(
-                  _thunk, _placeholder
-              ),
-              annotations=common_structures.build_copy_button(path),
+          rendering_parts.RenderableAndLineAnnotations(
+              renderable=lowering.maybe_defer_rendering(_thunk, _placeholder),
+              annotations=rendering_parts.build_copy_button(path),
           )
       )
 
@@ -350,19 +353,19 @@ class ArrayAutovisualizer:
         shardvis = arrayviz.render_sharding_info(
             array_axis_info=fake_axis_info,
             sharding_info=sharding_info,
-        )
-        custom_rendering = common_structures.build_custom_foldable_tree_node(
-            label=common_styles.AbbreviationColor(
-                basic_parts.Text("<" + repr_oneline)
+        ).treescope_part
+        custom_rendering = rendering_parts.build_custom_foldable_tree_node(
+            label=rendering_parts.abbreviation_color(
+                rendering_parts.text("<" + repr_oneline)
             ),
-            contents=basic_parts.siblings(
-                basic_parts.FoldCondition(
-                    expanded=basic_parts.IndentedChildren.build([shardvis])
+            contents=rendering_parts.siblings(
+                rendering_parts.fold_condition(
+                    expanded=rendering_parts.indented_children([shardvis])
                 ),
-                common_styles.AbbreviationColor(basic_parts.Text(">")),
+                rendering_parts.abbreviation_color(rendering_parts.text(">")),
             ),
             path=path,
-            expand_state=part_interface.ExpandState.EXPANDED,
+            expand_state=rendering_parts.ExpandState.EXPANDED,
         )
         return autovisualize.CustomTreescopeVisualization(custom_rendering)
       else:

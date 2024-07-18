@@ -36,10 +36,7 @@ from typing import Any
 
 from penzai.treescope import canonical_aliases
 from penzai.treescope import renderer
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope import rendering_parts
 
 
 def replace_with_canonical_aliases(
@@ -48,8 +45,8 @@ def replace_with_canonical_aliases(
     node_renderer: renderer.TreescopeSubtreeRenderer,
     summarization_threshold: int = 20,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Rewrites objects to use well-known aliases when known.
@@ -91,35 +88,37 @@ def replace_with_canonical_aliases(
   else:
     prefix, suffix = qualified_name.rsplit(".", 1)
     if len(qualified_name) > summarization_threshold:
-      name_rendering = basic_parts.siblings(
-          basic_parts.SummarizableCondition(
-              detail=common_styles.QualifiedTypeNameSpanGroup(
-                  basic_parts.Text(prefix + ".")
+      name_rendering = rendering_parts.siblings(
+          rendering_parts.summarizable_condition(
+              detail=rendering_parts.qualified_type_name_style(
+                  rendering_parts.text(prefix + ".")
               )
           ),
           suffix,
       )
     else:
-      name_rendering = basic_parts.siblings(
-          common_styles.QualifiedTypeNameSpanGroup(
-              basic_parts.Text(prefix + ".")
+      name_rendering = rendering_parts.siblings(
+          rendering_parts.qualified_type_name_style(
+              rendering_parts.text(prefix + ".")
           ),
           suffix,
       )
 
   original_rendering = node_renderer(node, path=path)
 
-  return common_structures.build_custom_foldable_tree_node(
-      label=common_styles.CommentColorWhenExpanded(
-          basic_parts.siblings(
-              basic_parts.FoldCondition(expanded=basic_parts.Text("# ")),
+  return rendering_parts.build_custom_foldable_tree_node(
+      label=rendering_parts.comment_color_when_expanded(
+          rendering_parts.siblings(
+              rendering_parts.fold_condition(
+                  expanded=rendering_parts.text("# ")
+              ),
               name_rendering,
           )
       ),
-      contents=basic_parts.FoldCondition(
-          expanded=basic_parts.IndentedChildren.build([original_rendering])
+      contents=rendering_parts.fold_condition(
+          expanded=rendering_parts.indented_children([original_rendering])
       ),
       # Aliases should start collapsed regardless of layout.
-      expand_state=basic_parts.ExpandState.COLLAPSED,
+      expand_state=rendering_parts.ExpandState.COLLAPSED,
       path=path,
   )

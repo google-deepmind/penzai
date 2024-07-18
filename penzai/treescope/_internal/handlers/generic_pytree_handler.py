@@ -17,12 +17,9 @@
 import sys
 from typing import Any
 
+from penzai.treescope import handlers
 from penzai.treescope import renderer
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import part_interface
-from penzai.treescope.handlers import generic_repr_handler
+from penzai.treescope import rendering_parts
 
 
 def handle_arbitrary_pytrees(
@@ -30,8 +27,8 @@ def handle_arbitrary_pytrees(
     path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Generic foldable fallback for an unrecognized pytree type."""
@@ -52,7 +49,7 @@ def handle_arbitrary_pytrees(
     return NotImplemented
 
   # First, render the object with repr.
-  repr_rendering = generic_repr_handler.handle_anything_with_repr(
+  repr_rendering = handlers.handle_anything_with_repr(
       node=node,
       path=path,
       subtree_renderer=subtree_renderer,
@@ -63,7 +60,7 @@ def handle_arbitrary_pytrees(
   for (key,), child in paths_and_subtrees:
     child_path = None if path is None else path + str(key)
     list_items.append(
-        basic_parts.siblings_with_annotations(
+        rendering_parts.siblings_with_annotations(
             subtree_renderer(key, path=None),
             ": ",
             subtree_renderer(child, path=child_path),
@@ -71,22 +68,22 @@ def handle_arbitrary_pytrees(
         )
     )
 
-  boxed_pytree_children = basic_parts.IndentedChildren.build([
-      common_styles.DashedGrayOutlineBox(
-          basic_parts.build_full_line_with_annotations(
-              common_structures.build_custom_foldable_tree_node(
-                  label=common_styles.CommentColor(
-                      basic_parts.Text("# PyTree children: ")
+  boxed_pytree_children = rendering_parts.indented_children([
+      rendering_parts.dashed_gray_outline_box(
+          rendering_parts.build_full_line_with_annotations(
+              rendering_parts.build_custom_foldable_tree_node(
+                  label=rendering_parts.comment_color(
+                      rendering_parts.text("# PyTree children: ")
                   ),
-                  contents=basic_parts.IndentedChildren.build(list_items),
+                  contents=rendering_parts.indented_children(list_items),
               )
           ),
       )
   ])
-  return basic_parts.siblings_with_annotations(
+  return rendering_parts.siblings_with_annotations(
       repr_rendering,
-      basic_parts.FoldCondition(
-          expanded=basic_parts.RoundtripCondition(
+      rendering_parts.fold_condition(
+          expanded=rendering_parts.roundtrip_condition(
               not_roundtrip=boxed_pytree_children
           )
       ),

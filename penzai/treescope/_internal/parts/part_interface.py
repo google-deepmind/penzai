@@ -96,6 +96,9 @@ class HtmlContextForSetup:
 class RenderableTreePart(abc.ABC):
   """Abstract base class for a formatted part of a foldable tree.
 
+  WARNING: The details of this interface are an implementation detail, and are
+  subject to change.
+
   Formatted objects are produced by treescope handlers from the original Python
   objects, and know how to convert themselves to a concrete renderable
   representation.

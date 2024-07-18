@@ -35,11 +35,10 @@ import penzai.core.struct
 from tests.treescope.fixtures import treescope_examples_fixture as fixture_lib
 from penzai.treescope import autovisualize
 from penzai.treescope import default_renderer
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import foldable_impl
-from penzai.treescope.foldable_representation import layout_algorithms
-from penzai.treescope.foldable_representation import part_interface
-from penzai.treescope.handlers import function_reflection_handlers
+from penzai.treescope import handlers
+from penzai.treescope import lowering
+from penzai.treescope import rendering_parts
+from penzai.treescope._internal import layout_algorithms
 import torch
 
 
@@ -64,7 +63,7 @@ class TreescopeRendererTest(parameterized.TestCase):
 
     rendering = renderer.to_foldable_representation({"key": "value"})
     self.assertIsInstance(
-        rendering, part_interface.RenderableAndLineAnnotations
+        rendering, rendering_parts.RenderableAndLineAnnotations
     )
 
   def test_high_level_interface(self):
@@ -94,8 +93,8 @@ class TreescopeRendererTest(parameterized.TestCase):
     rendering = renderer.to_foldable_representation([1, 2, 3, "foo", 4])
     layout_algorithms.expand_to_depth(rendering.renderable, 1)
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(
-            basic_parts.build_full_line_with_annotations(rendering)
+        lowering.render_to_text_as_root(
+            rendering_parts.build_full_line_with_annotations(rendering)
         ),
         "[\n  1,\n  2,\n  3,\n  'foo',\n  4,\n]",
     )
@@ -117,8 +116,8 @@ class TreescopeRendererTest(parameterized.TestCase):
       )
     layout_algorithms.expand_to_depth(rendering.renderable, 1)
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(
-            basic_parts.build_full_line_with_annotations(rendering)
+        lowering.render_to_text_as_root(
+            rendering_parts.build_full_line_with_annotations(rendering)
         ),
         "[\n  1,\n  2,\n  3,\n  'trigger handler error',\n  'trigger hook"
         " error',\n  4,\n]",
@@ -740,7 +739,7 @@ class TreescopeRendererTest(parameterized.TestCase):
 
     renderer = default_renderer.active_renderer.get()
     # Render it to IR.
-    rendering = basic_parts.build_full_line_with_annotations(
+    rendering = rendering_parts.build_full_line_with_annotations(
         renderer.to_foldable_representation(target)
     )
 
@@ -750,14 +749,14 @@ class TreescopeRendererTest(parameterized.TestCase):
     if expected_collapsed is not None:
       with self.subTest("collapsed"):
         self.assertEqual(
-            foldable_impl.render_to_text_as_root(rendering),
+            lowering.render_to_text_as_root(rendering),
             expected_collapsed,
         )
 
     if expected_roundtrip_collapsed is not None:
       with self.subTest("roundtrip_collapsed"):
         self.assertEqual(
-            foldable_impl.render_to_text_as_root(rendering, roundtrip=True),
+            lowering.render_to_text_as_root(rendering, roundtrip=True),
             expected_roundtrip_collapsed,
         )
 
@@ -766,20 +765,20 @@ class TreescopeRendererTest(parameterized.TestCase):
     if expected_expanded is not None:
       with self.subTest("expanded"):
         self.assertEqual(
-            foldable_impl.render_to_text_as_root(rendering),
+            lowering.render_to_text_as_root(rendering),
             expected_expanded,
         )
 
     if expected_roundtrip is not None:
       with self.subTest("roundtrip"):
         self.assertEqual(
-            foldable_impl.render_to_text_as_root(rendering, roundtrip=True),
+            lowering.render_to_text_as_root(rendering, roundtrip=True),
             expected_roundtrip,
         )
 
     # Render to HTML; make sure it doesn't raise any errors.
     with self.subTest("html_no_errors"):
-      _ = foldable_impl.render_to_html_as_root(rendering)
+      _ = lowering.render_to_html_as_root(rendering)
 
   def test_closure_rendering(self):
     def outer_fn(x):
@@ -795,13 +794,13 @@ class TreescopeRendererTest(parameterized.TestCase):
     renderer = renderer.extended_with(
         handlers=[
             functools.partial(
-                function_reflection_handlers.handle_code_objects_with_reflection,
+                handlers.handle_code_objects_with_reflection,
                 show_closure_vars=True,
             )
         ]
     )
     # Render it to IR.
-    rendering = basic_parts.build_full_line_with_annotations(
+    rendering = rendering_parts.build_full_line_with_annotations(
         renderer.to_foldable_representation(closure)
     )
 
@@ -818,23 +817,23 @@ class TreescopeRendererTest(parameterized.TestCase):
             " of ",
             "tests/treescope/renderer_test.py",
         ],
-        foldable_impl.render_to_text_as_root(rendering),
+        lowering.render_to_text_as_root(rendering),
     )
 
   def test_fallback_repr_pytree_node(self):
     target = [fixture_lib.UnknownPytreeNode(1234, 5678)]
     renderer = default_renderer.active_renderer.get()
-    rendering = basic_parts.build_full_line_with_annotations(
+    rendering = rendering_parts.build_full_line_with_annotations(
         renderer.to_foldable_representation(target)
     )
     layout_algorithms.expand_to_depth(rendering, 0)
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(rendering),
+        lowering.render_to_text_as_root(rendering),
         "[<custom repr for UnknownPytreeNode: x=1234, y=5678>]",
     )
 
     layout_algorithms.expand_to_depth(rendering, 2)
-    rendered_text = foldable_impl.render_to_text_as_root(rendering)
+    rendered_text = lowering.render_to_text_as_root(rendering)
     self.assertEqual(
         "\n".join(
             line.rstrip() for line in rendered_text.splitlines(keepends=True)
@@ -854,17 +853,17 @@ class TreescopeRendererTest(parameterized.TestCase):
   def test_fallback_repr_one_line(self):
     target = [fixture_lib.UnknownObjectWithOneLineRepr()]
     renderer = default_renderer.active_renderer.get()
-    rendering = basic_parts.build_full_line_with_annotations(
+    rendering = rendering_parts.build_full_line_with_annotations(
         renderer.to_foldable_representation(target)
     )
     layout_algorithms.expand_to_depth(rendering, 0)
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(rendering),
+        lowering.render_to_text_as_root(rendering),
         "[<custom repr for UnknownObjectWithOneLineRepr>]",
     )
     layout_algorithms.expand_to_depth(rendering, 2)
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(rendering),
+        lowering.render_to_text_as_root(rendering),
         textwrap.dedent(f"""\
             [
               <custom repr for UnknownObjectWithOneLineRepr>,  # {object.__repr__(target[0])}
@@ -874,17 +873,17 @@ class TreescopeRendererTest(parameterized.TestCase):
   def test_fallback_repr_multiline_idiomatic(self):
     target = [fixture_lib.UnknownObjectWithMultiLineRepr()]
     renderer = default_renderer.active_renderer.get()
-    rendering = basic_parts.build_full_line_with_annotations(
+    rendering = rendering_parts.build_full_line_with_annotations(
         renderer.to_foldable_representation(target)
     )
     layout_algorithms.expand_to_depth(rendering, 0)
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(rendering),
+        lowering.render_to_text_as_root(rendering),
         "[<custom repr↩  for↩  UnknownObjectWithMultiLineRepr↩>]",
     )
     layout_algorithms.expand_to_depth(rendering, 2)
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(rendering),
+        lowering.render_to_text_as_root(rendering),
         textwrap.dedent(f"""\
             [
               <custom repr
@@ -897,17 +896,17 @@ class TreescopeRendererTest(parameterized.TestCase):
   def test_fallback_repr_multiline_unidiomatic(self):
     target = [fixture_lib.UnknownObjectWithBadMultiLineRepr()]
     renderer = default_renderer.active_renderer.get()
-    rendering = basic_parts.build_full_line_with_annotations(
+    rendering = rendering_parts.build_full_line_with_annotations(
         renderer.to_foldable_representation(target)
     )
     layout_algorithms.expand_to_depth(rendering, 0)
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(rendering),
+        lowering.render_to_text_as_root(rendering),
         f"[{object.__repr__(target[0])}]",
     )
     layout_algorithms.expand_to_depth(rendering, 2)
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(rendering),
+        lowering.render_to_text_as_root(rendering),
         textwrap.dedent(f"""\
             [
               # {object.__repr__(target[0])}
@@ -921,12 +920,12 @@ class TreescopeRendererTest(parameterized.TestCase):
   def test_fallback_repr_basic(self):
     target = [fixture_lib.UnknownObjectWithBuiltinRepr()]
     renderer = default_renderer.active_renderer.get()
-    rendering = basic_parts.build_full_line_with_annotations(
+    rendering = rendering_parts.build_full_line_with_annotations(
         renderer.to_foldable_representation(target)
     )
     layout_algorithms.expand_to_depth(rendering, 0)
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(rendering),
+        lowering.render_to_text_as_root(rendering),
         f"[{repr(target[0])}]",
     )
     self.assertContainsInOrder(
@@ -941,11 +940,11 @@ class TreescopeRendererTest(parameterized.TestCase):
                 ".UnknownObjectWithBuiltinRepr)"
             ),
         ],
-        foldable_impl.render_to_text_as_root(rendering, roundtrip=True),
+        lowering.render_to_text_as_root(rendering, roundtrip=True),
     )
     layout_algorithms.expand_to_depth(rendering, 2)
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(rendering),
+        lowering.render_to_text_as_root(rendering),
         textwrap.dedent(f"""\
             [
               {repr(target[0])},
@@ -956,11 +955,11 @@ class TreescopeRendererTest(parameterized.TestCase):
     shared = ["bar"]
     target = [shared, shared, {"foo": shared}]
     renderer = default_renderer.active_renderer.get()
-    rendering = basic_parts.build_full_line_with_annotations(
+    rendering = rendering_parts.build_full_line_with_annotations(
         renderer.to_foldable_representation(target)
     )
     layout_algorithms.expand_to_depth(rendering, 3)
-    rendered_text = foldable_impl.render_to_text_as_root(rendering)
+    rendered_text = lowering.render_to_text_as_root(rendering)
     # Rendering may contain trailing whitespace; remove it before checking the
     # value, since it's not important.
     self.assertEqual(
@@ -989,19 +988,19 @@ class TreescopeRendererTest(parameterized.TestCase):
     def autovisualizer_for_test(node, path):
       if isinstance(node, str):
         return autovisualize.CustomTreescopeVisualization(
-            part_interface.RenderableAndLineAnnotations(
-                basic_parts.Text("(visualiation for foo goes here)"),
-                basic_parts.Text(" # annotation for vis for foo"),
+            rendering_parts.RenderableAndLineAnnotations(
+                rendering_parts.text("(visualiation for foo goes here)"),
+                rendering_parts.text(" # annotation for vis for foo"),
             ),
         )
       elif path == "[4]":
         return autovisualize.IPythonVisualization(
-            CustomReprHTMLObject(lambda: "(html rendering)"),
+            CustomReprHTMLObject("(html rendering)"),
             replace=True,
         )
       elif path == "[5]":
         return autovisualize.IPythonVisualization(
-            CustomReprHTMLObject(lambda: "(html rendering)"),
+            CustomReprHTMLObject("(html rendering)"),
             replace=False,
         )
       elif path == "[6]":
@@ -1011,9 +1010,9 @@ class TreescopeRendererTest(parameterized.TestCase):
       del path
       if node == 6:
         return autovisualize.CustomTreescopeVisualization(
-            part_interface.RenderableAndLineAnnotations(
-                basic_parts.Text("(child visualiation of 6 goes here)"),
-                basic_parts.Text(" # annotation for vis for 6"),
+            rendering_parts.RenderableAndLineAnnotations(
+                rendering_parts.text("(child visualiation of 6 goes here)"),
+                rendering_parts.text(" # annotation for vis for 6"),
             ),
         )
 
@@ -1021,12 +1020,12 @@ class TreescopeRendererTest(parameterized.TestCase):
         autovisualizer_for_test
     ):
       renderer = default_renderer.active_renderer.get()
-      rendering = basic_parts.build_full_line_with_annotations(
+      rendering = rendering_parts.build_full_line_with_annotations(
           renderer.to_foldable_representation(target)
       )
       layout_algorithms.expand_to_depth(rendering, 3)
-      rendered_text = foldable_impl.render_to_text_as_root(rendering)
-      rendered_text_as_roundtrip = foldable_impl.render_to_text_as_root(
+      rendered_text = lowering.render_to_text_as_root(rendering)
+      rendered_text_as_roundtrip = lowering.render_to_text_as_root(
           rendering, roundtrip=True
       )
 
@@ -1094,7 +1093,7 @@ class TreescopeRendererTest(parameterized.TestCase):
               selection
           )
       )
-      rendered_text = foldable_impl.render_to_text_as_root(rendered_ir)
+      rendered_text = lowering.render_to_text_as_root(rendered_ir)
       self.assertEqual(
           "\n".join(
               line.rstrip() for line in rendered_text.splitlines(keepends=True)
@@ -1129,8 +1128,8 @@ class TreescopeRendererTest(parameterized.TestCase):
 
       # Expanding the hidden keypaths:
       for foldable in rendered_ir.foldables_in_this_part():
-        foldable.set_expand_state(part_interface.ExpandState.EXPANDED)
-      rendered_text = foldable_impl.render_to_text_as_root(rendered_ir)
+        foldable.set_expand_state(rendering_parts.ExpandState.EXPANDED)
+      rendered_text = lowering.render_to_text_as_root(rendered_ir)
       self.assertEqual(
           "\n".join(
               line.rstrip() for line in rendered_text.splitlines(keepends=True)
@@ -1180,7 +1179,7 @@ class TreescopeRendererTest(parameterized.TestCase):
           )
       )
       self.assertEqual(
-          foldable_impl.render_to_text_as_root(rendered_ir),
+          lowering.render_to_text_as_root(rendered_ir),
           textwrap.dedent("""\
               {
                 'a': 1,
@@ -1211,7 +1210,7 @@ class TreescopeRendererTest(parameterized.TestCase):
           some_nested_object
       ).renderable
       layout_algorithms.expand_for_balanced_layout(rendering, **kwargs)
-      return foldable_impl.render_to_text_as_root(rendering)
+      return lowering.render_to_text_as_root(rendering)
 
     with self.subTest("no_max_height"):
       self.assertEqual(
@@ -1329,7 +1328,7 @@ class TreescopeRendererTest(parameterized.TestCase):
 
     # Initially collapsed due to height constraint.
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(rendering),
+        lowering.render_to_text_as_root(rendering),
         textwrap.dedent("""\
         [
           DataclassWithOneChild(foo=[['foo', 'foo', 'foo', 'foo'], (['baz', 'baz', 'baz', 'baz', 'baz'], ['qux', 'qux', 'qux', 'qux', 'qux'])]),
@@ -1345,11 +1344,11 @@ class TreescopeRendererTest(parameterized.TestCase):
     )
     self.assertEqual(
         target_foldable.get_expand_state(),
-        part_interface.ExpandState.COLLAPSED,
+        rendering_parts.ExpandState.COLLAPSED,
     )
-    target_foldable.set_expand_state(part_interface.ExpandState.EXPANDED)
+    target_foldable.set_expand_state(rendering_parts.ExpandState.EXPANDED)
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(rendering),
+        lowering.render_to_text_as_root(rendering),
         textwrap.dedent("""\
             [
               DataclassWithOneChild(
@@ -1381,7 +1380,7 @@ class TreescopeRendererTest(parameterized.TestCase):
         rendering, max_height=10, target_width=40
     )
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(rendering),
+        lowering.render_to_text_as_root(rendering),
         textwrap.dedent("""\
             [
               DataclassWithOneChild(
@@ -1426,7 +1425,7 @@ class TreescopeRendererTest(parameterized.TestCase):
         relax_height_constraint_for_only_child=False,
     )
     self.assertEqual(
-        foldable_impl.render_to_text_as_root(rendering),
+        lowering.render_to_text_as_root(rendering),
         textwrap.dedent("""\
             [
               DataclassWithOneChild(

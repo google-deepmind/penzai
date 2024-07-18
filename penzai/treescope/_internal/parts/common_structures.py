@@ -20,10 +20,10 @@ import dataclasses
 from typing import Any, Sequence
 
 from penzai.treescope import canonical_aliases
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import foldable_impl
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope._internal.parts import basic_parts
+from penzai.treescope._internal.parts import common_styles
+from penzai.treescope._internal.parts import foldable_impl
+from penzai.treescope._internal.parts import part_interface
 
 
 CSSStyleRule = part_interface.CSSStyleRule
@@ -106,9 +106,7 @@ def build_one_line_tree_node(
 
   if isinstance(line, RenderableAndLineAnnotations):
     line_primary = line.renderable
-    annotations = basic_parts.Siblings.build(
-        maybe_copy_button, line.annotations
-    )
+    annotations = basic_parts.siblings(maybe_copy_button, line.annotations)
   elif isinstance(line, str):
     line_primary = basic_parts.Text(line)
     annotations = maybe_copy_button
@@ -182,7 +180,7 @@ def build_foldable_tree_node_from_children(
   """
   if not children:
     return build_one_line_tree_node(
-        line=basic_parts.Siblings.build(prefix, suffix),
+        line=basic_parts.siblings(prefix, suffix),
         path=path,
         background_color=background_color,
     )
@@ -239,7 +237,7 @@ def build_foldable_tree_node_from_children(
                   wrap_topline(prefix),
                   keypath=path,
               ),
-              contents=basic_parts.Siblings.build(
+              contents=basic_parts.siblings(
                   maybe_copy_button,
                   maybe_first_line_annotation,
                   indented_child_class.build(
@@ -278,7 +276,7 @@ def maybe_qualified_type_name(ty: type[Any]) -> RenderableTreePart:
     access_path = f"<unknown>.{class_name}"
 
   if access_path.endswith(class_name):
-    return basic_parts.Siblings.build(
+    return basic_parts.siblings(
         basic_parts.RoundtripCondition(
             roundtrip=common_styles.QualifiedTypeNameSpanGroup(
                 basic_parts.Text(access_path.removesuffix(class_name))

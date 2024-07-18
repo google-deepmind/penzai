@@ -109,7 +109,7 @@ construct their own renderer objects and handlers, or directly construct
 renderings using Treescope's intermediate representation. Renderer objects and
 the expected types of handlers are defined in ``penzai.treescope.renderer``, and
 the intermediate representation is currently defined in
-``penzai.treescope.foldable_representation``.
+``penzai.treescope.rendering_parts``.
 
 .. warning::
   The Treescope intermediate representation and handler system will be changing

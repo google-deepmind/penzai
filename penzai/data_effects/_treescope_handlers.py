@@ -27,12 +27,8 @@ from penzai.data_effects import effect_base
 from penzai.treescope import context
 from penzai.treescope import formatting_util
 from penzai.treescope import renderer
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import foldable_impl
-from penzai.treescope.foldable_representation import part_interface
-from penzai.treescope.handlers import builtin_structure_handler
+from penzai.treescope import rendering_parts
+from penzai.treescope._internal.parts import foldable_impl
 
 _known_handlers: context.ContextualValue[
     dict[str, tuple[effect_base.EffectHandler, str | None]] | None
@@ -52,8 +48,8 @@ def handle_data_effects_objects(
     path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Handles data effects objects."""
@@ -66,15 +62,15 @@ def handle_data_effects_objects(
       hyperlink_path=None,
   ):
     if isinstance(node, str) and node == handler_id:
-      child = basic_parts.Text(repr(node))
+      child = rendering_parts.text(repr(node))
       if hyperlink_path is not None:
         child = foldable_impl.NodeHyperlink(
             child=child, target_keypath=hyperlink_path
         )
-      return common_structures.build_one_line_tree_node(
-          common_styles.CustomTextColor(
+      return rendering_parts.build_one_line_tree_node(
+          rendering_parts.custom_text_color(
               child,
-              color=formatting_util.color_from_string(
+              css_color=formatting_util.color_from_string(
                   node, lightness=0.51, chroma=0.11
               ),
           ),
@@ -104,11 +100,11 @@ def handle_data_effects_objects(
     if cur_known is not None and node.handler_id in cur_known:
       handler, handler_path = cur_known[node.handler_id]
       comment = [
-          common_styles.CommentColor(
-              basic_parts.siblings(
+          rendering_parts.comment_color(
+              rendering_parts.siblings(
                   " # Handled by ",
                   foldable_impl.NodeHyperlink(
-                      child=common_structures.maybe_qualified_type_name(
+                      child=rendering_parts.maybe_qualified_type_name(
                           type(handler)
                       ),
                       target_keypath=handler_path,
@@ -123,7 +119,7 @@ def handle_data_effects_objects(
     assert dataclasses.is_dataclass(node), "Every struct.Struct is a dataclass"
     constructor_open = struct_handler.render_struct_constructor(node)
     fields = dataclasses.fields(node)
-    children = builtin_structure_handler.build_field_children(
+    children = rendering_parts.build_field_children(
         node,
         path,
         functools.partial(
@@ -135,8 +131,8 @@ def handle_data_effects_objects(
         attr_style_fn=struct_handler.struct_attr_style_fn_for_fields(fields),
     )
     background_color = node.treescope_color()
-    return basic_parts.siblings_with_annotations(
-        common_structures.build_foldable_tree_node_from_children(
+    return rendering_parts.siblings_with_annotations(
+        rendering_parts.build_foldable_tree_node_from_children(
             prefix=constructor_open,
             children=children,
             suffix=")",
@@ -155,16 +151,14 @@ def handle_data_effects_objects(
     if isinstance(node, struct.Struct):
       constructor_open = struct_handler.render_struct_constructor(node)
     elif dataclasses.is_dataclass(node):
-      constructor_open = builtin_structure_handler.render_dataclass_constructor(
-          node
-      )
+      constructor_open = rendering_parts.render_dataclass_constructor(node)
     else:
       return NotImplemented
     background_color = node.treescope_color()
 
-    return common_structures.build_foldable_tree_node_from_children(
+    return rendering_parts.build_foldable_tree_node_from_children(
         prefix=constructor_open,
-        children=builtin_structure_handler.build_field_children(
+        children=rendering_parts.build_field_children(
             node,
             path,
             functools.partial(

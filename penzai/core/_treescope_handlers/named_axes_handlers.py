@@ -24,14 +24,10 @@ import numpy as np
 from penzai.core import named_axes
 from penzai.core._treescope_handlers import struct_handler
 from penzai.treescope import dtype_util
+from penzai.treescope import lowering
 from penzai.treescope import renderer
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import foldable_impl
-from penzai.treescope.foldable_representation import part_interface
-from penzai.treescope.handlers import builtin_structure_handler
-from penzai.treescope.handlers.interop import jax_support
+from penzai.treescope import rendering_parts
+from penzai.treescope._internal.handlers.interop import jax_support
 
 
 def named_array_and_contained_type_summary(
@@ -97,8 +93,8 @@ def handle_named_arrays(
     path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Renders NamedArrays."""
@@ -114,26 +110,26 @@ def handle_named_arrays(
       summary, contained_type = named_array_and_contained_type_summary(
           node, inspect_device_data=inspect_device_data
       )
-      return basic_parts.SummarizableCondition(
-          summary=common_styles.AbbreviationColor(
-              basic_parts.Text(
+      return rendering_parts.summarizable_condition(
+          summary=rendering_parts.abbreviation_color(
+              rendering_parts.text(
                   f"<{type(node).__name__} {summary} (wrapping"
                   f" {contained_type})>"
               )
           ),
-          detail=basic_parts.siblings(
-              common_structures.maybe_qualified_type_name(type(node)),
+          detail=rendering_parts.siblings(
+              rendering_parts.maybe_qualified_type_name(type(node)),
               "(",
-              basic_parts.FoldCondition(
-                  expanded=common_styles.CommentColor(
-                      basic_parts.Text("  # " + summary)
+              rendering_parts.fold_condition(
+                  expanded=rendering_parts.comment_color(
+                      rendering_parts.text("  # " + summary)
                   )
               ),
           ),
       )
 
     fields = dataclasses.fields(node)
-    children = builtin_structure_handler.build_field_children(
+    children = rendering_parts.build_field_children(
         node,
         path,
         subtree_renderer,
@@ -141,21 +137,18 @@ def handle_named_arrays(
         attr_style_fn=struct_handler.struct_attr_style_fn_for_fields(fields),
     )
 
-    indented_children = basic_parts.IndentedChildren.build(children)
+    indented_children = rendering_parts.indented_children(children)
 
-    return common_structures.build_custom_foldable_tree_node(
-        label=foldable_impl.maybe_defer_rendering(
+    return rendering_parts.build_custom_foldable_tree_node(
+        label=lowering.maybe_defer_rendering(
             main_thunk=lambda _: _make_label(inspect_device_data=True),
             placeholder_thunk=lambda: _make_label(inspect_device_data=False),
         ),
-        contents=basic_parts.SummarizableCondition(
-            detail=basic_parts.siblings(
-                indented_children,
-                ")",
-            )
+        contents=rendering_parts.summarizable_condition(
+            detail=rendering_parts.siblings(indented_children, ")")
         ),
         path=path,
-        expand_state=part_interface.ExpandState.COLLAPSED,
+        expand_state=rendering_parts.ExpandState.COLLAPSED,
     )
 
   return NotImplemented

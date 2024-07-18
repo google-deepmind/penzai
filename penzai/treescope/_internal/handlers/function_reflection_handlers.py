@@ -26,12 +26,9 @@ import io
 import re
 from typing import Any
 
-from penzai.treescope import html_escaping
 from penzai.treescope import renderer
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope import rendering_parts
+from penzai.treescope._internal import html_escaping
 
 
 @functools.cache
@@ -51,7 +48,7 @@ def _get_filepath_and_lineno(value) -> tuple[str, int] | tuple[None, None]:
 
 def format_source_location(
     filepath: str, lineno: int
-) -> part_interface.RenderableTreePart:
+) -> rendering_parts.RenderableTreePart:
   """Formats a reference to a given filepath and line number."""
 
   # Try to match it as an IPython file
@@ -60,9 +57,9 @@ def format_source_location(
   )
   if ipython_output_path:
     cell_number = ipython_output_path.group("cell_number")
-    return basic_parts.Text(f"line {lineno} of output cell {cell_number}")
+    return rendering_parts.text(f"line {lineno} of output cell {cell_number}")
 
-  return basic_parts.Text(f"line {lineno} of {filepath}")
+  return rendering_parts.text(f"line {lineno} of {filepath}")
 
 
 def handle_code_objects_with_reflection(
@@ -71,8 +68,8 @@ def handle_code_objects_with_reflection(
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
     show_closure_vars: bool = False,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Renders code objects using source-code reflection and closure inspection."""
@@ -93,28 +90,30 @@ def handle_code_objects_with_reflection(
   filepath, lineno = _get_filepath_and_lineno(node)
   if filepath is not None:
     annotations.append(
-        common_styles.CommentColor(
-            basic_parts.siblings(
-                basic_parts.Text("  # Defined at "),
+        rendering_parts.comment_color(
+            rendering_parts.siblings(
+                rendering_parts.text("  # Defined at "),
                 format_source_location(filepath, lineno),
             )
         )
     )
 
   if closure_vars:
-    boxed_closure_var_rendering = common_styles.DashedGrayOutlineBox(
-        basic_parts.OnSeparateLines.build([
-            common_styles.CommentColor(
-                basic_parts.Text("# Closure variables:")
+    boxed_closure_var_rendering = rendering_parts.dashed_gray_outline_box(
+        rendering_parts.on_separate_lines([
+            rendering_parts.comment_color(
+                rendering_parts.text("# Closure variables:")
             ),
             subtree_renderer(closure_vars),
         ])
     )
-    return basic_parts.siblings_with_annotations(
-        common_structures.build_custom_foldable_tree_node(
-            label=common_styles.AbbreviationColor(basic_parts.Text(repr(node))),
-            contents=basic_parts.FoldCondition(
-                expanded=basic_parts.IndentedChildren.build(
+    return rendering_parts.siblings_with_annotations(
+        rendering_parts.build_custom_foldable_tree_node(
+            label=rendering_parts.abbreviation_color(
+                rendering_parts.text(repr(node))
+            ),
+            contents=rendering_parts.fold_condition(
+                expanded=rendering_parts.indented_children(
                     [boxed_closure_var_rendering]
                 )
             ),
@@ -124,9 +123,11 @@ def handle_code_objects_with_reflection(
     )
 
   else:
-    return basic_parts.siblings_with_annotations(
-        common_structures.build_one_line_tree_node(
-            line=common_styles.AbbreviationColor(basic_parts.Text(repr(node))),
+    return rendering_parts.siblings_with_annotations(
+        rendering_parts.build_one_line_tree_node(
+            line=rendering_parts.abbreviation_color(
+                rendering_parts.text(repr(node))
+            ),
             path=path,
         ),
         extra_annotations=annotations,

@@ -19,13 +19,10 @@ from __future__ import annotations
 from typing import Any
 
 from penzai.treescope import autovisualize
+from penzai.treescope import lowering
 from penzai.treescope import renderer
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import embedded_iframe
-from penzai.treescope.foldable_representation import foldable_impl
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope import rendering_parts
+from penzai.treescope._internal import object_inspection
 
 IPythonVisualization = autovisualize.IPythonVisualization
 CustomTreescopeVisualization = autovisualize.CustomTreescopeVisualization
@@ -37,8 +34,8 @@ def use_autovisualizer_if_present(
     path: str | None,
     node_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Treescope wrapper hook that runs the active autovisualizer."""
@@ -59,35 +56,37 @@ def use_autovisualizer_if_present(
       ordinary_result = node_renderer(node, path)
 
     if isinstance(result, IPythonVisualization):
-      if isinstance(result.display_object, embedded_iframe.HasReprHtml):
+      if isinstance(result.display_object, object_inspection.HasReprHtml):
         obj = result.display_object
 
         def _thunk(_):
-          html_rendering = embedded_iframe.to_html(obj)
+          html_rendering = object_inspection.to_html(obj)
           if html_rendering:
-            return embedded_iframe.EmbeddedIFrame(
+            return rendering_parts.embedded_iframe(
                 embedded_html=html_rendering,
-                fallback_in_text_mode=common_styles.AbbreviationColor(
-                    basic_parts.Text("<rich HTML visualization>")
+                fallback_in_text_mode=rendering_parts.abbreviation_color(
+                    rendering_parts.text("<rich HTML visualization>")
                 ),
             )
           else:
-            return common_styles.ErrorColor(
-                basic_parts.Text(
+            return rendering_parts.error_color(
+                rendering_parts.text(
                     "<Autovisualizer returned a Visualization with an invalid"
                     f" display object {result.display_object}>"
                 )
             )
 
-        ipy_rendering = foldable_impl.maybe_defer_rendering(
+        ipy_rendering = lowering.maybe_defer_rendering(
             _thunk,
-            lambda: basic_parts.Text("<rich HTML visualization loading...>"),
+            lambda: rendering_parts.text(
+                "<rich HTML visualization loading...>"
+            ),
         )
       else:
         # Bad display object
-        ipy_rendering = common_structures.build_one_line_tree_node(
-            line=common_styles.ErrorColor(
-                basic_parts.Text(
+        ipy_rendering = rendering_parts.build_one_line_tree_node(
+            line=rendering_parts.error_color(
+                rendering_parts.text(
                     "<Autovisualizer returned a Visualization with an invalid"
                     f" display object {result.display_object}>"
                 )
@@ -97,32 +96,36 @@ def use_autovisualizer_if_present(
       if result.replace:
         replace = True
         rendering_and_annotations = (
-            common_structures.build_custom_foldable_tree_node(
-                label=common_styles.AbbreviationColor(
-                    basic_parts.Text(f"<Visualization of {type(node).__name__}")
+            rendering_parts.build_custom_foldable_tree_node(
+                label=rendering_parts.abbreviation_color(
+                    rendering_parts.text(
+                        f"<Visualization of {type(node).__name__}"
+                    )
                 ),
-                contents=basic_parts.siblings(
-                    basic_parts.FoldCondition(
-                        expanded=basic_parts.siblings(
-                            common_styles.AbbreviationColor(
-                                basic_parts.Text(":")
+                contents=rendering_parts.siblings(
+                    rendering_parts.fold_condition(
+                        expanded=rendering_parts.siblings(
+                            rendering_parts.abbreviation_color(
+                                rendering_parts.text(":")
                             ),
-                            basic_parts.IndentedChildren.build([ipy_rendering]),
+                            rendering_parts.indented_children([ipy_rendering]),
                         )
                     ),
-                    common_styles.AbbreviationColor(basic_parts.Text(">")),
+                    rendering_parts.abbreviation_color(
+                        rendering_parts.text(">")
+                    ),
                 ),
                 path=path,
-                expand_state=part_interface.ExpandState.EXPANDED,
+                expand_state=rendering_parts.ExpandState.EXPANDED,
             )
         )
       else:
         replace = False
-        rendering_and_annotations = part_interface.RenderableAndLineAnnotations(
-            renderable=basic_parts.ScopedSelectableAnnotation(
-                common_styles.DashedGrayOutlineBox(ipy_rendering)
+        rendering_and_annotations = rendering_parts.RenderableAndLineAnnotations(
+            renderable=rendering_parts.floating_annotation_with_separate_focus(
+                rendering_parts.dashed_gray_outline_box(ipy_rendering)
             ),
-            annotations=basic_parts.EmptyPart(),
+            annotations=rendering_parts.empty_part(),
         )
     else:
       assert isinstance(result, CustomTreescopeVisualization)
@@ -130,26 +133,28 @@ def use_autovisualizer_if_present(
       rendering_and_annotations = result.rendering
 
     if replace:
-      in_roundtrip_with_annotations = basic_parts.siblings_with_annotations(
+      in_roundtrip_with_annotations = rendering_parts.siblings_with_annotations(
           ordinary_result,
           extra_annotations=[
-              common_styles.CommentColor(
-                  basic_parts.Text("  # Visualization hidden in roundtrip mode")
+              rendering_parts.comment_color(
+                  rendering_parts.text(
+                      "  # Visualization hidden in roundtrip mode"
+                  )
               )
           ],
       )
-      return part_interface.RenderableAndLineAnnotations(
-          renderable=basic_parts.RoundtripCondition(
+      return rendering_parts.RenderableAndLineAnnotations(
+          renderable=rendering_parts.roundtrip_condition(
               roundtrip=in_roundtrip_with_annotations.renderable,
               not_roundtrip=rendering_and_annotations.renderable,
           ),
-          annotations=basic_parts.RoundtripCondition(
+          annotations=rendering_parts.roundtrip_condition(
               roundtrip=in_roundtrip_with_annotations.annotations,
               not_roundtrip=rendering_and_annotations.annotations,
           ),
       )
     else:
-      return basic_parts.siblings_with_annotations(
+      return rendering_parts.siblings_with_annotations(
           ordinary_result, rendering_and_annotations
       )
 
@@ -159,9 +164,9 @@ def use_autovisualizer_if_present(
       return node_renderer(node, path)
 
   else:
-    return common_structures.build_one_line_tree_node(
-        line=common_styles.ErrorColor(
-            basic_parts.Text(
+    return rendering_parts.build_one_line_tree_node(
+        line=rendering_parts.error_color(
+            rendering_parts.text(
                 f"<Autovizualizer returned an invalid value {result}; expected"
                 " IPythonVisualization, CustomTreescopeVisualization,"
                 " ChildAutovisualizer, or None>"

@@ -22,9 +22,9 @@ from penzai.treescope import autovisualize
 from penzai.treescope import context
 from penzai.treescope import default_renderer
 from penzai.treescope import figures
-from penzai.treescope import object_inspection
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import foldable_impl
+from penzai.treescope import lowering
+from penzai.treescope import rendering_parts
+from penzai.treescope._internal import object_inspection
 
 # pylint: disable=g-import-not-at-top
 try:
@@ -166,7 +166,7 @@ def register_as_default(
           # in an interactive context, we can defer rendering of leaves that
           # support deferral and splice them in one at a time.
           deferreds = stack.enter_context(
-              foldable_impl.collecting_deferred_renderings()
+              lowering.collecting_deferred_renderings()
           )
         else:
           deferreds = None
@@ -177,13 +177,13 @@ def register_as_default(
         if root_repr_method:
           foldable_ir = root_repr_method()
         else:
-          foldable_ir = basic_parts.build_full_line_with_annotations(
+          foldable_ir = rendering_parts.build_full_line_with_annotations(
               default_renderer.build_foldable_representation(
                   value, ignore_exceptions=True
               )
           )
         if streaming:
-          output_stealer = foldable_impl.display_streaming_as_root(
+          output_stealer = lowering.display_streaming_as_root(
               foldable_ir,
               deferreds,
               roundtrip=False,
@@ -198,7 +198,7 @@ def register_as_default(
           return output_stealer
         else:
           assert deferreds is None
-          return foldable_impl.render_to_html_as_root(
+          return lowering.render_to_html_as_root(
               foldable_ir,
               roundtrip=False,
               compressed=compress_html,

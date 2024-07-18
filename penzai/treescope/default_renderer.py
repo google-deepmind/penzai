@@ -18,22 +18,12 @@ import contextlib
 import functools
 from typing import Any, Callable
 from penzai.treescope import context
+from penzai.treescope import handlers
+from penzai.treescope import lowering
 from penzai.treescope import renderer
+from penzai.treescope import rendering_parts
 from penzai.treescope import type_registries
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import foldable_impl
-from penzai.treescope.foldable_representation import layout_algorithms
-from penzai.treescope.foldable_representation import part_interface
-from penzai.treescope.handlers import autovisualizer_hook
-from penzai.treescope.handlers import builtin_atom_handler
-from penzai.treescope.handlers import builtin_structure_handler
-from penzai.treescope.handlers import canonical_alias_postprocessor
-from penzai.treescope.handlers import custom_type_handlers
-from penzai.treescope.handlers import function_reflection_handlers
-from penzai.treescope.handlers import generic_pytree_handler
-from penzai.treescope.handlers import generic_repr_handler
-from penzai.treescope.handlers import repr_html_postprocessor
-from penzai.treescope.handlers import shared_value_postprocessor
+from penzai.treescope._internal import layout_algorithms
 
 
 active_renderer: context.ContextualValue[renderer.TreescopeRenderer] = (
@@ -43,37 +33,35 @@ active_renderer: context.ContextualValue[renderer.TreescopeRenderer] = (
         initial_value=renderer.TreescopeRenderer(
             handlers=[
                 # Objects with `__penzai_repr__` defined.
-                custom_type_handlers.handle_via_penzai_repr_method,
-                # Objects in the global registry of type handlers.
-                custom_type_handlers.handle_via_global_registry,
+                handlers.handle_via_penzai_repr_method,
+                # Objects in the global registry of custom type handlers.
+                handlers.handle_via_global_registry,
                 # Reflection of functions and classes.
-                function_reflection_handlers.handle_code_objects_with_reflection,
-                # Numbers, strings, constants, enums, etc.
-                builtin_atom_handler.handle_builtin_atoms,
-                # Lists, dicts, tuples, dataclasses, namedtuples, etc.
-                builtin_structure_handler.handle_builtin_structures,
+                handlers.handle_code_objects_with_reflection,
+                # Render basic builtin types, namedtuples, and dataclasses.
+                handlers.handle_basic_types,
                 # Fallback for unknown pytree types: Show repr and also the
                 # PyTree children. Note: This is a no-op unless JAX has been
                 # imported.
-                generic_pytree_handler.handle_arbitrary_pytrees,
+                handlers.handle_arbitrary_pytrees,
                 # Fallback to ordinary `repr` for any other object.
-                generic_repr_handler.handle_anything_with_repr,
+                handlers.handle_anything_with_repr,
             ],
             wrapper_hooks=[
                 # Allow user-configurable visualizations.
-                autovisualizer_hook.use_autovisualizer_if_present,
+                handlers.use_autovisualizer_if_present,
                 # Show display objects inline.
-                repr_html_postprocessor.append_repr_html_when_present,
+                handlers.append_repr_html_when_present,
                 # Collapse well-known objects into aliases.
-                canonical_alias_postprocessor.replace_with_canonical_aliases,
+                handlers.replace_with_canonical_aliases,
                 # Annotate multiple references to the same mutable Python
                 # object.
-                shared_value_postprocessor.check_for_shared_values,
+                handlers.check_for_shared_values,
             ],
             context_builders=[
                 # Set up a new context for each rendered object when rendering
                 # shared values.
-                shared_value_postprocessor.setup_shared_value_context,
+                handlers.setup_shared_value_context,
                 # Update type registries to account for newly imported
                 # modules before rendering.
                 type_registries.update_registries_for_imports,
@@ -95,7 +83,7 @@ make further adjustments using `TreescopeRenderer.extend_with`.
 """
 
 active_expansion_strategy = context.ContextualValue[
-    Callable[[part_interface.RenderableTreePart], None]
+    Callable[[rendering_parts.RenderableTreePart], None]
 ](
     module=__name__,
     qualname="active_expansion_strategy",
@@ -162,7 +150,7 @@ def using_expansion_strategy(
 def build_foldable_representation(
     value: Any,
     ignore_exceptions: bool = False,
-) -> part_interface.RenderableAndLineAnnotations:
+) -> rendering_parts.RenderableAndLineAnnotations:
   """Builds a foldable representation of an object using default configuration.
 
   Uses the default renderer and expansion strategy.
@@ -205,10 +193,10 @@ def render_to_text(
   Returns:
     A text representation of the object.
   """
-  foldable_ir = basic_parts.build_full_line_with_annotations(
+  foldable_ir = rendering_parts.build_full_line_with_annotations(
       build_foldable_representation(value, ignore_exceptions=ignore_exceptions)
   )
-  return foldable_impl.render_to_text_as_root(foldable_ir, roundtrip_mode)
+  return lowering.render_to_text_as_root(foldable_ir, roundtrip_mode)
 
 
 def render_to_html(
@@ -230,9 +218,9 @@ def render_to_html(
   Returns:
     HTML source code for the foldable representation of the object.
   """
-  foldable_ir = basic_parts.build_full_line_with_annotations(
+  foldable_ir = rendering_parts.build_full_line_with_annotations(
       build_foldable_representation(value, ignore_exceptions=ignore_exceptions)
   )
-  return foldable_impl.render_to_html_as_root(
+  return lowering.render_to_html_as_root(
       foldable_ir, roundtrip_mode, compressed=compressed
   )

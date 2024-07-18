@@ -20,14 +20,12 @@ from typing import Any
 import numpy as np
 from penzai.treescope import canonical_aliases
 from penzai.treescope import dtype_util
+from penzai.treescope import lowering
 from penzai.treescope import ndarray_adapters
 from penzai.treescope import renderer
+from penzai.treescope import rendering_parts
 from penzai.treescope import type_registries
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import foldable_impl
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope._internal.parts import part_interface
 
 
 def _truncate_and_copy(
@@ -204,8 +202,8 @@ def render_ndarrays(
     path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Renders a numpy array."""
@@ -213,10 +211,10 @@ def render_ndarrays(
   assert isinstance(node, np.ndarray)
   adapter = NumpyArrayAdapter()
 
-  def _placeholder() -> part_interface.RenderableTreePart:
-    return common_structures.fake_placeholder_foldable(
-        common_styles.DeferredPlaceholderStyle(
-            basic_parts.Text(adapter.get_array_summary(node, fast=True))
+  def _placeholder() -> rendering_parts.RenderableTreePart:
+    return rendering_parts.fake_placeholder_foldable(
+        rendering_parts.deferred_placeholder_style(
+            rendering_parts.text(adapter.get_array_summary(node, fast=True))
         ),
         extra_newlines_guess=8,
     )
@@ -225,7 +223,7 @@ def render_ndarrays(
     # Is this array simple enough to render without a summary?
     node_repr = repr(node)
     if "\n" not in node_repr and "..." not in node_repr:
-      rendering = basic_parts.Text(f"np.{node_repr}")
+      rendering = rendering_parts.text(f"np.{node_repr}")
     else:
       if node_repr.count("\n") <= 15:
         if isinstance(placeholder, part_interface.FoldableTreeNode):
@@ -235,28 +233,28 @@ def render_ndarrays(
           default_expand_state = part_interface.ExpandState.WEAKLY_EXPANDED
       else:
         # Always start big NDArrays in collapsed mode to hide irrelevant detail.
-        default_expand_state = part_interface.ExpandState.COLLAPSED
+        default_expand_state = rendering_parts.ExpandState.COLLAPSED
 
       # Render it with a summary.
       summarized = adapter.get_array_summary(node, fast=False)
-      rendering = common_structures.build_custom_foldable_tree_node(
-          label=common_styles.AbbreviationColor(
-              common_styles.CommentColorWhenExpanded(
-                  basic_parts.siblings(
-                      basic_parts.FoldCondition(
-                          expanded=basic_parts.Text("# "),
-                          collapsed=basic_parts.Text("<"),
+      rendering = rendering_parts.build_custom_foldable_tree_node(
+          label=rendering_parts.abbreviation_color(
+              rendering_parts.comment_color_when_expanded(
+                  rendering_parts.siblings(
+                      rendering_parts.fold_condition(
+                          expanded=rendering_parts.text("# "),
+                          collapsed=rendering_parts.text("<"),
                       ),
                       summarized,
-                      basic_parts.FoldCondition(
-                          collapsed=basic_parts.Text(">")
+                      rendering_parts.fold_condition(
+                          collapsed=rendering_parts.text(">")
                       ),
                   )
               )
           ),
-          contents=basic_parts.FoldCondition(
-              expanded=basic_parts.IndentedChildren.build(
-                  [basic_parts.Text(node_repr)]
+          contents=rendering_parts.fold_condition(
+              expanded=rendering_parts.indented_children(
+                  [rendering_parts.text(node_repr)]
               )
           ),
           path=path,
@@ -265,11 +263,11 @@ def render_ndarrays(
 
     return rendering
 
-  return basic_parts.RenderableAndLineAnnotations(
-      renderable=foldable_impl.maybe_defer_rendering(
+  return rendering_parts.RenderableAndLineAnnotations(
+      renderable=lowering.maybe_defer_rendering(
           main_thunk=_thunk, placeholder_thunk=_placeholder
       ),
-      annotations=common_structures.build_copy_button(path),
+      annotations=rendering_parts.build_copy_button(path),
   )
 
 
@@ -278,8 +276,8 @@ def render_dtype_instances(
     path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Renders a np.dtype, adding the `np.` qualifier."""
@@ -299,9 +297,11 @@ def render_dtype_instances(
     # and add the "numpy." prefix as needed.
     dtype_string = repr(node)
 
-  return common_structures.build_one_line_tree_node(
-      line=basic_parts.siblings(
-          basic_parts.RoundtripCondition(roundtrip=basic_parts.Text("np.")),
+  return rendering_parts.build_one_line_tree_node(
+      line=rendering_parts.siblings(
+          rendering_parts.roundtrip_condition(
+              roundtrip=rendering_parts.text("np.")
+          ),
           dtype_string,
       ),
       path=path,

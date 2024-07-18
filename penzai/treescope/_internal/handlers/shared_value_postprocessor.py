@@ -24,11 +24,12 @@ import io
 from typing import Any, Optional, Sequence
 
 from penzai.treescope import context
-from penzai.treescope import html_escaping
 from penzai.treescope import renderer
+from penzai.treescope import rendering_parts
 from penzai.treescope import type_registries
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope._internal import html_escaping
+from penzai.treescope._internal.parts import basic_parts
+from penzai.treescope._internal.parts import part_interface
 
 
 @dataclasses.dataclass
@@ -93,7 +94,7 @@ class SharedWarningLabel(basic_parts.BaseSpanGroup):
 
 
 @dataclasses.dataclass(frozen=False)
-class DynamicSharedCheck(part_interface.RenderableTreePart):
+class DynamicSharedCheck(rendering_parts.RenderableTreePart):
   """Dynamic group that renders its child only if a node is shared.
 
   This node is used to apply special rendering to nodes that are encountered in
@@ -118,7 +119,7 @@ class DynamicSharedCheck(part_interface.RenderableTreePart):
       active `_shared_object_ids_seen` context.
   """
 
-  if_shared: part_interface.RenderableTreePart
+  if_shared: rendering_parts.RenderableTreePart
   node_id: int
   seen_more_than_once: set[int]
 
@@ -199,7 +200,7 @@ class WithDynamicSharedPip(basic_parts.DeferringToChild):
       active `_shared_object_ids_seen` context.
   """
 
-  child: part_interface.RenderableTreePart
+  child: rendering_parts.RenderableTreePart
   node_id: int
   seen_more_than_once: set[int]
 
@@ -277,8 +278,8 @@ def check_for_shared_values(
     path: str | None,
     node_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   # pylint: disable=g-doc-args,g-doc-return-or-yield
@@ -329,16 +330,18 @@ def check_for_shared_values(
 
     # Wrap it in a shared value wrapper; this will check to see if the same
     # node was seen more than once, and add an annotation if so.
-    return part_interface.RenderableAndLineAnnotations(
+    return rendering_parts.RenderableAndLineAnnotations(
         renderable=WithDynamicSharedPip(
             rendering.renderable,
             node_id=node_id,
             seen_more_than_once=shared_object_tracker.seen_more_than_once,
         ),
-        annotations=basic_parts.siblings(
+        annotations=rendering_parts.siblings(
             DynamicSharedCheck(
                 if_shared=SharedWarningLabel(
-                    basic_parts.Text(f" # Repeated python obj at 0x{node_id:x}")
+                    rendering_parts.text(
+                        f" # Repeated python obj at 0x{node_id:x}"
+                    )
                 ),
                 node_id=node_id,
                 seen_more_than_once=shared_object_tracker.seen_more_than_once,

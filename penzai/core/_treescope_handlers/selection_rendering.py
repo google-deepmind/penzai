@@ -22,14 +22,13 @@ import jax
 from penzai.core import selectors
 from penzai.treescope import context
 from penzai.treescope import default_renderer
-from penzai.treescope import html_escaping
+from penzai.treescope import lowering
 from penzai.treescope import renderer
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import foldable_impl
-from penzai.treescope.foldable_representation import layout_algorithms
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope import rendering_parts
+from penzai.treescope._internal import html_escaping
+from penzai.treescope._internal import layout_algorithms
+from penzai.treescope._internal.parts import basic_parts
+from penzai.treescope._internal.parts import part_interface
 
 
 @dataclasses.dataclass
@@ -131,8 +130,8 @@ def _wrap_selected_nodes(
     path: str | None,
     node_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Custom wrapper hook that intercepts selected nodes."""
@@ -148,19 +147,19 @@ def _wrap_selected_nodes(
     # Tag the child, and possibly annotate its visualization.
     rendering = node_renderer(node, path)
 
-    tagged_rendering = part_interface.RenderableAndLineAnnotations(
+    tagged_rendering = rendering_parts.RenderableAndLineAnnotations(
         renderable=SelectionTaggedGroup(rendering.renderable),
         annotations=rendering.annotations,
     )
 
     if tracker.visible_boundary:
-      wrapped_rendering = basic_parts.siblings_with_annotations(
-          common_structures.build_custom_foldable_tree_node(
+      wrapped_rendering = rendering_parts.siblings_with_annotations(
+          rendering_parts.build_custom_foldable_tree_node(
               contents=SelectionBoundaryBox(
-                  basic_parts.OnSeparateLines.build([
-                      basic_parts.FoldCondition(
+                  rendering_parts.on_separate_lines([
+                      rendering_parts.fold_condition(
                           expanded=SelectionBoundaryLabel(
-                              basic_parts.Text("# Selected:")
+                              rendering_parts.text("# Selected:")
                           )
                       ),
                       tagged_rendering.renderable,
@@ -181,7 +180,7 @@ def render_selection_to_foldable_representation(
     selection: selectors.Selection,
     visible_selection: bool = True,
     ignore_exceptions: bool = False,
-) -> part_interface.RenderableTreePart:
+) -> rendering_parts.RenderableTreePart:
   """Renders a top-level selection object to its foldable representation.
 
   This function produces a rendering of either the selection
@@ -226,7 +225,7 @@ def render_selection_to_foldable_representation(
       visible_boundary=visible_selection,
   )
   with _selected_nodes.set_scoped(tracker):
-    rendered_ir = basic_parts.build_full_line_with_annotations(
+    rendered_ir = rendering_parts.build_full_line_with_annotations(
         extended_renderer.to_foldable_representation(
             selection.deselect(),
             ignore_exceptions=ignore_exceptions,
@@ -266,7 +265,7 @@ def render_selection_to_foldable_representation(
 
   if visible_selection:
     # Render the keypaths:
-    keypath_rendering = basic_parts.build_full_line_with_annotations(
+    keypath_rendering = rendering_parts.build_full_line_with_annotations(
         base_renderer.to_foldable_representation(
             tuple(key for key in selection.selected_by_path.keys()),
             ignore_exceptions=ignore_exceptions,
@@ -277,35 +276,37 @@ def render_selection_to_foldable_representation(
 
     # Combine everything into a rendering of the selection itself.
     count = len(selection)
-    result = basic_parts.Siblings.build(
-        common_styles.CommentColor(basic_parts.Text("pz.select(")),
-        basic_parts.IndentedChildren.build([rendered_ir]),
-        common_styles.CommentColor(basic_parts.Text(").at_keypaths(")),
-        common_structures.build_custom_foldable_tree_node(
-            label=common_styles.CommentColor(
-                basic_parts.FoldCondition(
-                    collapsed=basic_parts.Text(
+    result = rendering_parts.siblings(
+        rendering_parts.comment_color(rendering_parts.text("pz.select(")),
+        rendering_parts.indented_children([rendered_ir]),
+        rendering_parts.comment_color(rendering_parts.text(").at_keypaths(")),
+        rendering_parts.build_custom_foldable_tree_node(
+            label=rendering_parts.comment_color(
+                rendering_parts.fold_condition(
+                    collapsed=rendering_parts.text(
                         f"<{count} subtrees, highlighted above>"
                     ),
-                    expanded=basic_parts.Text(
+                    expanded=rendering_parts.text(
                         f"# {count} subtrees, highlighted above"
                     ),
                 )
             ),
-            contents=basic_parts.FoldCondition(
-                expanded=basic_parts.IndentedChildren.build([keypath_rendering])
+            contents=rendering_parts.fold_condition(
+                expanded=rendering_parts.indented_children([keypath_rendering])
             ),
-            expand_state=part_interface.ExpandState.COLLAPSED,
+            expand_state=rendering_parts.ExpandState.COLLAPSED,
         ).renderable,
-        common_styles.CommentColor(basic_parts.Text(")")),
+        rendering_parts.comment_color(rendering_parts.text(")")),
     )
   else:
     # Just return our existing rendering.
     result = rendered_ir
 
   if warnings:
-    result = basic_parts.OnSeparateLines.build([
-        common_styles.ErrorColor(basic_parts.OnSeparateLines.build(warnings)),
+    result = rendering_parts.on_separate_lines([
+        rendering_parts.error_color(
+            rendering_parts.on_separate_lines(warnings)
+        ),
         result,
     ])
 
@@ -344,12 +345,10 @@ def display_selection_streaming(
       being called directly, e.g. when registering this as a default
       pretty-printer.
   """
-  with foldable_impl.collecting_deferred_renderings() as deferreds:
+  with lowering.collecting_deferred_renderings() as deferreds:
     rendered_ir = render_selection_to_foldable_representation(
         selection,
         visible_selection=visible_selection,
         ignore_exceptions=ignore_exceptions,
     )
-  foldable_impl.display_streaming_as_root(
-      rendered_ir, deferreds, roundtrip=False
-  )
+  lowering.display_streaming_as_root(rendered_ir, deferreds, roundtrip=False)

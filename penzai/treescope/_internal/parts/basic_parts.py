@@ -26,8 +26,8 @@ import operator
 import typing
 from typing import Any, Sequence
 
-from penzai.treescope import html_escaping
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope._internal import html_escaping
+from penzai.treescope._internal.parts import part_interface
 
 
 CSSStyleRule = part_interface.CSSStyleRule
@@ -91,6 +91,11 @@ class EmptyPart(BaseContentlessLeaf):
   """A definitely-empty part, which can be detected and special-cased."""
 
 
+def empty_part() -> EmptyPart:
+  """Returns an empty part."""
+  return EmptyPart()
+
+
 @dataclasses.dataclass(frozen=True)
 class Text(RenderableTreePart):
   """A raw text literal."""
@@ -147,33 +152,16 @@ class Text(RenderableTreePart):
     stream.write(("\n" + " " * indent).join(self.text.split("\n")))
 
 
+def text(text_content: str) -> RenderableTreePart:
+  """Builds a one-line text part."""
+  return Text(text_content)
+
+
 @dataclasses.dataclass(frozen=True)
 class Siblings(RenderableTreePart):
   """A sequence of children parts, rendered inline."""
 
   children: Sequence[RenderableTreePart]
-
-  @classmethod
-  def build(cls, *args: RenderableTreePart | str) -> Siblings:
-    """Builds a Siblings part from inline arguments.
-
-    Args:
-      *args: Sequence of renderables or strings (which will be wrapped in Text)
-
-    Returns:
-      A new Siblings part containing these concatenated together.
-    """
-    parts = []
-    for arg in args:
-      if isinstance(arg, str):
-        parts.append(Text(arg))
-      elif isinstance(arg, Siblings):
-        parts.extend(arg.children)
-      elif isinstance(arg, EmptyPart):
-        pass
-      else:
-        parts.append(arg)
-    return cls(tuple(parts))
 
   def _compute_collapsed_width(self) -> int:
     return sum(part.collapsed_width for part in self.children)
@@ -239,7 +227,28 @@ class Siblings(RenderableTreePart):
       )
 
 
-siblings = Siblings.build
+def siblings(*args: RenderableTreePart | str) -> RenderableTreePart:
+  """Builds a Siblings part from inline arguments.
+
+  Args:
+    *args: Sequence of renderables or strings (which will be wrapped in Text).
+
+  Returns:
+    A new Siblings part containing these concatenated together.
+  """
+  parts = []
+  for arg in args:
+    if isinstance(arg, str):
+      parts.append(Text(arg))
+    elif isinstance(arg, Siblings):
+      parts.extend(arg.children)
+    elif isinstance(arg, EmptyPart):
+      pass
+    elif isinstance(arg, RenderableTreePart):
+      parts.append(arg)
+    else:
+      raise ValueError(f"Invalid argument type {type(arg)}")
+  return Siblings(tuple(parts))
 
 
 class DeferringToChild(RenderableTreePart):
@@ -427,6 +436,21 @@ class VerticalSpace(RenderableTreePart):
     )
 
 
+def vertical_space(css_height: str) -> RenderableTreePart:
+  """Returns a vertical space with the given height in HTML mode.
+
+  Args:
+    css_height: The height of the space, as a CSS length string.
+
+  Returns:
+    A renderable part that renders as a vertical space in HTML mode, and does
+    not render in text mode.
+  """
+  if not isinstance(css_height, str):
+    raise ValueError(f"css_height must be a string, got {css_height}")
+  return VerticalSpace(height=css_height)
+
+
 ################################################################################
 # Conditional rendering
 ################################################################################
@@ -533,6 +557,37 @@ class FoldCondition(RenderableTreePart):
       )
 
 
+def fold_condition(
+    collapsed: RenderableTreePart | None = None,
+    expanded: RenderableTreePart | None = None,
+) -> RenderableTreePart:
+  """Builds a part that renders differently when collapsed or expanded.
+
+  Args:
+    collapsed: Contents to render when parent is collapsed.
+    expanded: Contents to render when parent is expanded.
+
+  Returns:
+    A renderable part that renders as ``collapsed`` when the parent is collapsed
+    and as ``expanded`` when the parent is expanded.
+  """
+  if collapsed is None:
+    collapsed = EmptyPart()
+  if expanded is None:
+    expanded = EmptyPart()
+  if not isinstance(collapsed, RenderableTreePart):
+    raise ValueError(
+        "`collapsed` must be a renderable part or None. Got"
+        f" {type(collapsed).__name__}"
+    )
+  if not isinstance(expanded, RenderableTreePart):
+    raise ValueError(
+        "`expanded` must be a renderable part or None. Got"
+        f" {type(expanded).__name__}"
+    )
+  return FoldCondition(collapsed=collapsed, expanded=expanded)
+
+
 @dataclasses.dataclass(frozen=True)
 class RoundtripCondition(RenderableTreePart):
   """Renders conditionally depending on whether it's in roundtrip mode.
@@ -635,6 +690,37 @@ class RoundtripCondition(RenderableTreePart):
           roundtrip_mode=roundtrip_mode,
           render_context=render_context,
       )
+
+
+def roundtrip_condition(
+    roundtrip: RenderableTreePart | None = None,
+    not_roundtrip: RenderableTreePart | None = None,
+) -> RenderableTreePart:
+  """Builds a part that renders differently in roundtrip mode.
+
+  Args:
+    roundtrip: Contents to render when rendering in round trip mode.
+    not_roundtrip: Contents to render when renderingin ordinary mode.
+
+  Returns:
+    A renderable part that renders as ``roundtrip`` in roundtrip mode
+    and as ``not_roundtrip`` in ordinary mode.
+  """
+  if roundtrip is None:
+    roundtrip = EmptyPart()
+  if not_roundtrip is None:
+    not_roundtrip = EmptyPart()
+  if not isinstance(roundtrip, RenderableTreePart):
+    raise ValueError(
+        "`roundtrip` must be a renderable part or None. Got"
+        f" {type(roundtrip).__name__}"
+    )
+  if not isinstance(not_roundtrip, RenderableTreePart):
+    raise ValueError(
+        "`not_roundtrip` must be a renderable part or None. Got"
+        f" {type(not_roundtrip).__name__}"
+    )
+  return RoundtripCondition(roundtrip=roundtrip, not_roundtrip=not_roundtrip)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -745,6 +831,41 @@ class SummarizableCondition(RenderableTreePart):
       )
 
 
+def summarizable_condition(
+    summary: RenderableTreePart | None = None,
+    detail: RenderableTreePart | None = None,
+) -> RenderableTreePart:
+  """Builds a part that renders depending on combination of roundtrip/collapsed.
+
+  The idea is that, when collapsed and not in roundtrip mode, it's sometimes
+  convenient to summarize a compound node with a simpler non-roundtrippable
+  representation.
+
+  Args:
+    summary: Contents to render when collapsed and not in roundtrip mode.
+    detail: Contents to render when either expanded or in roundtrip mode.
+
+  Returns:
+    A renderable part that renders as ``summary`` when both collpased and not
+    in roundtrip mode, and as ``detail`` otherwise.
+  """
+  if summary is None:
+    summary = EmptyPart()
+  if detail is None:
+    detail = EmptyPart()
+  if not isinstance(summary, RenderableTreePart):
+    raise ValueError(
+        "`summary` must be a renderable part or None. Got"
+        f" {type(summary).__name__}"
+    )
+  if not isinstance(detail, RenderableTreePart):
+    raise ValueError(
+        "`detail` must be a renderable part or None. Got"
+        f" {type(detail).__name__}"
+    )
+  return SummarizableCondition(summary=summary, detail=detail)
+
+
 ################################################################################
 # Line comments
 ################################################################################
@@ -775,17 +896,20 @@ def siblings_with_annotations(
       parts.append(arg)
     elif isinstance(arg, str):
       parts.append(Text(arg))
-    else:
+    elif isinstance(arg, RenderableAndLineAnnotations):
       parts.append(arg.renderable)
       if arg.annotations is not None:
         annotations.append(arg.annotations)
+    else:
+      raise ValueError(
+          "Expected a renderable tree part (possibly with line annotations) or"
+          f" a string, but got: {type(arg)}"
+      )
 
   for annotation in extra_annotations:
     annotations.append(annotation)
 
-  return RenderableAndLineAnnotations(
-      Siblings.build(*parts), Siblings.build(*annotations)
-  )
+  return RenderableAndLineAnnotations(siblings(*parts), siblings(*annotations))
 
 
 def build_full_line_with_annotations(
@@ -816,7 +940,7 @@ def build_full_line_with_annotations(
       )
   ):
     return combined.renderable
-  return Siblings.build(
+  return siblings(
       combined.renderable,
       FoldCondition(expanded=combined.annotations),
   )
@@ -842,17 +966,7 @@ class OnSeparateLines(RenderableTreePart):
       cls,
       children: Sequence[RenderableAndLineAnnotations | RenderableTreePart],
   ) -> OnSeparateLines:
-    """Builds a OnSeparateLines instance, supporting annotations.
-
-    This method stacks the children together, moving any comments to the end of
-    their lines.
-
-    Args:
-      children: Children to render.
-
-    Returns:
-      New OnSeparateLines instance.
-    """
+    """Builds a OnSeparateLines instance, supporting annotations."""
     return cls([build_full_line_with_annotations(line) for line in children])
 
   def _compute_collapsed_width(self) -> int:
@@ -949,6 +1063,24 @@ class OnSeparateLines(RenderableTreePart):
       stream.write("\n" + " " * indent)
 
 
+def on_separate_lines(
+    children: Sequence[RenderableAndLineAnnotations | RenderableTreePart],
+) -> RenderableTreePart:
+  """Builds a part that renders its children on separate lines.
+
+  The resulting part stacks the children together, moving any comments to the
+  end of their lines.
+
+  Args:
+    children: Children to render.
+
+  Returns:
+    A renderable part that renders the children on separate lines when expanded.
+    When collapsed, it instead concatenates them.
+  """
+  return OnSeparateLines.build(children)
+
+
 @dataclasses.dataclass(frozen=True)
 class IndentedChildren(RenderableTreePart):
   """A sequence of children, one per line, and indented.
@@ -969,29 +1101,14 @@ class IndentedChildren(RenderableTreePart):
       comma_separated: bool = False,
       force_trailing_comma: bool = False,
   ) -> IndentedChildren:
-    """Builds a IndentedChildren instance, supporting annotations and delimiters.
-
-    This method stacks the children together, optionally inserting delimiters,
-    and moving any comments to the end of their lines.
-
-    Args:
-      children: Children to render.
-      comma_separated: Whether to automatically insert commas between children.
-        If False, delimiters can be manually inserted into `children` first
-        instead.
-      force_trailing_comma: Whether to render a trailing comma in collapsed
-        mode.
-
-    Returns:
-      New IndentedChildren instance.
-    """
+    """Builds a IndentedChildren instance."""
     lines = []
     for i, child in enumerate(children):
       if comma_separated:
         if i < len(children) - 1:
           # Not the last child. Always show a comma, and add a space when
           # collapsed.
-          delimiter = Siblings.build(",", FoldCondition(collapsed=Text(" ")))
+          delimiter = siblings(",", FoldCondition(collapsed=Text(" ")))
         elif force_trailing_comma:
           # Last child, forced comma.
           delimiter = Text(",")
@@ -1105,6 +1222,33 @@ class IndentedChildren(RenderableTreePart):
 
     if expanded_parent:
       stream.write("\n" + " " * indent)
+
+
+def indented_children(
+    children: Sequence[RenderableAndLineAnnotations | RenderableTreePart],
+    comma_separated: bool = False,
+    force_trailing_comma: bool = False,
+) -> RenderableTreePart:
+  """Builds a IndentedChildren instance, supporting annotations and delimiters.
+
+  This method stacks the children together, optionally inserting delimiters,
+  and moving any comments to the end of their lines.
+
+  Args:
+    children: Children to render.
+    comma_separated: Whether to automatically insert commas between children. If
+      False, delimiters can be manually inserted into `children` first instead.
+    force_trailing_comma: Whether to render a trailing comma in collapsed mode.
+
+  Returns:
+    A renderable part that renders the children on separate lines with an
+    indent. When collapsed, it instead concatenates them.
+  """
+  return IndentedChildren.build(
+      children=children,
+      comma_separated=comma_separated,
+      force_trailing_comma=force_trailing_comma,
+  )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1403,3 +1547,36 @@ class ScopedSelectableAnnotation(DeferringToChild):
           roundtrip_mode=roundtrip_mode,
           render_context=render_context,
       )
+
+
+def floating_annotation_with_separate_focus(
+    child: part_interface.RenderableTreePart,
+) -> part_interface.RenderableTreePart:
+  """Wraps a child so that selections outside it don't include it.
+
+  It is sometimes useful to add additional annotations to an object that aren't
+  pretty-printed parts of that object. This causes some problems for ordinary
+  roundtrip mode, since we want it to be possible to exactly round-trip an
+  object based on its printed representation.
+
+  This object marks its child so that it doesn't get selected by the mouse
+  when the selection starts outside the node. This means that if you copy the
+  object normally, you don't copy the annotation, so that what you copied
+  stays roundtrippable.
+
+  In text mode, selections can't be manipulated. We fake the same thing by
+  rendering it as a "comment" (by adding comment markers before every line)
+  and hiding it if collapsed.
+
+  Args:
+    child: Child to render.
+
+  Returns:
+    A wrapped version of ``child`` that does not participate in text selection
+    in HTML mode, and adds comments in text mode.
+  """
+  if not isinstance(child, RenderableTreePart):
+    raise ValueError(
+        f"`child` must be a renderable part, but got {type(child).__name__}"
+    )
+  return ScopedSelectableAnnotation(child)

@@ -28,13 +28,10 @@ from __future__ import annotations
 from typing import Any
 
 from penzai.treescope import context
+from penzai.treescope import lowering
 from penzai.treescope import renderer
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import embedded_iframe
-from penzai.treescope.foldable_representation import foldable_impl
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope import rendering_parts
+from penzai.treescope._internal import object_inspection
 
 
 _already_processing_repr_html: context.ContextualValue[bool] = (
@@ -57,8 +54,8 @@ def append_repr_html_when_present(
     path: str | None,
     node_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Appends rich HTML representations of objects that have them."""
@@ -66,7 +63,7 @@ def append_repr_html_when_present(
     # We've processed the repr_html for a parent of this node already.
     return NotImplemented
 
-  if not isinstance(node, embedded_iframe.HasReprHtml):
+  if not isinstance(node, object_inspection.HasReprHtml):
     return NotImplemented
 
   # Make sure we don't try to call _repr_html_ on the children of this node,
@@ -77,35 +74,35 @@ def append_repr_html_when_present(
     node_rendering = node_renderer(node, path=path)
 
   def _thunk(_):
-    html_rendering = embedded_iframe.to_html(node)
+    html_rendering = object_inspection.to_html(node)
     if html_rendering:
-      return embedded_iframe.EmbeddedIFrame(
+      return rendering_parts.embedded_iframe(
           embedded_html=html_rendering,
-          fallback_in_text_mode=common_styles.AbbreviationColor(
-              basic_parts.Text("# (not shown in text mode)")
+          fallback_in_text_mode=rendering_parts.abbreviation_color(
+              rendering_parts.text("# (not shown in text mode)")
           ),
       )
     else:
-      return common_styles.ErrorColor(
+      return rendering_parts.error_color(
           "# (couldn't compute HTML representation)"
       )
 
-  iframe_rendering = foldable_impl.maybe_defer_rendering(
+  iframe_rendering = lowering.maybe_defer_rendering(
       main_thunk=_thunk,
-      placeholder_thunk=lambda: common_styles.DeferredPlaceholderStyle(
-          basic_parts.Text("...")
+      placeholder_thunk=lambda: rendering_parts.deferred_placeholder_style(
+          rendering_parts.text("...")
       ),
   )
 
-  boxed_html_repr = basic_parts.IndentedChildren.build([
-      basic_parts.ScopedSelectableAnnotation(
-          common_styles.DashedGrayOutlineBox(
-              basic_parts.build_full_line_with_annotations(
-                  common_structures.build_custom_foldable_tree_node(
-                      label=common_styles.CommentColor(
-                          basic_parts.Text("# Rich HTML representation")
+  boxed_html_repr = rendering_parts.indented_children([
+      rendering_parts.floating_annotation_with_separate_focus(
+          rendering_parts.dashed_gray_outline_box(
+              rendering_parts.build_full_line_with_annotations(
+                  rendering_parts.build_custom_foldable_tree_node(
+                      label=rendering_parts.comment_color(
+                          rendering_parts.text("# Rich HTML representation")
                       ),
-                      contents=basic_parts.FoldCondition(
+                      contents=rendering_parts.fold_condition(
                           expanded=iframe_rendering
                       ),
                   )
@@ -113,9 +110,11 @@ def append_repr_html_when_present(
           )
       )
   ])
-  return basic_parts.siblings_with_annotations(
+  return rendering_parts.siblings_with_annotations(
       node_rendering,
-      basic_parts.FoldCondition(
-          expanded=basic_parts.RoundtripCondition(not_roundtrip=boxed_html_repr)
+      rendering_parts.fold_condition(
+          expanded=rendering_parts.roundtrip_condition(
+              not_roundtrip=boxed_html_repr
+          )
       ),
   )

@@ -19,7 +19,7 @@ from __future__ import annotations
 import collections
 from typing import Any, Collection
 
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope._internal.parts import part_interface
 
 ExpandState = part_interface.ExpandState
 RenderableTreePart = part_interface.RenderableTreePart

@@ -41,7 +41,6 @@ from typing import Any, TypeVar
 from penzai.treescope import ndarray_adapters
 from penzai.treescope import renderer
 
-
 T = TypeVar("T")
 
 
@@ -111,19 +110,19 @@ _LAZY_MODULE_SETUP_FUNCTIONS: dict[str, tuple[str, str]] = {
     # rendering system, but we define its setup function here as well for
     # consistency with the other array modules.
     "numpy": (
-        "penzai.treescope.handlers.interop.numpy_support",
+        "penzai.treescope._internal.handlers.interop.numpy_support",
         "set_up_treescope",
     ),
     "jax": (
-        "penzai.treescope.handlers.interop.jax_support",
+        "penzai.treescope._internal.handlers.interop.jax_support",
         "set_up_treescope",
     ),
     "penzai.core": (
-        "penzai.treescope.handlers.interop.penzai_core_support",
+        "penzai.treescope._internal.handlers.interop.penzai_core_support",
         "set_up_treescope",
     ),
     "torch": (
-        "penzai.treescope.handlers.interop.torch_support",
+        "penzai.treescope._internal.handlers.interop.torch_support",
         "set_up_treescope",
     ),
 }

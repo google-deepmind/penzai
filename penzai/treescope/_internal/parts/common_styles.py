@@ -20,9 +20,9 @@ import dataclasses
 import io
 from typing import Any
 
-from penzai.treescope import html_escaping
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import part_interface
+from penzai.treescope._internal import html_escaping
+from penzai.treescope._internal.parts import basic_parts
+from penzai.treescope._internal.parts import part_interface
 
 
 CSSStyleRule = part_interface.CSSStyleRule
@@ -46,6 +46,17 @@ class AbbreviationColor(basic_parts.BaseSpanGroup):
     """))
 
 
+def abbreviation_color(
+    child: part_interface.RenderableTreePart,
+) -> part_interface.RenderableTreePart:
+  """Returns a wrapped child in a color for non-roundtrippable abbreviations."""
+  if not isinstance(child, RenderableTreePart):
+    raise ValueError(
+        f"`child` must be a renderable part, but got {type(child).__name__}"
+    )
+  return AbbreviationColor(child)
+
+
 class CommentColor(basic_parts.BaseSpanGroup):
   """Renders its child in a color for comments."""
 
@@ -63,6 +74,17 @@ class CommentColor(basic_parts.BaseSpanGroup):
     """))
 
 
+def comment_color(
+    child: part_interface.RenderableTreePart,
+) -> part_interface.RenderableTreePart:
+  """Returns a wrapped child in a color for comments."""
+  if not isinstance(child, RenderableTreePart):
+    raise ValueError(
+        f"`child` must be a renderable part, but got {type(child).__name__}"
+    )
+  return CommentColor(child)
+
+
 class ErrorColor(basic_parts.BaseSpanGroup):
   """Renders its child in red to indicate errors / problems during rendering."""
 
@@ -75,6 +97,17 @@ class ErrorColor(basic_parts.BaseSpanGroup):
           color: red;
       }
     """))
+
+
+def error_color(
+    child: part_interface.RenderableTreePart,
+) -> part_interface.RenderableTreePart:
+  """Returns a wrapped child in red to indicate errors / problems during rendering."""
+  if not isinstance(child, RenderableTreePart):
+    raise ValueError(
+        f"`child` must be a renderable part, but got {type(child).__name__}"
+    )
+  return ErrorColor(child)
 
 
 class DeferredPlaceholderStyle(basic_parts.BaseSpanGroup):
@@ -90,6 +123,17 @@ class DeferredPlaceholderStyle(basic_parts.BaseSpanGroup):
           font-style: italic;
       }
     """))
+
+
+def deferred_placeholder_style(
+    child: part_interface.RenderableTreePart,
+) -> part_interface.RenderableTreePart:
+  """Returns a wrapped child in italics to indicate a deferred placeholder."""
+  if not isinstance(child, RenderableTreePart):
+    raise ValueError(
+        f"`child` must be a renderable part, but got {type(child).__name__}"
+    )
+  return DeferredPlaceholderStyle(child)
 
 
 class CommentColorWhenExpanded(basic_parts.BaseSpanGroup):
@@ -110,6 +154,17 @@ class CommentColorWhenExpanded(basic_parts.BaseSpanGroup):
           color: #aaaaaa;
       }}
     """))
+
+
+def comment_color_when_expanded(
+    child: part_interface.RenderableTreePart,
+) -> part_interface.RenderableTreePart:
+  """Returns a wrapped child in a color for comments, but only when expanded."""
+  if not isinstance(child, RenderableTreePart):
+    raise ValueError(
+        f"`child` must be a renderable part, but got {type(child).__name__}"
+    )
+  return CommentColorWhenExpanded(child)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -141,8 +196,23 @@ class CustomTextColor(basic_parts.DeferringToChild):
     stream.write("</span>")
 
 
+def custom_text_color(
+    child: part_interface.RenderableTreePart, css_color: str
+) -> part_interface.RenderableTreePart:
+  """Returns a wrapped child that renders in a particular CSS color."""
+  if not isinstance(child, RenderableTreePart):
+    raise ValueError(
+        f"`child` must be a renderable part, but got {type(child).__name__}"
+    )
+  if not isinstance(css_color, str):
+    raise ValueError(
+        f"`css_color` must be a string, but got {type(css_color).__name__}"
+    )
+  return CustomTextColor(child, css_color)
+
+
 class DashedGrayOutlineBox(basic_parts.BaseBoxWithOutline):
-  """A highlighted box that identifies a part as being selected."""
+  """A dashed gray box."""
 
   def _box_css_class(self) -> str:
     return "dashed_gray_outline"
@@ -158,6 +228,17 @@ class DashedGrayOutlineBox(basic_parts.BaseBoxWithOutline):
             }
         """)
     )
+
+
+def dashed_gray_outline_box(
+    child: part_interface.RenderableTreePart,
+) -> part_interface.RenderableTreePart:
+  """Returns a wrapped child that displays in a dashed gray box."""
+  if not isinstance(child, RenderableTreePart):
+    raise ValueError(
+        f"`child` must be a renderable part, but got {type(child).__name__}"
+    )
+  return DashedGrayOutlineBox(child)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -488,3 +569,14 @@ class QualifiedTypeNameSpanGroup(basic_parts.BaseSpanGroup):
           font-size: 0.8em;
         }
     """))
+
+
+def qualified_type_name_style(
+    child: part_interface.RenderableTreePart,
+) -> part_interface.RenderableTreePart:
+  """Returns a wrapped child in a small font to indicate a qualified name."""
+  if not isinstance(child, RenderableTreePart):
+    raise ValueError(
+        f"`child` must be a renderable part, but got {type(child).__name__}"
+    )
+  return QualifiedTypeNameSpanGroup(child)

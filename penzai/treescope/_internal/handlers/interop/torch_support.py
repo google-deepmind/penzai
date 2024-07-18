@@ -22,19 +22,16 @@ import typing
 import numpy as np
 from penzai.treescope import context
 from penzai.treescope import formatting_util
+from penzai.treescope import lowering
 from penzai.treescope import ndarray_adapters
 from penzai.treescope import renderer
+from penzai.treescope import rendering_parts
 from penzai.treescope import type_registries
-from penzai.treescope.foldable_representation import basic_parts
-from penzai.treescope.foldable_representation import common_structures
-from penzai.treescope.foldable_representation import common_styles
-from penzai.treescope.foldable_representation import foldable_impl
-from penzai.treescope.foldable_representation import part_interface
-from penzai.treescope.handlers import builtin_structure_handler
+from penzai.treescope._internal.parts import part_interface
 
 # pylint: disable=g-import-not-at-top
 try:
-  import torch
+  import torch  # pytype: disable=import-error
 except ImportError:
   assert not typing.TYPE_CHECKING
   torch = None
@@ -264,8 +261,8 @@ def render_torch_tensors(
     path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Renders a numpy array."""
@@ -274,10 +271,10 @@ def render_torch_tensors(
   assert isinstance(node, torch.Tensor)
   adapter = TorchTensorAdapter()
 
-  def _placeholder() -> part_interface.RenderableTreePart:
-    return common_structures.fake_placeholder_foldable(
-        common_styles.DeferredPlaceholderStyle(
-            basic_parts.Text(adapter.get_array_summary(node, fast=True))
+  def _placeholder() -> rendering_parts.RenderableTreePart:
+    return rendering_parts.fake_placeholder_foldable(
+        rendering_parts.deferred_placeholder_style(
+            rendering_parts.text(adapter.get_array_summary(node, fast=True))
         ),
         extra_newlines_guess=8,
     )
@@ -289,7 +286,7 @@ def render_torch_tensors(
       if node_repr.startswith("tensor("):
         # Add module path, for consistency with other Treescope renderings.
         node_repr = f"torch.{node_repr}"
-      rendering = basic_parts.Text(node_repr)
+      rendering = rendering_parts.text(node_repr)
     else:
       if node_repr.count("\n") <= 15:
         if isinstance(placeholder, part_interface.FoldableTreeNode):
@@ -299,28 +296,28 @@ def render_torch_tensors(
           default_expand_state = part_interface.ExpandState.WEAKLY_EXPANDED
       else:
         # Always start big NDArrays in collapsed mode to hide irrelevant detail.
-        default_expand_state = part_interface.ExpandState.COLLAPSED
+        default_expand_state = rendering_parts.ExpandState.COLLAPSED
 
       # Render it with a summary.
       summarized = adapter.get_array_summary(node, fast=False)
-      rendering = common_structures.build_custom_foldable_tree_node(
-          label=common_styles.AbbreviationColor(
-              common_styles.CommentColorWhenExpanded(
-                  basic_parts.siblings(
-                      basic_parts.FoldCondition(
-                          expanded=basic_parts.Text("# "),
-                          collapsed=basic_parts.Text("<"),
+      rendering = rendering_parts.build_custom_foldable_tree_node(
+          label=rendering_parts.abbreviation_color(
+              rendering_parts.comment_color_when_expanded(
+                  rendering_parts.siblings(
+                      rendering_parts.fold_condition(
+                          expanded=rendering_parts.text("# "),
+                          collapsed=rendering_parts.text("<"),
                       ),
                       summarized,
-                      basic_parts.FoldCondition(
-                          collapsed=basic_parts.Text(">")
+                      rendering_parts.fold_condition(
+                          collapsed=rendering_parts.text(">")
                       ),
                   )
               )
           ),
-          contents=basic_parts.FoldCondition(
-              expanded=basic_parts.IndentedChildren.build(
-                  [basic_parts.Text(node_repr)]
+          contents=rendering_parts.fold_condition(
+              expanded=rendering_parts.indented_children(
+                  [rendering_parts.text(node_repr)]
               )
           ),
           path=path,
@@ -329,11 +326,11 @@ def render_torch_tensors(
 
     return rendering
 
-  return basic_parts.RenderableAndLineAnnotations(
-      renderable=foldable_impl.maybe_defer_rendering(
+  return rendering_parts.RenderableAndLineAnnotations(
+      renderable=lowering.maybe_defer_rendering(
           main_thunk=_thunk, placeholder_thunk=_placeholder
       ),
-      annotations=common_structures.build_copy_button(path),
+      annotations=rendering_parts.build_copy_button(path),
   )
 
 
@@ -342,29 +339,29 @@ def render_torch_modules(
     path: str | None,
     subtree_renderer: renderer.TreescopeSubtreeRenderer,
 ) -> (
-    part_interface.RenderableTreePart
-    | part_interface.RenderableAndLineAnnotations
+    rendering_parts.RenderableTreePart
+    | rendering_parts.RenderableAndLineAnnotations
     | type(NotImplemented)
 ):
   """Renders a torch module."""
   assert torch is not None, "PyTorch is not available."
   assert isinstance(node, torch.nn.Module)
   node_type = type(node)
-  constructor = basic_parts.siblings(
-      basic_parts.RoundtripCondition(roundtrip=basic_parts.Text("<")),
-      common_structures.maybe_qualified_type_name(node_type),
+  constructor = rendering_parts.siblings(
+      rendering_parts.roundtrip_condition(roundtrip=rendering_parts.text("<")),
+      rendering_parts.maybe_qualified_type_name(node_type),
       "(",
   )
-  closing_suffix = basic_parts.siblings(
+  closing_suffix = rendering_parts.siblings(
       ")",
-      basic_parts.RoundtripCondition(roundtrip=basic_parts.Text(">")),
+      rendering_parts.roundtrip_condition(roundtrip=rendering_parts.text(">")),
   )
 
   if hasattr(node, "__treescope_color__") and callable(
       node.__treescope_color__
   ):
     background_color, background_pattern = (
-        builtin_structure_handler.parse_color_and_pattern(
+        formatting_util.parse_simple_color_and_pattern_spec(
             node.__treescope_color__(), node_type.__name__
         )
     )
@@ -400,12 +397,14 @@ def render_torch_modules(
       value = vars(node)[attr]
       child_path = None if path is None else f"{path}.{attr}"
       attr_children.append(
-          basic_parts.build_full_line_with_annotations(
-              basic_parts.siblings_with_annotations(
+          rendering_parts.build_full_line_with_annotations(
+              rendering_parts.siblings_with_annotations(
                   f"{attr}=",
                   subtree_renderer(value, path=child_path),
                   ",",
-                  basic_parts.FoldCondition(collapsed=basic_parts.Text(" ")),
+                  rendering_parts.fold_condition(
+                      collapsed=rendering_parts.text(" ")
+                  ),
               )
           )
       )
@@ -414,15 +413,15 @@ def render_torch_modules(
     else:
       has_attr_children_expander = True
       children.append(
-          common_structures.build_custom_foldable_tree_node(
-              label=basic_parts.FoldCondition(
-                  expanded=common_styles.CommentColor(
-                      basic_parts.Text("# Attributes:")
+          rendering_parts.build_custom_foldable_tree_node(
+              label=rendering_parts.fold_condition(
+                  expanded=rendering_parts.comment_color(
+                      rendering_parts.text("# Attributes:")
                   ),
               ),
-              contents=basic_parts.OnSeparateLines.build(attr_children),
+              contents=rendering_parts.on_separate_lines(attr_children),
               path=None,
-              expand_state=part_interface.ExpandState.COLLAPSED,
+              expand_state=rendering_parts.ExpandState.COLLAPSED,
           )
       )
   else:
@@ -432,11 +431,11 @@ def render_torch_modules(
         extra_repr = extra_repr + ", "
       if "\n" in extra_repr:
         children.append(
-            basic_parts.OnSeparateLines.build(extra_repr.split("\n"))
+            rendering_parts.on_separate_lines(extra_repr.split("\n"))
         )
         prefers_expand = True
       else:
-        children.append(basic_parts.Text(extra_repr))
+        children.append(rendering_parts.text(extra_repr))
 
   # Render parameters and buffers
   for group_name, group in (
@@ -446,21 +445,23 @@ def render_torch_modules(
     group = list(group)
     if group:
       children.append(
-          basic_parts.FoldCondition(
-              expanded=common_styles.CommentColor(
-                  basic_parts.Text(f"# {group_name}:")
+          rendering_parts.fold_condition(
+              expanded=rendering_parts.comment_color(
+                  rendering_parts.text(f"# {group_name}:")
               )
           )
       )
       for name, value in group:
         child_path = None if path is None else f"{path}.{name}"
         children.append(
-            basic_parts.build_full_line_with_annotations(
-                basic_parts.siblings_with_annotations(
+            rendering_parts.build_full_line_with_annotations(
+                rendering_parts.siblings_with_annotations(
                     f"{name}=",
                     subtree_renderer(value, path=child_path),
                     ",",
-                    basic_parts.FoldCondition(collapsed=basic_parts.Text(" ")),
+                    rendering_parts.fold_condition(
+                        collapsed=rendering_parts.text(" ")
+                    ),
                 )
             )
         )
@@ -469,9 +470,9 @@ def render_torch_modules(
   submodules = list(node.named_children())
   if submodules:
     children.append(
-        basic_parts.FoldCondition(
-            expanded=common_styles.CommentColor(
-                basic_parts.Text("# Child modules:")
+        rendering_parts.fold_condition(
+            expanded=rendering_parts.comment_color(
+                rendering_parts.text("# Child modules:")
             )
         )
     )
@@ -484,12 +485,14 @@ def render_torch_modules(
         child_path = f"{path}.get_submodule({repr(name)})"
         keystr = f"({name}): "
       children.append(
-          basic_parts.build_full_line_with_annotations(
-              basic_parts.siblings_with_annotations(
+          rendering_parts.build_full_line_with_annotations(
+              rendering_parts.siblings_with_annotations(
                   keystr,
                   subtree_renderer(submod, path=child_path),
                   ",",
-                  basic_parts.FoldCondition(collapsed=basic_parts.Text(" ")),
+                  rendering_parts.fold_condition(
+                      collapsed=rendering_parts.text(" ")
+                  ),
               )
           )
       )
@@ -501,11 +504,11 @@ def render_torch_modules(
   # Heuristic: If a module doesn't have any submodules, mark it collapsed, to
   # match the behavior of PyTorch repr.
   if prefers_expand:
-    expand_state = part_interface.ExpandState.WEAKLY_EXPANDED
+    expand_state = rendering_parts.ExpandState.WEAKLY_EXPANDED
   else:
-    expand_state = part_interface.ExpandState.COLLAPSED
+    expand_state = rendering_parts.ExpandState.COLLAPSED
 
-  return common_structures.build_foldable_tree_node_from_children(
+  return rendering_parts.build_foldable_tree_node_from_children(
       prefix=constructor,
       children=children,
       suffix=closing_suffix,

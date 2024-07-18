@@ -20,12 +20,9 @@ import dataclasses
 import sys
 from typing import Any
 
+from penzai.treescope import handlers
 from penzai.treescope import renderer
-from penzai.treescope.foldable_representation import part_interface
-from penzai.treescope.handlers import builtin_atom_handler
-from penzai.treescope.handlers import builtin_structure_handler
-from penzai.treescope.handlers import canonical_alias_postprocessor
-from penzai.treescope.handlers import function_reflection_handlers
+from penzai.treescope import rendering_parts
 
 
 @dataclasses.dataclass(frozen=True)
@@ -73,7 +70,7 @@ class NotRoundtrippable:
 def render_not_roundtrippable(
     obj: NotRoundtrippable,
     repr_override: str | None = None,
-) -> part_interface.RenderableTreePart:
+) -> rendering_parts.RenderableTreePart:
   """Renders an object as a `NotRoundtrippable` instance.
 
   This can be used inside handlers for non-roundtrippable objects to render
@@ -89,12 +86,11 @@ def render_not_roundtrippable(
   """
   fallback_renderer = renderer.TreescopeRenderer(
       handlers=[
-          builtin_atom_handler.handle_builtin_atoms,
-          builtin_structure_handler.handle_builtin_structures,
-          function_reflection_handlers.handle_code_objects_with_reflection,
+          handlers.handle_basic_types,
+          handlers.handle_code_objects_with_reflection,
       ],
       wrapper_hooks=[
-          canonical_alias_postprocessor.replace_with_canonical_aliases,
+          handlers.replace_with_canonical_aliases,
       ],
       context_builders=[],
   )
