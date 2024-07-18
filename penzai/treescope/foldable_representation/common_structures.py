@@ -151,6 +151,7 @@ def build_foldable_tree_node_from_children(
     background_color: str | None = None,
     background_pattern: str | None = None,
     first_line_annotation: RenderableTreePart | None = None,
+    expand_state: part_interface.ExpandState = part_interface.ExpandState.WEAKLY_COLLAPSED,
 ) -> RenderableAndLineAnnotations:
   """Builds a foldable tree node with path buttons and hyperlink support.
 
@@ -173,6 +174,7 @@ def build_foldable_tree_node_from_children(
       the border for the pattern.
     first_line_annotation: An annotation for the first line of the node when it
       is expanded.
+    expand_state: Initial expand state for the foldable.
 
   Returns:
     A new renderable part, possibly with a copy button annotation, for use
@@ -247,6 +249,7 @@ def build_foldable_tree_node_from_children(
                   ),
                   wrap_bottomline(suffix),
               ),
+              expand_state=expand_state,
           )
       ),
       annotations=maybe_copy_button,

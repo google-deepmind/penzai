@@ -21,8 +21,8 @@ from typing import Any
 
 import numpy as np
 from penzai.core import shapecheck
+from penzai.treescope import dtype_util
 from penzai.treescope import html_escaping
-from penzai.treescope import ndarray_summarization
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import common_structures
@@ -83,7 +83,7 @@ def _arraystructure_summary(
   if structure.dtype is np.generic:
     summary_parts.append("any")
   else:
-    summary_parts.append(ndarray_summarization.get_dtype_name(structure.dtype))
+    summary_parts.append(dtype_util.get_dtype_name(structure.dtype))
   summary_parts.append("(")
   for i, dim in enumerate(structure.shape):
     if i:

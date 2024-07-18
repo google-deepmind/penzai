@@ -21,13 +21,12 @@ all references to the same object.
 import contextlib
 import dataclasses
 import io
-import types
 from typing import Any, Optional, Sequence
 
-import jax
 from penzai.treescope import context
 from penzai.treescope import html_escaping
 from penzai.treescope import renderer
+from penzai.treescope import type_registries
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import part_interface
 
@@ -258,30 +257,18 @@ def setup_shared_value_context() -> contextlib.AbstractContextManager[None]:
   return _shared_object_ids_seen.set_scoped(_SharedObjectTracker({}, set()))
 
 
-# Types that can have multiple references in the same object without it being
-# necessary or important to highlight the shared reference.
-_SAFE_TO_SHARE_TYPES = {
-    jax.Array,
-    types.FunctionType,
-    types.MethodType,
-    types.ModuleType,
-    type,
-    type(None),
-    type(NotImplemented),
-    type(Ellipsis),
-}
-
-
 def _is_safe_to_share(node: Any) -> bool:
   """Returns whether the given node is immutable."""
   # According to the Python data model, "If a class defines mutable objects and
   # implements an __eq__() method, it should not implement __hash__()". So, if
   # we find an object that implements __eq__ and __hash__, we can generally
   # assume it is immutable.
-  return isinstance(node, tuple(_SAFE_TO_SHARE_TYPES)) or (
+  return (
       type(node).__hash__ is not None
       and type(node).__hash__ is not object.__hash__
       and type(node).__eq__ is not object.__eq__
+  ) or type_registries.lookup_by_mro(
+      type_registries.IMMUTABLE_TYPES_REGISTRY, type(node)
   )
 
 

@@ -900,29 +900,35 @@ class NamedArrayBase(abc.ABC):
 
     Args:
       other: Another named array or named array view. Must have the same set of
-        named axes as this one. If this is a `NamedArrayView`, must also have
-        the same positional axes.
+        named axes as ``self``. If ``other`` is a `NamedArrayView`, ``other``
+        must also have the same number of positional axes.
 
     Returns:
       A new `NamedArray` or `NamedArrayView` that has the content of ``self``
-      but is possibly transposed to have the same PyTree structure as ``other``
-      (as long as the arrays have the same shape).
+      but is possibly transposed to have the axes appear in the same order as
+      ``other`` in the data array. If the arrays have the same named and
+      positional shapes, the result will have the same PyTree structure as
+      ``other``.
     """
     self.check_valid()
     other.check_valid()
     if isinstance(other, NamedArray):
       return self.order_as(*other.named_shape.keys())
     elif isinstance(other, NamedArrayView):
-      if (
-          self.positional_shape != other.positional_shape
-          or self.named_shape != other.named_shape
-      ):
+      if len(self.positional_shape) != len(other.positional_shape):
         raise ValueError(
             "Calling `order_like` with a NamedArrayView requires the two"
-            " arrays have the same positional and named shapes."
-            f" {self.positional_shape=}, {self.named_shape=},"
-            f" {other.positional_shape=}, {other.named_shape=}"
+            " arrays to have the same number of positional axes, but got"
+            f" positional shapes {self.positional_shape=},"
+            f" {other.positional_shape=}"
         )
+      if set(self.named_shape.keys()) != set(other.named_shape.keys()):
+        raise ValueError(
+            "Calling `order_like` with a NamedArrayView requires the two"
+            " arrays to have the axis names, but got"
+            f" named shapes {self.named_shape=}, {other.named_shape=}"
+        )
+
       self_view = self.as_namedarrayview()
       new_to_old_data_axis = {}
       for old_data_axis, new_data_axis in zip(
@@ -935,9 +941,8 @@ class NamedArrayBase(abc.ABC):
           self_view.data_array,
           [new_to_old_data_axis[i] for i in range(self_view.data_array.ndim)],
       )
-      assert new_data_array.shape == other.data_shape
       return NamedArrayView(
-          data_shape=other.data_shape,
+          data_shape=new_data_array.shape,
           data_axis_for_logical_axis=other.data_axis_for_logical_axis,
           data_axis_for_name=other.data_axis_for_name,
           data_array=new_data_array,

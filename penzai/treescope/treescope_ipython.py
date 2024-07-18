@@ -17,8 +17,6 @@
 import contextlib
 from typing import Any
 
-import jax.numpy as jnp
-
 from penzai.treescope import array_autovisualizer
 from penzai.treescope import autovisualize
 from penzai.treescope import context
@@ -153,9 +151,7 @@ def register_as_default(
     elif isinstance(value, ipython_display.DisplayObject) or (
         object_inspection.safely_get_real_method(value, "_repr_pretty_")
         and not (
-            object_inspection.safely_get_real_method(
-                value, "__penzai_repr__"
-            )
+            object_inspection.safely_get_real_method(value, "__penzai_repr__")
             or object_inspection.safely_get_real_method(
                 value, "__penzai_root_repr__"
             )
@@ -221,9 +217,12 @@ def register_as_default(
         p.break_()
       p.text(line)
 
+  # Override the text formatter to render jax.Array without copying the entire
+  # array.
   cur_text_formatter = display_formatter.formatters["text/plain"]
-  arrayimpl = type(jnp.ones([0]))
-  cur_text_formatter.for_type(arrayimpl, _render_as_text_oneline)
+  cur_text_formatter.for_type_by_name(
+      "jaxlib.xla_extension", "ArrayImpl", _render_as_text_oneline
+  )
 
   # Make sure the HTML formatter runs first, so streaming outputs work
   # correctly.

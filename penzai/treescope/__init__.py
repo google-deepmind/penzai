@@ -44,6 +44,8 @@ from . import formatting_util
 from . import handlers
 from . import html_encapsulation
 from . import html_escaping
+from . import ndarray_adapters
 from . import renderer
 from . import repr_lib
 from . import treescope_ipython
+from . import type_registries

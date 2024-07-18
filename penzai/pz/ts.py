@@ -26,7 +26,6 @@ from penzai.treescope.arrayviz import (
     render_array,
     text_on_color,
     render_array_sharding,
-    render_sharded_shape,
 )
 from penzai.treescope.autovisualize import (
     Autovisualizer,

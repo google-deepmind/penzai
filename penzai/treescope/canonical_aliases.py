@@ -191,22 +191,16 @@ class CanonicalAliasEnvironment:
   Attributes:
     aliases: A mapping from id(some_object) to the path where we expect to find
       that object.
-    lazy_populate_if_imported: A list of module names we should populate lazily
-      if they are imported, without importing them directly, along with a
-      predicate to use for them.
   """
 
   aliases: dict[int, ModuleAttributePath]
-  lazy_populate_if_imported: list[
-      tuple[str, Callable[[Any, ModuleAttributePath], bool]]
-  ]
 
 
 _alias_environment: context.ContextualValue[CanonicalAliasEnvironment] = (
     context.ContextualValue(
         module=__name__,
         qualname="_alias_environment",
-        initial_value=CanonicalAliasEnvironment({}, []),
+        initial_value=CanonicalAliasEnvironment({}),
     )
 )
 """The current environment for module-level canonical aliases.
@@ -274,25 +268,6 @@ Should only be used or modified by `local_alias_names`.
 """
 
 
-def update_lazy_aliases() -> None:
-  """Checks for newly-imported modules and defines aliases for them.
-
-  This function loops over the modules listed in `lazy_populate_if_imported`
-  for the active environment, and adds canonical aliases for any modules that
-  were recently imported.
-  """
-  alias_env = _alias_environment.get()
-  # Check for newly-imported modules that we should define aliases for.
-  all_handled = []
-  for name, predicate in alias_env.lazy_populate_if_imported:
-    if name in sys.modules:
-      populate_from_public_api(sys.modules[name], predicate)
-      all_handled.append((name, predicate))
-  if all_handled:
-    for pair in all_handled:
-      alias_env.lazy_populate_if_imported.remove(pair)
-
-
 def lookup_alias(
     the_object: Any,
     infer_from_attributes: bool = True,
@@ -343,6 +318,7 @@ def lookup_alias(
     if (
         hasattr(unwrapped, "__module__")
         and hasattr(unwrapped, "__qualname__")
+        and unwrapped.__qualname__ is not None
         and "<" not in unwrapped.__qualname__
     ):
       alias = ModuleAttributePath(
@@ -578,21 +554,3 @@ def prefix_filter(include: str, excludes: tuple[str, ...] = ()):
     return True
 
   return predicate
-
-
-# Register well-known aliases for the functions defined in these modules, since
-# they are likely to be used in penzai code.
-_alias_environment.get().lazy_populate_if_imported.extend([
-    # Third-party libraries with useful APIs:
-    ("numpy", prefix_filter("numpy", excludes=("numpy.core",))),
-    ("jax.lax", prefix_filter("jax")),
-    ("jax.numpy", prefix_filter("jax")),
-    ("jax.scipy", prefix_filter("jax")),
-    ("jax.random", prefix_filter("jax")),
-    ("jax.nn", prefix_filter("jax")),
-    ("jax.custom_derivatives", prefix_filter("jax")),
-    ("jax.experimental.pjit", prefix_filter("jax")),
-    ("jax.experimental.shard_map", prefix_filter("jax")),
-    ("jax", prefix_filter("jax")),
-    ("equinox", prefix_filter("equinox")),
-])

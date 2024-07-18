@@ -14,14 +14,12 @@
 
 """Configures the default renderer, and allows reconfiguring it dynamically."""
 
-import ast
 import contextlib
 import functools
 from typing import Any, Callable
-import jax
-from penzai.treescope import canonical_aliases
 from penzai.treescope import context
 from penzai.treescope import renderer
+from penzai.treescope import type_registries
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import foldable_impl
 from penzai.treescope.foldable_representation import layout_algorithms
@@ -30,12 +28,10 @@ from penzai.treescope.handlers import autovisualizer_hook
 from penzai.treescope.handlers import builtin_atom_handler
 from penzai.treescope.handlers import builtin_structure_handler
 from penzai.treescope.handlers import canonical_alias_postprocessor
-from penzai.treescope.handlers import extension_method_handler
+from penzai.treescope.handlers import custom_type_handlers
 from penzai.treescope.handlers import function_reflection_handlers
 from penzai.treescope.handlers import generic_pytree_handler
 from penzai.treescope.handlers import generic_repr_handler
-from penzai.treescope.handlers import hardcoded_structure_handlers
-from penzai.treescope.handlers import ndarray_handler
 from penzai.treescope.handlers import repr_html_postprocessor
 from penzai.treescope.handlers import shared_value_postprocessor
 
@@ -46,34 +42,19 @@ active_renderer: context.ContextualValue[renderer.TreescopeRenderer] = (
         qualname="active_renderer",
         initial_value=renderer.TreescopeRenderer(
             handlers=[
-                # Objects with their own handlers.
-                extension_method_handler.handle_via_penzai_repr_method,
-                # NDArrays.
-                ndarray_handler.handle_ndarrays,
+                # Objects with `__penzai_repr__` defined.
+                custom_type_handlers.handle_via_penzai_repr_method,
+                # Objects in the global registry of type handlers.
+                custom_type_handlers.handle_via_global_registry,
                 # Reflection of functions and classes.
                 function_reflection_handlers.handle_code_objects_with_reflection,
                 # Numbers, strings, constants, enums, etc.
                 builtin_atom_handler.handle_builtin_atoms,
                 # Lists, dicts, tuples, dataclasses, namedtuples, etc.
                 builtin_structure_handler.handle_builtin_structures,
-                # Hardcoded simple types.
-                hardcoded_structure_handlers.HardcodedStructureHandler({
-                    ast.AST: hardcoded_structure_handlers.HasFieldsInClassAttr(
-                        "_fields", render_subclasses=True
-                    ),
-                    jax.ShapeDtypeStruct: (
-                        hardcoded_structure_handlers.HasFieldsInClassAttr(
-                            "__slots__"
-                        )
-                    ),
-                    jax.lax.Precision: (
-                        hardcoded_structure_handlers.IsEnumLike()
-                    ),
-                }),
-                # Dtype objects.
-                ndarray_handler.handle_dtype_instances,
                 # Fallback for unknown pytree types: Show repr and also the
-                # PyTree children.
+                # PyTree children. Note: This is a no-op unless JAX has been
+                # imported.
                 generic_pytree_handler.handle_arbitrary_pytrees,
                 # Fallback to ordinary `repr` for any other object.
                 generic_repr_handler.handle_anything_with_repr,
@@ -93,9 +74,9 @@ active_renderer: context.ContextualValue[renderer.TreescopeRenderer] = (
                 # Set up a new context for each rendered object when rendering
                 # shared values.
                 shared_value_postprocessor.setup_shared_value_context,
-                # Update canonical aliases to account for newly imported
+                # Update type registries to account for newly imported
                 # modules before rendering.
-                canonical_aliases.update_lazy_aliases,
+                type_registries.update_registries_for_imports,
             ],
         ),
     )

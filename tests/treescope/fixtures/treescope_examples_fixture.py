@@ -27,6 +27,7 @@ from typing import Any
 
 import jax
 from penzai import pz
+import torch
 
 
 class MyTestEnum(enum.Enum):
@@ -196,3 +197,27 @@ class LayerThatHoldsStuff(pz.Layer):
   @pz.checked_layer_call
   def __call__(self, value: int) -> int:
     return value
+
+
+class SomePyTorchModule(torch.nn.Module):
+  """A basic PyTorch module to test rendering."""
+
+  def __init__(self):
+    super().__init__()
+    # Attributes
+    self.attr_one = 123
+    self.attr_two = "abc"
+    # Child modules
+    self.linear = torch.nn.Linear(10, 10)
+    self.mod_list = torch.nn.ModuleList(
+        [torch.nn.LayerNorm(10), torch.nn.SiLU()]
+    )
+    # Parameters
+    self.foo = torch.nn.Parameter(torch.ones(5))
+    # Buffers
+    self.register_buffer("bar", torch.zeros(5))
+
+  @classmethod
+  def build(cls):
+    torch.random.manual_seed(1234)
+    return cls()

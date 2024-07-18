@@ -21,7 +21,7 @@ from typing import Any, Sequence
 from absl.testing import absltest
 from absl.testing import parameterized
 import jax
-from penzai.treescope import canonical_aliases
+from penzai.treescope import type_registries
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import common_structures
 from penzai.treescope.foldable_representation import foldable_impl
@@ -1029,19 +1029,21 @@ class RepresentationPartsTest(parameterized.TestCase):
     with self.subTest('text_root_default'):
       self.assertEqual(
           foldable_impl.render_to_text_as_root(part),
-          '[mock A, e:y r:n]\n[mock B, e:y r:n]\n',
+          '[mock A, e:y r:n]\n[mock B, e:y r:n]',
       )
     with self.subTest('text_root_no_strip'):
       self.assertEqual(
           foldable_impl.render_to_text_as_root(
-              part, strip_whitespace_lines=False
+              part,
+              strip_trailing_whitespace=False,
+              strip_whitespace_lines=False,
           ),
           '\n[mock A, e:y r:n]\n\n\n[mock B, e:y r:n]\n',
       )
     with self.subTest('text_root_roundtrip'):
       self.assertEqual(
           foldable_impl.render_to_text_as_root(part, roundtrip=True),
-          '[mock A, e:y r:y]\n[mock B, e:y r:y]\n',
+          '[mock A, e:y r:y]\n[mock B, e:y r:y]',
       )
     with self.subTest('html_root'):
       # We don't test the full HTML source since it includes implementation
@@ -1053,7 +1055,7 @@ class RepresentationPartsTest(parameterized.TestCase):
       )
 
   def test_build_qualified_type_name(self):
-    canonical_aliases.update_lazy_aliases()
+    type_registries.update_registries_for_imports()
     part = common_structures.maybe_qualified_type_name(jax.ShapeDtypeStruct)
     self.assertEqual(
         foldable_impl.render_to_text_as_root(part),
@@ -1154,7 +1156,7 @@ class RepresentationPartsTest(parameterized.TestCase):
               path=(),
           ),
           expected_collapsed='foobarfoo[mock A, e:n r:n]',
-          expected_expanded='foobar\nfoo\n[mock A, e:y r:n]# line comment\n',
+          expected_expanded='foobar\nfoo\n[mock A, e:y r:n]# line comment',
       ),
   )
   def test_render_common_structure(

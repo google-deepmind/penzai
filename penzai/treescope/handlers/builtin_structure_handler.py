@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import ast
 import dataclasses
 import types
 from typing import Any, Callable, Optional, Sequence
@@ -379,8 +380,8 @@ def handle_builtin_structures(
         background_pattern=background_pattern,
     )
 
-  elif isinstance(node, tuple) and hasattr(type(node), "_fields"):
-    # Namedtuple class.
+  elif isinstance(node, (tuple, ast.AST)) and hasattr(type(node), "_fields"):
+    # Namedtuple or AST class.
     return common_structures.build_foldable_tree_node_from_children(
         prefix=basic_parts.siblings(
             common_structures.maybe_qualified_type_name(type(node)), "("

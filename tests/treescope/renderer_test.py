@@ -32,7 +32,7 @@ from penzai import pz
 from penzai.core._treescope_handlers import selection_rendering
 import penzai.core.selectors
 import penzai.core.struct
-from tests.fixtures import treescope_examples_fixture as fixture_lib
+from tests.treescope.fixtures import treescope_examples_fixture as fixture_lib
 from penzai.treescope import autovisualize
 from penzai.treescope import default_renderer
 from penzai.treescope.foldable_representation import basic_parts
@@ -40,6 +40,7 @@ from penzai.treescope.foldable_representation import foldable_impl
 from penzai.treescope.foldable_representation import layout_algorithms
 from penzai.treescope.foldable_representation import part_interface
 from penzai.treescope.handlers import function_reflection_handlers
+import torch
 
 
 @dataclasses.dataclass
@@ -162,7 +163,7 @@ class TreescopeRendererTest(parameterized.TestCase):
           target="some string\n    with \n newlines in it",
           expected_collapsed="'some string\\n    with \\n newlines in it'",
           expected_expanded=(
-              "  'some string\\n'\n  '    with \\n'\n  ' newlines in it'\n"
+              "  'some string\\n'\n  '    with \\n'\n  ' newlines in it'"
           ),
       ),
       dict(
@@ -179,8 +180,8 @@ class TreescopeRendererTest(parameterized.TestCase):
               ]"""),
           expected_roundtrip=textwrap.dedent("""\
               [
-                tests.fixtures.treescope_examples_fixture.MyTestEnum.FOO,  # value: 1
-                tests.fixtures.treescope_examples_fixture.MyTestEnum.BAR,  # value: 2
+                tests.treescope.fixtures.treescope_examples_fixture.MyTestEnum.FOO,  # value: 1
+                tests.treescope.fixtures.treescope_examples_fixture.MyTestEnum.BAR,  # value: 2
               ]"""),
       ),
       dict(
@@ -319,7 +320,7 @@ class TreescopeRendererTest(parameterized.TestCase):
                 bar='qux',
               )"""),
           expected_roundtrip=textwrap.dedent("""\
-              tests.fixtures.treescope_examples_fixture.SomeNamedtupleClass(
+              tests.treescope.fixtures.treescope_examples_fixture.SomeNamedtupleClass(
                 foo='baz',
                 bar='qux',
               )"""),
@@ -334,7 +335,7 @@ class TreescopeRendererTest(parameterized.TestCase):
                 bar='qux',
               )"""),
           expected_roundtrip=textwrap.dedent("""\
-              tests.fixtures.treescope_examples_fixture.DataclassWithTwoChildren(
+              tests.treescope.fixtures.treescope_examples_fixture.DataclassWithTwoChildren(
                 foo='baz',
                 bar='qux',
               )"""),
@@ -345,7 +346,7 @@ class TreescopeRendererTest(parameterized.TestCase):
           expected_collapsed="EmptyDataclass()",
           expected_expanded="EmptyDataclass()",
           expected_roundtrip=(
-              "tests.fixtures.treescope_examples_fixture.EmptyDataclass()"
+              "tests.treescope.fixtures.treescope_examples_fixture.EmptyDataclass()"
           ),
       ),
       dict(
@@ -357,28 +358,27 @@ class TreescopeRendererTest(parameterized.TestCase):
                 foo=100,
               )"""),
           expected_roundtrip=textwrap.dedent("""\
-              tests.fixtures.treescope_examples_fixture.ExampleLayer(
+              tests.treescope.fixtures.treescope_examples_fixture.ExampleLayer(
                 foo=100,
               )"""),
       ),
       dict(
           testcase_name="ndarray_small",
           target=np.array([1, 2, 4, 8, 16]),
-          expected_collapsed="<numpy.array([ 1,  2,  4,  8, 16])>",
-          expected_expanded="<numpy.array([ 1,  2,  4,  8, 16])>",
+          expected_collapsed="np.array([ 1,  2,  4,  8, 16])",
+          expected_expanded="np.array([ 1,  2,  4,  8, 16])",
       ),
       dict(
           testcase_name="ndarray_large",
           target=np.arange(3 * 7).reshape((3, 7)),
           expected_collapsed=(
-              "<numpy.ndarray int64(3, 7) [≥0, ≤20] zero:1 nonzero:20>"
+              "<np.ndarray int64(3, 7) [≥0, ≤20] zero:1 nonzero:20>"
           ),
           expected_expanded=textwrap.dedent("""\
-              # numpy.ndarray int64(3, 7) [≥0, ≤20] zero:1 nonzero:20
+              # np.ndarray int64(3, 7) [≥0, ≤20] zero:1 nonzero:20
                 array([[ 0,  1,  2,  3,  4,  5,  6],
                        [ 7,  8,  9, 10, 11, 12, 13],
-                       [14, 15, 16, 17, 18, 19, 20]])
-              """),
+                       [14, 15, 16, 17, 18, 19, 20]])"""),
       ),
       dict(
           testcase_name="jax_array_large",
@@ -390,27 +390,10 @@ class TreescopeRendererTest(parameterized.TestCase):
               # jax.Array int32(3, 7) [≥0, ≤20] zero:1 nonzero:20
                 Array([[ 0,  1,  2,  3,  4,  5,  6],
                        [ 7,  8,  9, 10, 11, 12, 13],
-                       [14, 15, 16, 17, 18, 19, 20]], dtype=int32)
-              """),
+                       [14, 15, 16, 17, 18, 19, 20]], dtype=int32)"""),
       ),
       dict(
           testcase_name="named_array_jax",
-          target_builder=lambda: penzai.core.named_axes.NamedArray(
-              named_axes=collections.OrderedDict({"bar": 5, "baz": 7}),
-              data_array=jnp.arange(3 * 5 * 7).reshape((3, 5, 7)),
-          ),
-          expected_collapsed=(
-              "<NamedArray int32(3 | bar:5, baz:7) [≥0, ≤104] zero:1"
-              " nonzero:104 (wrapping jax.Array)>"
-          ),
-          expected_expanded=textwrap.dedent("""\
-              NamedArray(  # int32(3 | bar:5, baz:7) [≥0, ≤104] zero:1 nonzero:104
-                named_axes=OrderedDict({'bar': 5, 'baz': 7}),
-                data_array=<jax.Array int32(3, 5, 7) [≥0, ≤104] zero:1 nonzero:104>,
-              )"""),
-      ),
-      dict(
-          testcase_name="named_array_np",
           target_builder=lambda: penzai.core.named_axes.NamedArray(
               named_axes=collections.OrderedDict({"bar": 5, "baz": 7}),
               data_array=jnp.arange(3 * 5 * 7).reshape((3, 5, 7)),
@@ -444,6 +427,24 @@ class TreescopeRendererTest(parameterized.TestCase):
                 data_axis_for_name={'foo': 0, 'baz': 2},
                 data_array=<jax.Array int32(3, 5, 7) [≥0, ≤104] zero:1 nonzero:104>,
               )"""),
+      ),
+      dict(
+          testcase_name="pytorch_tensor_small",
+          target_builder=lambda: torch.tensor(np.array([1, 2, 4, 8, 16])),
+          expected_collapsed="torch.tensor([ 1,  2,  4,  8, 16])",
+          expected_expanded="torch.tensor([ 1,  2,  4,  8, 16])",
+      ),
+      dict(
+          testcase_name="pytorch_tensor_large",
+          target_builder=lambda: torch.tensor(np.arange(3 * 7).reshape((3, 7))),
+          expected_collapsed=(
+              "<torch.Tensor int64(3, 7) [≥0, ≤20] zero:1 nonzero:20>"
+          ),
+          expected_expanded=textwrap.dedent("""\
+              # torch.Tensor int64(3, 7) [≥0, ≤20] zero:1 nonzero:20
+                tensor([[ 0,  1,  2,  3,  4,  5,  6],
+                        [ 7,  8,  9, 10, 11, 12, 13],
+                        [14, 15, 16, 17, 18, 19, 20]])"""),
       ),
       dict(
           testcase_name="well_known_function",
@@ -482,13 +483,13 @@ class TreescopeRendererTest(parameterized.TestCase):
           testcase_name="dtype_standard",
           target=np.dtype(np.float32),
           expected_collapsed="dtype('float32')",
-          expected_roundtrip_collapsed="numpy.dtype('float32')",
+          expected_roundtrip_collapsed="np.dtype('float32')",
       ),
       dict(
           testcase_name="dtype_extended",
           target=np.dtype(jnp.bfloat16),
           expected_collapsed="dtype('bfloat16')",
-          expected_roundtrip_collapsed="numpy.dtype('bfloat16')",
+          expected_roundtrip_collapsed="np.dtype('bfloat16')",
       ),
       dict(
           testcase_name="jax_precision",
@@ -628,7 +629,7 @@ class TreescopeRendererTest(parameterized.TestCase):
                     # # Output: penzai.core.shapecheck.Wildcard('output from body')
                     # #╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
                     handler_id='foo',
-                    body=tests.fixtures.treescope_examples_fixture.LayerThatHoldsStuff(
+                    body=tests.treescope.fixtures.treescope_examples_fixture.LayerThatHoldsStuff(
                       # #╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
                       # # Input: {
                       #   'input': penzai.core.shapecheck.ArraySpec(shape=(1, 2, 3), dtype=numpy.generic, named_shape={}),
@@ -645,6 +646,80 @@ class TreescopeRendererTest(parameterized.TestCase):
                   ),
                   penzai.nn.grouping.Identity(),
                 ],
+              )"""),
+      ),
+      dict(
+          testcase_name="pytorch_module",
+          target_builder=fixture_lib.SomePyTorchModule.build,
+          expected_collapsed=(
+              "SomePyTorchModule(attr_one=123, attr_two='abc', training=True,"
+              " foo=<torch.nn.Parameter float32(5,) ≈1.0 ±0.0 [≥1.0, ≤1.0]"
+              " nonzero:5>, bar=torch.tensor([0., 0., 0., 0., 0.]),"
+              " linear=Linear(in_features=10, out_features=10, training=True,"
+              " weight=<torch.nn.Parameter float32(10, 10) ≈-0.008 ±0.028"
+              " [≥-0.32, ≤0.3] nonzero:100>, bias=<torch.nn.Parameter"
+              " float32(10,) ≈0.008 ±0.04 [≥-0.31, ≤0.31] nonzero:10>, ),"
+              " mod_list=ModuleList(training=True, (0):"
+              " LayerNorm(normalized_shape=(10,), eps=1e-05,"
+              " elementwise_affine=True, training=True,"
+              " weight=<torch.nn.Parameter float32(10,) ≈1.0 ±0.0 [≥1.0, ≤1.0]"
+              " nonzero:10>, bias=<torch.nn.Parameter float32(10,) ≈0.0 ±0.0"
+              " [≥0.0, ≤0.0] zero:10>, ), (1): SiLU(inplace=False,"
+              " training=True, ), ), )"
+          ),
+          expected_expanded=textwrap.dedent("""\
+              SomePyTorchModule(
+                attr_one=123, attr_two='abc', training=True,
+                # Parameters:
+                foo=<torch.nn.Parameter float32(5,) ≈1.0 ±0.0 [≥1.0, ≤1.0] nonzero:5>,
+                # Buffers:
+                bar=torch.tensor([0., 0., 0., 0., 0.]),
+                # Child modules:
+                linear=Linear(in_features=10, out_features=10, training=True, weight=<torch.nn.Parameter float32(10, 10) ≈-0.008 ±0.028 [≥-0.32, ≤0.3] nonzero:100>, bias=<torch.nn.Parameter float32(10,) ≈0.008 ±0.04 [≥-0.31, ≤0.31] nonzero:10>, ),
+                mod_list=ModuleList(training=True, (0): LayerNorm(normalized_shape=(10,), eps=1e-05, elementwise_affine=True, training=True, weight=<torch.nn.Parameter float32(10,) ≈1.0 ±0.0 [≥1.0, ≤1.0] nonzero:10>, bias=<torch.nn.Parameter float32(10,) ≈0.0 ±0.0 [≥0.0, ≤0.0] zero:10>, ), (1): SiLU(inplace=False, training=True, ), ),
+              )"""),
+          expected_roundtrip=textwrap.dedent("""\
+              <tests.treescope.fixtures.treescope_examples_fixture.SomePyTorchModule(
+                attr_one=123, attr_two='abc', training=True,
+                # Parameters:
+                foo=<torch.nn.Parameter float32(5,) ≈1.0 ±0.0 [≥1.0, ≤1.0] nonzero:5>,
+                # Buffers:
+                bar=torch.tensor([0., 0., 0., 0., 0.]),
+                # Child modules:
+                linear=<torch.nn.modules.linear.Linear(in_features=10, out_features=10, training=True, weight=<torch.nn.Parameter float32(10, 10) ≈-0.008 ±0.028 [≥-0.32, ≤0.3] nonzero:100>, bias=<torch.nn.Parameter float32(10,) ≈0.008 ±0.04 [≥-0.31, ≤0.31] nonzero:10>, )>,
+                mod_list=<torch.nn.modules.container.ModuleList(training=True, (0): <torch.nn.modules.normalization.LayerNorm(normalized_shape=(10,), eps=1e-05, elementwise_affine=True, training=True, weight=<torch.nn.Parameter float32(10,) ≈1.0 ±0.0 [≥1.0, ≤1.0] nonzero:10>, bias=<torch.nn.Parameter float32(10,) ≈0.0 ±0.0 [≥0.0, ≤0.0] zero:10>, )>, (1): <torch.nn.modules.activation.SiLU(inplace=False, training=True, )>, )>,
+              )>"""),
+      ),
+      dict(
+          testcase_name="pytorch_module_expanded",
+          target_builder=fixture_lib.SomePyTorchModule.build,
+          expand_depth=2,
+          expected_expanded=textwrap.dedent("""\
+              SomePyTorchModule(
+                # Attributes:
+                attr_one=123,
+                attr_two='abc',
+                training=True,
+                # Parameters:
+                foo=# torch.nn.Parameter float32(5,) ≈1.0 ±0.0 [≥1.0, ≤1.0] nonzero:5
+                  Parameter containing:
+                  tensor([1., 1., 1., 1., 1.], requires_grad=True)
+                ,
+                # Buffers:
+                bar=torch.tensor([0., 0., 0., 0., 0.]),
+                # Child modules:
+                linear=Linear(
+                  in_features=10, out_features=10, training=True,
+                  # Parameters:
+                  weight=<torch.nn.Parameter float32(10, 10) ≈-0.008 ±0.028 [≥-0.32, ≤0.3] nonzero:100>,
+                  bias=<torch.nn.Parameter float32(10,) ≈0.008 ±0.04 [≥-0.31, ≤0.31] nonzero:10>,
+                ),
+                mod_list=ModuleList(
+                  training=True,
+                  # Child modules:
+                  (0): LayerNorm(normalized_shape=(10,), eps=1e-05, elementwise_affine=True, training=True, weight=<torch.nn.Parameter float32(10,) ≈1.0 ±0.0 [≥1.0, ≤1.0] nonzero:10>, bias=<torch.nn.Parameter float32(10,) ≈0.0 ±0.0 [≥0.0, ≤0.0] zero:10>, ),
+                  (1): SiLU(inplace=False, training=True, ),
+                ),
               )"""),
       ),
   )
@@ -741,7 +816,7 @@ class TreescopeRendererTest(parameterized.TestCase):
             "{'x': 100}",
             "# Defined at line ",
             " of ",
-            "tests/treescope_renderer_test.py",
+            "tests/treescope/renderer_test.py",
         ],
         foldable_impl.render_to_text_as_root(rendering),
     )
@@ -857,12 +932,12 @@ class TreescopeRendererTest(parameterized.TestCase):
     self.assertContainsInOrder(
         [
             (
-                "penzai.treescope.copypaste_fallback.NotRoundtrippable(original_repr='<tests.fixtures.treescope_examples_fixture.UnknownObjectWithBuiltinRepr"
+                "penzai.treescope.copypaste_fallback.NotRoundtrippable(original_repr='<tests.treescope.fixtures.treescope_examples_fixture.UnknownObjectWithBuiltinRepr"
                 " object at 0x"
             ),
             ">', original_id=",
             (
-                ", original_type=tests.fixtures.treescope_examples_fixture"
+                ", original_type=tests.treescope.fixtures.treescope_examples_fixture"
                 ".UnknownObjectWithBuiltinRepr)"
             ),
         ],
@@ -875,25 +950,6 @@ class TreescopeRendererTest(parameterized.TestCase):
             [
               {repr(target[0])},
             ]"""),
-    )
-
-  def test_ndarray_roundtrip_fallback(self):
-    target = np.array([1, 2, 3])
-    renderer = default_renderer.active_renderer.get()
-    rendering = basic_parts.build_full_line_with_annotations(
-        renderer.to_foldable_representation(target)
-    )
-    layout_algorithms.expand_to_depth(rendering, 0)
-    self.assertContainsInOrder(
-        [
-            (
-                "penzai.treescope.copypaste_fallback"
-                ".NotRoundtrippable(original_repr='array([1, 2, 3])', "
-                "original_id="
-            ),
-            ", original_type=numpy.ndarray)",
-        ],
-        foldable_impl.render_to_text_as_root(rendering, roundtrip=True),
     )
 
   def test_shared_values(self):

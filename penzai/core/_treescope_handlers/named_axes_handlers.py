@@ -23,7 +23,7 @@ import jax
 import numpy as np
 from penzai.core import named_axes
 from penzai.core._treescope_handlers import struct_handler
-from penzai.treescope import ndarray_summarization
+from penzai.treescope import dtype_util
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import common_structures
@@ -31,6 +31,7 @@ from penzai.treescope.foldable_representation import common_styles
 from penzai.treescope.foldable_representation import foldable_impl
 from penzai.treescope.foldable_representation import part_interface
 from penzai.treescope.handlers import builtin_structure_handler
+from penzai.treescope.handlers.interop import jax_support
 
 
 def named_array_and_contained_type_summary(
@@ -59,7 +60,7 @@ def named_array_and_contained_type_summary(
 
   # Give a short summary for our named arrays.
   summary_parts = []
-  summary_parts.append(ndarray_summarization.get_dtype_name(named_array.dtype))
+  summary_parts.append(dtype_util.get_dtype_name(named_array.dtype))
   summary_parts.append("(")
   for i, size in enumerate(named_array.positional_shape):
     if i:
@@ -79,13 +80,13 @@ def named_array_and_contained_type_summary(
     summary_parts.append(f"{name}:{size}")
   summary_parts.append(")")
 
-  if inspect_device_data and ndarray_summarization.safe_to_summarize(
-      named_array.data_array
+  if (
+      inspect_device_data
+      and isinstance(named_array.data_array, jax.Array)
+      and jax_support.safe_to_summarize(named_array.data_array)
   ):
     summary_parts.append(
-        ndarray_summarization.summarize_ndarray(
-            named_array.data_array, include_shape_and_dtype=False
-        )
+        jax_support.summarize_array_data(named_array.data_array)
     )
 
   return "".join(summary_parts), contained_type

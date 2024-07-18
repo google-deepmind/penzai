@@ -24,23 +24,31 @@ from __future__ import annotations
 import base64
 import collections
 import dataclasses
-import functools
 import io
 import itertools
 import json
 import os
-from typing import Any, Literal, Mapping, Sequence
+from typing import Any, Literal, Sequence
 
-import jax
-import jax.numpy as jnp
 import numpy as np
-from penzai.core import named_axes
 from penzai.treescope import context
+from penzai.treescope import dtype_util
 from penzai.treescope import figures
 from penzai.treescope import html_escaping
-from penzai.treescope import ndarray_summarization
+from penzai.treescope import ndarray_adapters
+from penzai.treescope import type_registries
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import part_interface
+
+
+AxisName = Any
+
+PositionalAxisInfo = ndarray_adapters.PositionalAxisInfo
+NamedPositionlessAxisInfo = ndarray_adapters.NamedPositionlessAxisInfo
+NamedPositionalAxisInfo = ndarray_adapters.NamedPositionalAxisInfo
+AxisInfo = ndarray_adapters.AxisInfo
+
+ArrayInRegistry = Any
 
 
 def load_arrayvis_javascript() -> str:
@@ -129,8 +137,8 @@ def _html_setup() -> (
 
 
 def _render_array_to_html(
-    array_data: np.ndarray | jax.Array,
-    valid_mask: np.ndarray | jax.Array,
+    array_data: np.ndarray,
+    valid_mask: np.ndarray,
     column_axes: Sequence[int],
     row_axes: Sequence[int],
     slider_axes: Sequence[int],
@@ -265,63 +273,78 @@ def _render_array_to_html(
 
 
 def infer_rows_and_columns(
-    axis_sizes: dict[int | named_axes.AxisName, int],
-    unassigned: Sequence[int | named_axes.AxisName] | None = None,
-    known_rows: Sequence[int | named_axes.AxisName] = (),
-    known_columns: Sequence[int | named_axes.AxisName] = (),
-) -> tuple[list[int | named_axes.AxisName], list[int | named_axes.AxisName]]:
+    all_axes: Sequence[AxisInfo],
+    known_rows: Sequence[AxisInfo] = (),
+    known_columns: Sequence[AxisInfo] = (),
+    edge_items_per_axis: tuple[int | None, ...] | None = None,
+) -> tuple[list[AxisInfo], list[AxisInfo]]:
   """Infers an ordered assignment of axis indices or names to rows and columns.
 
   The unassigned axes are sorted by size and then assigned to rows and columns
   to try to balance the total number of elements along the row and column axes.
-  Curently uses a greedy algorithm with an adjustment to try to keep columns
-  longer than rows, except when there are exactly two axes and both are
+  This curently uses a greedy algorithm with an adjustment to try to keep
+  columns longer than rows, except when there are exactly two axes and both are
   positional, in which case it lays out axis 0 as the rows and axis 1 as the
   columns.
 
+  Axes with logical positions are sorted before axes with only names
+  (in reverse order, so that later axes are rendered on the inside). Axes with
+  names only appear afterward, with explicitly-assigned ones before unassigned
+  ones.
+
   Args:
-    axis_sizes: Mapping from axis indices or names to their axis size.
-    unassigned: Sequence of unassigned axis indices or names. Inferred from the
-      axis_sizes if not provided.
+    all_axes: Sequence of axis infos in the array that should be assigned.
     known_rows: Sequence of axis indices or names that must map to rows.
     known_columns: Sequence of axis indices or names that must map to columns.
+    edge_items_per_axis: Optional edge items specification, determining
+      truncated size of each axis. Must match the ordering of `all_axes`.
 
   Returns:
     Tuple (rows, columns) of assignments, which consist of `known_rows` and
     `known_columns` followed by the remaining unassigned axes in a balanced
     order.
   """
-  if unassigned is None:
-    unassigned = [
-        key
-        for key in axis_sizes.keys()
-        if key not in known_rows and key not in known_columns
-    ]
+  if edge_items_per_axis is None:
+    edge_items_per_axis = (None,) * len(all_axes)
 
-  if (
-      not known_rows
-      and not known_columns
-      and len(unassigned) == 2
-      and set(unassigned) == {0, 1}
-  ):
-    # Two-dimensional positional array. Always do rows then columns.
-    return ([0], [1])
+  if not known_rows and not known_columns and len(all_axes) == 2:
+    ax_a, ax_b = all_axes
+    if (
+        isinstance(ax_a, PositionalAxisInfo)
+        and isinstance(ax_b, PositionalAxisInfo)
+        and {ax_a.axis_logical_index, ax_b.axis_logical_index} == {0, 1}
+    ):
+      # Two-dimensional positional array. Always do rows then columns.
+      if ax_a.axis_logical_index == 0:
+        return ([ax_a], [ax_b])
+      else:
+        return ([ax_b], [ax_a])
+
+  truncated_sizes = {
+      ax: ax.size if edge_items is None else 2 * edge_items + 1
+      for ax, edge_items in zip(all_axes, edge_items_per_axis)
+  }
+  unassigned = [
+      ax for ax in all_axes if ax not in known_rows and ax not in known_columns
+  ]
 
   # Sort by size descending, so that we make the most important layout decisions
   # first.
-  unassigned = sorted(unassigned, key=lambda ax: -axis_sizes[ax])
+  unassigned = sorted(
+      unassigned, key=lambda ax: (truncated_sizes[ax], ax.size), reverse=True
+  )
 
   # Compute the total size every axis would have if we assigned them to the
   # same axis.
-  unassigned_size = np.prod([axis_sizes[ax] for ax in unassigned])
+  unassigned_size = np.prod([truncated_sizes[ax] for ax in unassigned])
 
   rows = list(known_rows)
-  row_size = np.prod([axis_sizes[ax] for ax in rows])
+  row_size = np.prod([truncated_sizes[ax] for ax in rows])
   columns = list(known_columns)
-  column_size = np.prod([axis_sizes[ax] for ax in columns])
+  column_size = np.prod([truncated_sizes[ax] for ax in columns])
 
   for ax in unassigned:
-    axis_size = axis_sizes[ax]
+    axis_size = truncated_sizes[ax]
     unassigned_size = unassigned_size // axis_size
     if row_size * axis_size > column_size * unassigned_size:
       # If we assign this to the row axis, we'll end up with a visualization
@@ -338,9 +361,9 @@ def infer_rows_and_columns(
   # arbitrary. Re-order each so that they have positional then named axes, and
   # so that position axes are in reverse position order, and the explicitly
   # mentioned named axes are before the unassigned ones.
-  def ax_sort_key(ax: int | named_axes.AxisName):
-    if isinstance(ax, int):
-      return (0, -ax)
+  def ax_sort_key(ax: AxisInfo):
+    if isinstance(ax, PositionalAxisInfo | NamedPositionalAxisInfo):
+      return (0, -ax.axis_logical_index)
     elif ax in unassigned:
       return (2,)
     else:
@@ -349,26 +372,25 @@ def infer_rows_and_columns(
   return sorted(rows, key=ax_sort_key), sorted(columns, key=ax_sort_key)
 
 
-@functools.partial(jax.jit, static_argnames=("around_zero", "trim_outliers"))
 def _infer_vmin_vmax(
-    array: jnp.Array,
-    mask: jnp.Array,
+    array: np.ndarray,
+    mask: np.ndarray,
     vmin: float | None,
     vmax: float | None,
     around_zero: bool,
     trim_outliers: bool,
-) -> tuple[float | jax.Array, float | jax.Array]:
+) -> tuple[float, float]:
   """Infer reasonable lower and upper colormap bounds from an array."""
   inferring_both_bounds = vmax is None and vmin is None
-  finite_mask = jnp.logical_and(jnp.isfinite(array), mask)
+  finite_mask = np.logical_and(np.isfinite(array), mask)
   if vmax is None:
     if around_zero:
       if vmin is not None:
         vmax = -vmin  # pylint: disable=invalid-unary-operand-type
       else:
-        vmax = jnp.max(jnp.where(finite_mask, jnp.abs(array), 0))
+        vmax = np.max(np.where(finite_mask, np.abs(array), 0))
     else:
-      vmax = jnp.max(jnp.where(finite_mask, array, -np.inf))
+      vmax = np.max(np.where(finite_mask, array, -np.inf))
 
   assert vmax is not None
 
@@ -376,45 +398,181 @@ def _infer_vmin_vmax(
     if around_zero:
       vmin = -vmax  # pylint: disable=invalid-unary-operand-type
     else:
-      vmin = jnp.min(jnp.where(finite_mask, array, np.inf))
+      vmin = np.min(np.where(finite_mask, array, np.inf))
 
   if inferring_both_bounds and trim_outliers:
     if around_zero:
       center = 0
     else:
-      center = jnp.nanmean(jnp.where(finite_mask, array, np.nan))
-      center = jnp.where(jnp.isfinite(center), center, 0.0)
+      center = np.nanmean(np.where(finite_mask, array, np.nan))
+      center = np.where(np.isfinite(center), center, 0.0)
 
-    second_moment = jnp.nanmean(
-        jnp.where(finite_mask, jnp.square(array - center), np.nan)
+    second_moment = np.nanmean(
+        np.where(finite_mask, np.square(array - center), np.nan)
     )
-    sigma = jnp.where(
-        jnp.isfinite(second_moment), jnp.sqrt(second_moment), vmax - vmin
+    sigma = np.where(
+        np.isfinite(second_moment), np.sqrt(second_moment), vmax - vmin
     )
 
     vmin_limit = center - 3 * sigma
-    vmin = jnp.maximum(vmin, vmin_limit)
+    vmin = np.maximum(vmin, vmin_limit)
     vmax_limit = center + 3 * sigma
-    vmax = jnp.minimum(vmax, vmax_limit)
+    vmax = np.minimum(vmax, vmax_limit)
 
   return vmin, vmax
 
 
-@jax.jit
 def _infer_abs_min_max(
-    array: jnp.Array, mask: jnp.Array
-) -> tuple[float | jax.Array, float | jax.Array]:
+    array: np.ndarray, mask: np.ndarray
+) -> tuple[float, float]:
   """Infer smallest and largest absolute values in array."""
-  finite_mask = jnp.logical_and(jnp.isfinite(array), mask)
-  absmin = jnp.min(
-      jnp.where(
-          jnp.logical_and(finite_mask, array != 0), jnp.abs(array), np.inf
-      )
+  finite_mask = np.logical_and(np.isfinite(array), mask)
+  absmin = np.min(
+      np.where(np.logical_and(finite_mask, array != 0), np.abs(array), np.inf)
   )
-  absmin = jnp.where(jnp.isinf(absmin), 0.0, absmin)
-  absmax = jnp.max(jnp.where(finite_mask, jnp.abs(array), -np.inf))
-  absmax = jnp.where(jnp.isinf(absmax), 0.0, absmax)
+  absmin = np.where(np.isinf(absmin), 0.0, absmin)
+  absmax = np.max(np.where(finite_mask, np.abs(array), -np.inf))
+  absmax = np.where(np.isinf(absmax), 0.0, absmax)
   return absmin, absmax
+
+
+def infer_balanced_truncation(
+    shape: Sequence[int],
+    maximum_size: int,
+    cutoff_size_per_axis: int,
+    minimum_edge_items: int,
+    doubling_bonus: float = 10.0,
+) -> tuple[int | None, ...]:
+  """Infers a balanced truncation from a shape.
+
+  This function computes a set of truncation sizes for each axis of the array
+  such that it obeys the constraints about array and axis sizes, while also
+  keeping the relative proportions of the array consistent (e.g. we keep more
+  elements along axes that were originally longer). This means that the aspect
+  ratio of the truncated array will still resemble the aspect ratio of the
+  original array.
+
+  To avoid very-unbalanced renderings and truncate longer axes more than short
+  ones, this function truncates based on the square-root of the axis size by
+  default.
+
+  Args:
+    shape: The shape of the array we are truncating.
+    maximum_size: Maximum number of elements of an array to show. Arrays larger
+      than this will be truncated along one or more axes.
+    cutoff_size_per_axis: Maximum number of elements of each individual axis to
+      show without truncation. Any axis longer than this will be truncated, with
+      their visual size increasing logarithmically with the true axis size
+      beyond this point.
+    minimum_edge_items: How many values to keep along each axis for truncated
+      arrays. We may keep more than this up to the budget of maximum_size.
+    doubling_bonus: Number of elements to add to each axis each time it doubles
+      beyond `cutoff_size_per_axis`. Used to make longer axes appear visually
+      longer while still keeping them a reasonable size.
+
+  Returns:
+    A tuple of edge sizes. Each element corresponds to an axis in `shape`,
+    and is either `None` (for no truncation) or an integer (corresponding to
+    the number of elements to keep at the beginning and and at the end).
+  """
+  shape_arr = np.array(list(shape))
+  remaining_elements_to_divide = maximum_size
+  edge_items_per_axis = {}
+  # Order our shape from smallest to largest, since the smallest axes will
+  # require the least amount of truncation and will have the most stringent
+  # constraints.
+  sorted_axes = np.argsort(shape_arr)
+  sorted_shape = shape_arr[sorted_axes]
+
+  # Figure out maximum sizes based on the cutoff
+  cutoff_adjusted_maximum_sizes = np.where(
+      sorted_shape <= cutoff_size_per_axis,
+      sorted_shape,
+      cutoff_size_per_axis
+      + doubling_bonus * np.log2(sorted_shape / cutoff_size_per_axis),
+  )
+
+  # Suppose we want to make a scaled version of the array with relative
+  # axis sizes
+  #   s0, s1, s2, ...
+  # The total size is then
+  #   size = (c * s0) * (c * s1) * (c * s2) * ...
+  #   log(size) = ndim * log(c) + [ log s0 + log s1 + log s2 + ... ]
+  # If we have a known final size we want to reach, we can solve for c as
+  #   c = exp( (log size - [ log s0 + log s1 + log s2 + ... ]) / ndim )
+  axis_proportions = np.sqrt(sorted_shape)
+  log_axis_proportions = np.log(axis_proportions)
+  for i in range(len(sorted_axes)):
+    original_axis = sorted_axes[i]
+    size = shape_arr[original_axis]
+    # If we truncated this axis and every axis after it proportional to
+    # their weights, how small of an axis size would we need for this
+    # axis?
+    log_c = (
+        np.log(remaining_elements_to_divide) - np.sum(log_axis_proportions[i:])
+    ) / (len(shape) - i)
+    soft_limit_for_this_axis = np.exp(log_c + log_axis_proportions[i])
+    cutoff_limit_for_this_axis = np.floor(
+        np.minimum(
+            soft_limit_for_this_axis,
+            cutoff_adjusted_maximum_sizes[i],
+        )
+    )
+    if size <= 2 * minimum_edge_items + 1 or size <= cutoff_limit_for_this_axis:
+      # If this axis is already smaller than the minimum size it would have
+      # after truncation, there's no reason to truncate it.
+      # But pretend we did, so that other axes still grow monotonically if
+      # their axis sizes increase.
+      remaining_elements_to_divide = (
+          remaining_elements_to_divide / soft_limit_for_this_axis
+      )
+      edge_items_per_axis[original_axis] = None
+    elif cutoff_limit_for_this_axis < 2 * minimum_edge_items + 1:
+      # If this axis is big enough to truncate, but our naive target size is
+      # smaller than the minimum allowed truncation, we should truncate it
+      # to the minimum size allowed instead.
+      edge_items_per_axis[original_axis] = minimum_edge_items
+      remaining_elements_to_divide = remaining_elements_to_divide / (
+          2 * minimum_edge_items + 1
+      )
+    else:
+      # Otherwise, truncate it and all remaining axes based on our target
+      # truncations.
+      for j in range(i, len(sorted_axes)):
+        visual_size = np.floor(
+            np.minimum(
+                np.exp(log_c + log_axis_proportions[j]),
+                cutoff_adjusted_maximum_sizes[j],
+            )
+        )
+        edge_items_per_axis[sorted_axes[j]] = int(visual_size // 2)
+      break
+
+  return tuple(
+      edge_items_per_axis[orig_axis] for orig_axis in range(len(shape))
+  )
+
+
+def compute_truncated_shape(
+    shape: tuple[int, ...],
+    edge_items: tuple[int | None, ...],
+) -> tuple[int, ...]:
+  """Computes the shape of a truncated array.
+
+  This can be used to estimate the size of an array visualization after it has
+  been truncated by `infer_balanced_truncation`.
+
+  Args:
+    shape: The original array shape.
+    edge_items: Number of edge items to keep along each axis.
+
+  Returns:
+    The shape of the truncated array.
+  """
+  return tuple(
+      orig if edge is None else 2 * edge + 1
+      for orig, edge in zip(shape, edge_items)
+  )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -535,23 +693,12 @@ customization in an interactive setting.
 
 
 def render_array(
-    array: (
-        named_axes.NamedArray
-        | named_axes.NamedArrayView
-        | np.ndarray
-        | jax.Array
-    ),
+    array: ArrayInRegistry,
     *,
-    columns: Sequence[named_axes.AxisName | int] = (),
-    rows: Sequence[named_axes.AxisName | int] = (),
-    sliders: Sequence[named_axes.AxisName | int] = (),
-    valid_mask: (
-        named_axes.NamedArray
-        | named_axes.NamedArrayView
-        | np.ndarray
-        | jax.Array
-        | None
-    ) = None,
+    columns: Sequence[AxisName | int] = (),
+    rows: Sequence[AxisName | int] = (),
+    sliders: Sequence[AxisName | int] = (),
+    valid_mask: Any | None = None,
     continuous: bool | Literal["auto"] = "auto",
     around_zero: bool | Literal["auto"] = "auto",
     vmax: float | None = None,
@@ -563,9 +710,9 @@ def render_array(
     maximum_size: int = 10_000,
     cutoff_size_per_axis: int = 512,
     minimum_edge_items: int = 5,
-    axis_item_labels: dict[named_axes.AxisName | int, list[str]] | None = None,
+    axis_item_labels: dict[AxisName | int, list[str]] | None = None,
     value_item_labels: dict[int, str] | None = None,
-    axis_labels: dict[named_axes.AxisName | int, str] | None = None,
+    axis_labels: dict[AxisName | int, str] | None = None,
 ) -> ArrayvizRendering:
   """Renders an array (positional or named) to a displayable HTML object.
 
@@ -619,7 +766,8 @@ def render_array(
       colormap.
 
   Args:
-      array: The array to render.
+      array: The array to render. The type of this array must be registered in
+        the `type_registries.NDARRAY_ADAPTER_REGISTRY`.
       columns: Sequence of axis names or positional axis indices that should be
         placed on the x axis, from innermost to outermost. If not provided,
         inferred automatically.
@@ -693,6 +841,127 @@ def render_array(
     An object which can be rendered in an IPython notebook, containing the
     HTML source of an arrayviz rendering.
   """
+  # Retrieve the adapter for this array, which we will use to construct
+  # the rendering.
+  adapter = type_registries.lookup_by_mro(
+      type_registries.NDARRAY_ADAPTER_REGISTRY, type(array)
+  )
+  if adapter is None:
+    raise TypeError(
+        f"Cannot render array with unrecognized type {type(array)} (not found"
+        " in array adapter registry)"
+    )
+
+  # Extract information about axis names, indices, and sizes.
+  array_axis_info = adapter.get_axis_info_for_array_data(array)
+
+  data_axis_from_axis_info = {
+      info: axis for axis, info in enumerate(array_axis_info)
+  }
+  assert len(data_axis_from_axis_info) == len(array_axis_info)
+
+  info_by_name_or_position = {}
+  for info in array_axis_info:
+    if isinstance(info, NamedPositionalAxisInfo):
+      info_by_name_or_position[info.axis_name] = info
+      info_by_name_or_position[info.axis_logical_index] = info
+    elif isinstance(info, PositionalAxisInfo):
+      info_by_name_or_position[info.axis_logical_index] = info
+    elif isinstance(info, NamedPositionlessAxisInfo):
+      info_by_name_or_position[info.axis_name] = info
+    else:
+      raise ValueError(f"Unrecognized axis info {type(info)}")
+
+  row_infos = [info_by_name_or_position[spec] for spec in rows]
+  column_infos = [info_by_name_or_position[spec] for spec in columns]
+  slider_infos = [info_by_name_or_position[spec] for spec in sliders]
+
+  unassigned_axes = set(array_axis_info)
+  seen_axes = set()
+  for axis_info in itertools.chain(row_infos, column_infos, slider_infos):
+    if axis_info in seen_axes:
+      raise ValueError(
+          f"Axis {axis_info} appeared multiple times in rows/columns/sliders"
+          " specifications. Each axis must be assigned to at most one"
+          " location."
+      )
+    seen_axes.add(axis_info)
+    unassigned_axes.remove(axis_info)
+
+  if truncate:
+    # Infer a good truncated shape for this array.
+    edge_items_per_axis = infer_balanced_truncation(
+        tuple(info.size for info in array_axis_info),
+        maximum_size=maximum_size,
+        cutoff_size_per_axis=cutoff_size_per_axis,
+        minimum_edge_items=minimum_edge_items,
+    )
+  else:
+    edge_items_per_axis = (None,) * len(array_axis_info)
+
+  # Obtain truncated array and mask data from the adapter.
+  truncated_array_data, truncated_mask_data = (
+      adapter.get_array_data_with_truncation(
+          array=array,
+          mask=valid_mask,
+          edge_items_per_axis=edge_items_per_axis,
+      )
+  )
+
+  # Step 5: Figure out which axes to render as rows, columns, and sliders and
+  # in which order. We start with the explicitly-requested axes, then add more
+  # axes to the rows and columns until we've assigned all of them, trying to
+  # balance rows and columns.
+
+  row_infos, column_infos = infer_rows_and_columns(
+      all_axes=[ax for ax in array_axis_info if ax not in slider_infos],
+      known_rows=row_infos,
+      known_columns=column_infos,
+      edge_items_per_axis=edge_items_per_axis,
+  )
+
+  return _render_pretruncated(
+      array_axis_info=array_axis_info,
+      row_infos=row_infos,
+      column_infos=column_infos,
+      slider_infos=slider_infos,
+      truncated_array_data=truncated_array_data,
+      truncated_mask_data=truncated_mask_data,
+      edge_items_per_axis=edge_items_per_axis,
+      continuous=continuous,
+      around_zero=around_zero,
+      vmax=vmax,
+      vmin=vmin,
+      trim_outliers=trim_outliers,
+      dynamic_colormap=dynamic_colormap,
+      colormap=colormap,
+      axis_item_labels=axis_item_labels,
+      value_item_labels=value_item_labels,
+      axis_labels=axis_labels,
+  )
+
+
+def _render_pretruncated(
+    *,
+    array_axis_info: Sequence[AxisInfo],
+    row_infos: Sequence[AxisInfo],
+    column_infos: Sequence[AxisInfo],
+    slider_infos: Sequence[AxisInfo],
+    truncated_array_data: np.ndarray,
+    truncated_mask_data: np.ndarray,
+    edge_items_per_axis: Sequence[int | None],
+    continuous: bool | Literal["auto"],
+    around_zero: bool | Literal["auto"],
+    vmax: float | None,
+    vmin: float | None,
+    trim_outliers: bool,
+    dynamic_colormap: bool | Literal["auto"],
+    colormap: list[tuple[int, int, int]] | None,
+    axis_item_labels: dict[AxisName | int, list[str]] | None,
+    value_item_labels: dict[int, str] | None,
+    axis_labels: dict[AxisName | int, str] | None,
+) -> ArrayvizRendering:
+  """Internal helper to render an array that has already been truncated."""
   if axis_item_labels is None:
     axis_item_labels = {}
 
@@ -702,186 +971,56 @@ def render_array(
   if axis_labels is None:
     axis_labels = {}
 
-  # Step 1: Wrap as named arrays if needed, for consistency of the following
-  # steps. But keep them on the CPU if they were numpy arrays.
-  if not isinstance(array, named_axes.NamedArray | named_axes.NamedArrayView):
-    if not isinstance(array, jax.Array):
-      array = jax.device_put(array, jax.devices("cpu")[0])
-    array = named_axes.wrap(array)
+  data_axis_from_axis_info = {
+      info: axis for axis, info in enumerate(array_axis_info)
+  }
+  assert len(data_axis_from_axis_info) == len(array_axis_info)
 
-  array.check_valid()
+  has_name_only = False
+  positional_count = 0
 
-  if valid_mask is not None:
-    if not isinstance(
-        valid_mask, named_axes.NamedArray | named_axes.NamedArrayView
-    ):
-      if not isinstance(valid_mask, jax.Array):
-        valid_mask = jax.device_put(valid_mask, jax.devices("cpu")[0])
-      valid_mask = named_axes.wrap(valid_mask)
+  info_by_name_or_position = {}
+  for info in array_axis_info:
+    if isinstance(info, NamedPositionalAxisInfo):
+      info_by_name_or_position[info.axis_name] = info
+      info_by_name_or_position[info.axis_logical_index] = info
+      positional_count += 1
+    elif isinstance(info, PositionalAxisInfo):
+      info_by_name_or_position[info.axis_logical_index] = info
+      positional_count += 1
+    elif isinstance(info, NamedPositionlessAxisInfo):
+      info_by_name_or_position[info.axis_name] = info
+      has_name_only = True
+    else:
+      raise ValueError(f"Unrecognized axis info {type(info)}")
 
-    valid_mask.check_valid()
-
-    # Make sure they are broadcast-compatible, and add length-1 axes for any
-    # that are missing.
-    bad_names = set(valid_mask.named_shape.keys()) - set(
-        array.named_shape.keys()
-    )
-    if bad_names:
-      raise ValueError(
-          "Valid mask must be broadcastable to the shape of `array`, but it"
-          f" had extra axis names {bad_names}"
-      )
-
-    vshape = valid_mask.positional_shape
-    ashape = array.positional_shape
-    if vshape != ashape[len(ashape) - len(vshape) :]:
-      raise ValueError(
-          "Valid mask must be broadcastable to the shape of `array`, but its"
-          f" positional shape ({vshape}) was not a suffix of those of `array`"
-          f" ({ashape})"
-      )
-
-    # Insert new axes.
-    new_names = set(array.named_shape.keys()) - set(
-        valid_mask.named_shape.keys()
-    )
-    if new_names:
-      valid_mask = valid_mask[{name: None for name in new_names}]
-
-    new_positional_axis_count = len(ashape) - len(vshape)
-    if new_positional_axis_count:
-      valid_mask = valid_mask[(None,) * new_positional_axis_count + (...,)]
-
-  # Step 2: Extract a positionally-indexed array of data, and remember the
-  # mapping from the original axis names and indices to their new data axes.
-  # We try to avoid transposing the initial array if possible, so this won't
-  # necessarily match the display order.
-  # (Recall that integers are NOT valid names for a NamedArray, so there are
-  # no possibilities of conflict between original axis names and indices.)
-  tmp_names_for_positional_axes = [
-      object() for _ in range(len(array.positional_shape))
-  ]
-
-  fully_named_array = array.tag(
-      *tmp_names_for_positional_axes
-  ).as_namedarrayview()
-  array_data = fully_named_array.data_array
-
-  data_axis_from_tmp_axis = {}
-  tmp_axis_from_data_axis = {}
-  for name, data_axis in fully_named_array.data_axis_for_name.items():
-    data_axis_from_tmp_axis[name] = data_axis
-    tmp_axis_from_data_axis[data_axis] = name
-
-  data_axis_from_orig_axis = {}
-  for name in array.named_shape.keys():
-    data_axis_from_orig_axis[name] = data_axis_from_tmp_axis[name]
-  for idx in range(len(array.positional_shape)):
-    data_axis_from_orig_axis[idx] = data_axis_from_tmp_axis[
-        tmp_names_for_positional_axes[idx]
-    ]
-
-  # Step 3: If the mask exists, extract its data in the same order, and add
-  # length-one axes for any axes that were missing. Otherwise, create a new
-  # mask array with only length-one axes.
-  if valid_mask is not None:
-    assert isinstance(valid_mask, named_axes.NamedArrayBase)
-    fully_named_mask = (
-        valid_mask.tag(*tmp_names_for_positional_axes)
-        .order_as(*(tmp_axis_from_data_axis[i] for i in range(array_data.ndim)))
-        .as_namedarrayview()
-    )
-    assert (
-        fully_named_mask.data_axis_for_name
-        == fully_named_array.data_axis_for_name
-    )
-    mask_data = fully_named_mask.data_array
-  else:
-    mask_data = np.ones([1] * array_data.ndim, dtype=bool)
-
-  # Step 4: Truncate the array and valid masks if requested, and ensure that the
-  # mask has the same shape as the array.
-  if truncate:
-    edge_items_per_axis = ndarray_summarization.infer_balanced_truncation(
-        array_data.shape,
-        maximum_size=maximum_size,
-        cutoff_size_per_axis=cutoff_size_per_axis,
-        minimum_edge_items=minimum_edge_items,
-    )
-    truncated_array_data, truncated_mask_data = (
-        ndarray_summarization.truncate_array_and_mask(
-            array=array_data,
-            mask=mask_data,
-            edge_items_per_axis=edge_items_per_axis,
-        )
-    )
-  else:
-    edge_items_per_axis = (None,) * array_data.ndim
-    truncated_array_data = array_data
-    truncated_mask_data = jnp.broadcast_to(mask_data, array_data.shape)
-
-  # (Ensure they are fetched to the CPU to avoid device computation / sharding
-  # issues)
-  truncated_array_data, truncated_mask_data = jax.device_get(
-      (truncated_array_data, truncated_mask_data)
-  )
+  axis_labels_by_info = {
+      info_by_name_or_position[orig_key]: value
+      for orig_key, value in axis_labels.items()
+  }
+  axis_item_labels_by_info = {
+      info_by_name_or_position[orig_key]: value
+      for orig_key, value in axis_item_labels.items()
+  }
 
   skip_start_indices = [
-      edge_items if edge_items is not None else size
-      for edge_items, size in zip(edge_items_per_axis, array_data.shape)
+      edge_items if edge_items is not None else axis_info.size
+      for edge_items, axis_info in zip(edge_items_per_axis, array_axis_info)
   ]
   skip_end_indices = [
-      size - edge_items if edge_items is not None else size
-      for edge_items, size in zip(edge_items_per_axis, array_data.shape)
+      axis_info.size - edge_items if edge_items is not None else axis_info.size
+      for edge_items, axis_info in zip(edge_items_per_axis, array_axis_info)
   ]
-
-  # Step 5: Figure out which axes to render as rows, columns, and sliders and
-  # in which order.  We start with the explicitly-requested axes, then add more
-  # axes to the rows and columns until we've assigned all of them, trying to
-  # balance rows and columns.
-
-  unassigned_axes = set(array.named_shape.keys()) | set(
-      range(len(array.positional_shape))
-  )
-  seen_axes = set()
-
-  rows = list(rows)
-  columns = list(columns)
-  sliders = list(sliders)
-  for axis in itertools.chain(rows, columns, sliders):
-    if axis in seen_axes:
-      raise ValueError(
-          f"Axis {repr(axis)} appeared multiple times in rows/columns/sliders"
-          " specifications. Each axis must be assigned to at most one"
-          " location."
-      )
-    elif axis not in unassigned_axes:
-      raise ValueError(
-          f"Axis {repr(axis)} was assigned a location in rows/columns/sliders"
-          " but was not present in the array to render."
-      )
-    seen_axes.add(axis)
-    unassigned_axes.remove(axis)
-
-  rows, columns = infer_rows_and_columns(
-      unassigned=list(unassigned_axes),
-      known_rows=rows,
-      known_columns=columns,
-      axis_sizes={
-          **{
-              orig: truncated_array_data.shape[data_axis]
-              for orig, data_axis in data_axis_from_orig_axis.items()
-          },
-      },
-  )
 
   # Convert the axis names into indices into our data array.
   column_data_axes = [
-      data_axis_from_orig_axis[orig_axis] for orig_axis in columns
+      data_axis_from_axis_info[orig_axis] for orig_axis in column_infos
   ]
-  row_data_axes = [data_axis_from_orig_axis[orig_axis] for orig_axis in rows]
+  row_data_axes = [
+      data_axis_from_axis_info[orig_axis] for orig_axis in row_infos
+  ]
   slider_data_axes = [
-      data_axis_from_orig_axis[orig_axis] for orig_axis in sliders
+      data_axis_from_axis_info[orig_axis] for orig_axis in slider_infos
   ]
 
   # Step 6: Figure out how to render the labels and indices of each axis.
@@ -893,19 +1032,22 @@ def render_array(
 
   axis_label_instructions = []
 
-  if array.named_shape:
+  if has_name_only:
     formatting_instructions.append({"type": "literal", "value": "[{"})
 
-    for i, (name, size) in enumerate(array.named_shape.items()):
-      data_axis = data_axis_from_orig_axis[name]
+    first = True
+    for data_axis, axis_info in enumerate(array_axis_info):
+      if not isinstance(axis_info, NamedPositionlessAxisInfo):
+        continue
 
-      if i:
+      if first:
         formatting_instructions.append(
-            {"type": "literal", "value": f", {repr(name)}:"}
+            {"type": "literal", "value": f"{repr(axis_info.axis_name)}:"}
         )
+        first = False
       else:
         formatting_instructions.append(
-            {"type": "literal", "value": f"{repr(name)}:"}
+            {"type": "literal", "value": f", {repr(axis_info.axis_name)}:"}
         )
 
       formatting_instructions.append({
@@ -915,16 +1057,19 @@ def render_array(
           "skip_end": skip_end_indices[data_axis],
       })
 
-      if name in axis_labels:
-        data_axis_labels[data_axis] = axis_labels[name]
-      elif name in sliders:
-        data_axis_labels[data_axis] = f"{str(name)}"
+      if axis_info in axis_labels_by_info:
+        data_axis_labels[data_axis] = axis_labels_by_info[axis_info]
+        label_name = f"{axis_labels_by_info[axis_info]} ({axis_info.axis_name})"
+      elif axis_info in slider_infos:
+        label_name = f"{str(axis_info.axis_name)}"
+        data_axis_labels[data_axis] = label_name
       else:
-        data_axis_labels[data_axis] = f"{str(name)}: {size}"
+        label_name = f"{str(axis_info.axis_name)}"
+        data_axis_labels[data_axis] = f"{label_name}: {axis_info.size}"
 
-      if name in axis_item_labels:
+      if axis_info in axis_item_labels_by_info:
         axis_label_instructions.extend([
-            {"type": "literal", "value": f"\n{str(name)} @ "},
+            {"type": "literal", "value": f"\n{label_name} @ "},
             {
                 "type": "index",
                 "axis": f"a{data_axis}",
@@ -937,17 +1082,20 @@ def render_array(
                 "axis": f"a{data_axis}",
                 "skip_start": skip_start_indices[data_axis],
                 "skip_end": skip_end_indices[data_axis],
-                "lookup_table": axis_item_labels[name],
+                "lookup_table": axis_item_labels_by_info[axis_info],
             },
         ])
 
     formatting_instructions.append({"type": "literal", "value": "}]"})
 
-  if array.positional_shape:
+  if positional_count:
     formatting_instructions.append({"type": "literal", "value": "["})
-    for orig_index, size in enumerate(array.positional_shape):
-      data_axis = data_axis_from_orig_axis[orig_index]
-      if orig_index:
+    for logical_index in range(positional_count):
+      axis_info = info_by_name_or_position[logical_index]
+      assert isinstance(axis_info, PositionalAxisInfo | NamedPositionalAxisInfo)
+      assert axis_info.axis_logical_index == logical_index
+      data_axis = data_axis_from_axis_info[axis_info]
+      if logical_index > 0:
         formatting_instructions.append({"type": "literal", "value": ", "})
       formatting_instructions.append({
           "type": "index",
@@ -956,16 +1104,22 @@ def render_array(
           "skip_end": skip_end_indices[data_axis],
       })
 
-      if orig_index in axis_labels:
-        data_axis_labels[data_axis] = axis_labels[orig_index]
-      elif orig_index in sliders:
-        data_axis_labels[data_axis] = f"axis{orig_index}"
+      if axis_info in axis_labels_by_info:
+        data_axis_labels[data_axis] = axis_labels_by_info[axis_info]
+        label_name = f"{axis_labels_by_info[axis_info]} (axis {logical_index})"
       else:
-        data_axis_labels[data_axis] = f"axis {orig_index}: {size}"
+        if isinstance(axis_info, NamedPositionalAxisInfo):
+          label_name = f"{axis_info.axis_name} (axis {logical_index})"
+        else:
+          label_name = f"axis {logical_index}"
+        if axis_info in slider_infos:
+          data_axis_labels[data_axis] = label_name
+        else:
+          data_axis_labels[data_axis] = f"{label_name}: {axis_info.size}"
 
-      if orig_index in axis_item_labels:
+      if axis_info in axis_item_labels_by_info:
         axis_label_instructions.extend([
-            {"type": "literal", "value": f"\nAxis {orig_index} @ "},
+            {"type": "literal", "value": f"\n{label_name} @ "},
             {
                 "type": "index",
                 "axis": f"a{data_axis}",
@@ -978,7 +1132,7 @@ def render_array(
                 "axis": f"a{data_axis}",
                 "skip_start": skip_start_indices[data_axis],
                 "skip_end": skip_end_indices[data_axis],
-                "lookup_table": axis_item_labels[orig_index],
+                "lookup_table": axis_item_labels_by_info[axis_info],
             },
         ])
 
@@ -990,7 +1144,7 @@ def render_array(
   # Step 7: Infer the colormap and rendering strategy.
 
   # Figure out whether the array is continuous.
-  inferred_continuous = jnp.issubdtype(array_data.dtype, np.floating)
+  inferred_continuous = dtype_util.is_floating_dtype(truncated_array_data.dtype)
   if continuous == "auto":
     continuous = inferred_continuous
   elif not continuous and inferred_continuous:
@@ -998,6 +1152,10 @@ def render_array(
         "Cannot use continuous=False when rendering a float array; explicitly"
         " cast it to an integer array first."
     )
+
+  if inferred_continuous:
+    # Cast to float32 to ensure we can easily manipulate the truncated data.
+    truncated_array_data = truncated_array_data.astype(np.float32)
 
   if value_item_labels and not continuous:
     formatting_instructions.append({"type": "literal", "value": "  # "})
@@ -1095,7 +1253,9 @@ def render_array(
       column_axes=column_data_axes,
       row_axes=row_data_axes,
       slider_axes=slider_data_axes,
-      axis_labels=[data_axis_labels[i] for i in range(array_data.ndim)],
+      axis_labels=[
+          data_axis_labels[i] for i in range(truncated_array_data.ndim)
+      ],
       vmin=vmin,
       vmax=vmax,
       cmap_type=colormap_type,
@@ -1109,14 +1269,11 @@ def render_array(
   return ArrayvizRendering(html_src)
 
 
-def _render_sharding(
-    array_shape: tuple[int, ...],
-    shard_shape: tuple[int, ...],
-    device_indices_map: Mapping[Any, tuple[slice, ...]],
-    rows: list[int | named_axes.AxisName] | None = None,
-    columns: list[int | named_axes.AxisName] | None = None,
-    name_to_data_axis: dict[named_axes.AxisName, int] | None = None,
-    position_to_data_axis: tuple[int, ...] | None = None,
+def render_sharding_info(
+    array_axis_info: tuple[AxisInfo, ...],
+    sharding_info: ndarray_adapters.ShardingInfo,
+    rows: Sequence[int | AxisName] = (),
+    columns: Sequence[int | AxisName] = (),
 ) -> ArrayvizRendering:
   """Renders the sharding of an array.
 
@@ -1125,49 +1282,57 @@ def _render_sharding(
   given shape and sharding.
 
   Args:
-    array_shape: Shape of the sharded array.
-    shard_shape: Shape of each array shard.
-    device_indices_map: Map from devices to tuples of slices into the array,
-      identifying which parts of the array it corresponds to. Usually obtained
-      from a JAX sharding.
+    array_axis_info: Axis info for each axis of the array data.
+    sharding_info: Sharding info for the array, as produced by a NDArrayAdapter.
     rows: Optional explicit ordering of rows in the visualization.
     columns: Optional explicit ordering of columns in the visualization.
-    name_to_data_axis: Optional mapping from named axes to their axis in the
-      data array.
-    position_to_data_axis: Optional mapping from virtual positional axes to
-      their axis in the data array.
 
   Returns:
     A rendering of the sharding, which re-uses the digitbox rendering mode to
     render sets of devices.
   """
-  if name_to_data_axis is None and position_to_data_axis is None:
-    name_to_data_axis = {}
-    position_to_data_axis = {i: i for i in range(len(array_shape))}
-  else:
-    assert name_to_data_axis is not None
-    assert position_to_data_axis is not None
-  if rows is None and columns is None:
-    rows, columns = infer_rows_and_columns(
-        {
-            name_or_pos: array_shape[data_axis]
-            for name_or_pos, data_axis in itertools.chain(
-                name_to_data_axis.items(), enumerate(position_to_data_axis)
-            )
-        },
-        tuple(name_to_data_axis.keys())
-        + tuple(range(len(position_to_data_axis))),
-    )
+  data_axis_from_axis_info = {
+      info: axis for axis, info in enumerate(array_axis_info)
+  }
+
+  info_by_name_or_position = {}
+  has_name_only = False
+  positional_count = 0
+  for info in array_axis_info:
+    if isinstance(info, NamedPositionalAxisInfo):
+      info_by_name_or_position[info.axis_name] = info
+      info_by_name_or_position[info.axis_logical_index] = info
+      positional_count += 1
+    elif isinstance(info, PositionalAxisInfo):
+      info_by_name_or_position[info.axis_logical_index] = info
+      positional_count += 1
+    elif isinstance(info, NamedPositionlessAxisInfo):
+      info_by_name_or_position[info.axis_name] = info
+      has_name_only = True
+    else:
+      raise ValueError(f"Unrecognized axis info {type(info)}")
+
+  array_shape = [info.size for info in array_axis_info]
+  shard_shape = sharding_info.shard_shape
   num_shards = np.prod(array_shape) // np.prod(shard_shape)
   # Compute a truncation for visualizing a single shard. Each shard will be
   # shown as a shrunken version of the actual shard dimensions, roughly
   # proportional to the shard sizes.
-  mini_trunc = ndarray_summarization.infer_balanced_truncation(
+  mini_trunc = infer_balanced_truncation(
       shape=array_shape,
       maximum_size=1000,
       cutoff_size_per_axis=10,
       minimum_edge_items=2,
       doubling_bonus=5,
+  )
+  # Infer an axis ordering.
+  known_row_infos = [info_by_name_or_position[spec] for spec in rows]
+  known_column_infos = [info_by_name_or_position[spec] for spec in columns]
+  row_infos, column_infos = infer_rows_and_columns(
+      all_axes=array_axis_info,
+      known_rows=known_row_infos,
+      known_columns=known_column_infos,
+      edge_items_per_axis=mini_trunc,
   )
   # Build an actual matrix to represent each shard, with a size determined by
   # the inferred truncation.
@@ -1183,9 +1348,10 @@ def _render_sharding(
         vec = np.array([True] * candidate + [False] + [True] * candidate)
     shard_mask = shard_mask[..., None] * vec
   # Figure out which device is responsible for each shard.
+  device_indices_map = sharding_info.device_index_to_shard_slices
   device_to_shard_offsets = {}
   shard_offsets_to_devices = collections.defaultdict(list)
-  for device, slices in device_indices_map.items():
+  for device_index, slices in device_indices_map.items():
     shard_offsets = []
     for i, slc in enumerate(slices):
       assert slc.step is None
@@ -1196,14 +1362,14 @@ def _render_sharding(
         assert slc.stop == slc.start + shard_shape[i]
         shard_offsets.append(slc.start // shard_shape[i])
     shard_offsets = tuple(shard_offsets)
-    device_to_shard_offsets[device] = shard_offsets
-    shard_offsets_to_devices[shard_offsets].append(device)
+    device_to_shard_offsets[device_index] = shard_offsets
+    shard_offsets_to_devices[shard_offsets].append(device_index)
   # Figure out what value to show for each shard. This determines the
   # visualization color.
   shard_offset_values = {}
   shard_value_descriptions = {}
   if len(device_indices_map) <= 10 and all(
-      device.id < 10 for device in device_indices_map.keys()
+      device_index < 10 for device_index in device_indices_map.keys()
   ):
     # Map each device to an integer digit 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, and
     # then draw replicas as collections of base-10 digits.
@@ -1215,14 +1381,15 @@ def _render_sharding(
         vis_value = 1234567
       else:
         acc = 0
-        for i, device in enumerate(shard_devices):
-          acc += 10 ** (len(shard_devices) - i - 1) * (device.id + 1)
+        for i, device_index in enumerate(shard_devices):
+          acc += 10 ** (len(shard_devices) - i - 1) * (device_index + 1)
         vis_value = acc
       shard_offset_values[shard_offsets] = vis_value
-      platform = shard_devices[0].platform.upper()
       assert vis_value not in shard_value_descriptions
       shard_value_descriptions[vis_value] = (
-          platform + " " + ",".join(f"{d.id}" for d in shard_devices)
+          sharding_info.device_type
+          + " "
+          + ",".join(f"{d}" for d in shard_devices)
       )
     render_info_message = "Colored by device index."
   elif num_shards < 10:
@@ -1281,36 +1448,47 @@ def _render_sharding(
   data_axis_labels = {}
   formatting_instructions = []
   formatting_instructions.append({"type": "literal", "value": "array"})
-  if name_to_data_axis:
+
+  if has_name_only:
     formatting_instructions.append({"type": "literal", "value": "[{"})
-    for k, (name, data_axis) in enumerate(name_to_data_axis.items()):
-      if k:
+
+    first = True
+    for data_axis, axis_info in enumerate(array_axis_info):
+      if not isinstance(axis_info, NamedPositionlessAxisInfo):
+        continue
+
+      if first:
         formatting_instructions.append(
-            {"type": "literal", "value": f", {repr(name)}:["}
+            {"type": "literal", "value": f"{repr(axis_info.axis_name)}:["}
         )
+        first = False
       else:
         formatting_instructions.append(
-            {"type": "literal", "value": f"{repr(name)}:["}
+            {"type": "literal", "value": f", {repr(axis_info.axis_name)}:["}
         )
+
       formatting_instructions.append(axis_lookups[data_axis])
       formatting_instructions.append({"type": "literal", "value": "]"})
       axshards = array_shape[data_axis] // shard_shape[data_axis]
       data_axis_labels[data_axis] = (
-          f"{str(name)}: {array_shape[data_axis]}/{axshards}"
+          f"{axis_info.axis_name}: {array_shape[data_axis]}/{axshards}"
       )
     formatting_instructions.append({"type": "literal", "value": "}]"})
-  if position_to_data_axis:
+
+  if positional_count:
     formatting_instructions.append({"type": "literal", "value": "["})
-    for k in range(len(position_to_data_axis)):
-      data_axis = position_to_data_axis[k]
-      if k:
+    for logical_index in range(positional_count):
+      axis_info = info_by_name_or_position[logical_index]
+      data_axis = data_axis_from_axis_info[axis_info]
+      if logical_index:
         formatting_instructions.append({"type": "literal", "value": ", "})
       formatting_instructions.append(axis_lookups[data_axis])
       axshards = array_shape[data_axis] // shard_shape[data_axis]
       data_axis_labels[data_axis] = (
-          f"axis {k}: {array_shape[data_axis]}/{axshards}"
+          f"axis {logical_index}: {array_shape[data_axis]}/{axshards}"
       )
     formatting_instructions.append({"type": "literal", "value": "]"})
+
   formatting_instructions.append({"type": "literal", "value": ":\n  "})
   formatting_instructions.append({
       "type": "value_lookup",
@@ -1319,13 +1497,12 @@ def _render_sharding(
   })
   # Build the rendering.
   html_srcs = []
-  to_data_axis = {**dict(enumerate(position_to_data_axis)), **name_to_data_axis}
   html_srcs.append(
       _render_array_to_html(
           array_data=dest,
           valid_mask=destmask,
-          column_axes=[to_data_axis[c] for c in columns],
-          row_axes=[to_data_axis[r] for r in rows],
+          column_axes=[data_axis_from_axis_info[c] for c in column_infos],
+          row_axes=[data_axis_from_axis_info[r] for r in row_infos],
           slider_axes=(),
           axis_labels=[data_axis_labels[i] for i in range(len(array_shape))],
           vmin=0,
@@ -1344,9 +1521,8 @@ def _render_sharding(
       shard_offsets_to_devices.items()
   ):
     if i == 0:
-      device = shard_devices[0]
-      html_srcs.append(f"{device.platform.upper()}")
-    label = ",".join(f"{d.id}" for d in shard_devices)
+      html_srcs.append(f"{sharding_info.device_type}")
+    label = ",".join(f"{d}" for d in shard_devices)
     subsrc = integer_digitbox(
         shard_offset_values[shard_offsets],
         label_bottom="",
@@ -1357,9 +1533,9 @@ def _render_sharding(
 
 
 def render_array_sharding(
-    array: jax.Array | named_axes.NamedArray,
-    rows: list[int | named_axes.AxisName] | None = None,
-    columns: list[int | named_axes.AxisName] | None = None,
+    array: ArrayInRegistry,
+    rows: Sequence[int | AxisName] = (),
+    columns: Sequence[int | AxisName] = (),
 ) -> ArrayvizRendering:
   """Renders the sharding of an array.
 
@@ -1371,79 +1547,30 @@ def render_array_sharding(
   Returns:
     A rendering of that array's sharding.
   """
-  # Wrap as named arrays if needed, for consistency of the following steps.
-  if not isinstance(array, named_axes.NamedArrayBase):
-    if not isinstance(array, jax.Array):
-      raise ValueError(
-          "render_array_sharding can only be used on jax.Arrays and"
-          " pz.nx.NamedArray / NamedArrayView."
-      )
-    array = named_axes.wrap(array)
-  array.check_valid()
-  array = array.as_namedarrayview()
-  assert array.data_array.shape == array.data_shape
-  if not hasattr(array.data_array, "sharding"):
-    raise ValueError(
-        "Provided array does not have a sharding! Is this a tracer?"
-    )
-  sharding = array.data_array.sharding
-
-  return _render_sharding(
-      array_shape=array.data_shape,
-      shard_shape=sharding.shard_shape(array.data_shape),
-      device_indices_map=sharding.devices_indices_map(array.data_shape),
-      name_to_data_axis=array.data_axis_for_name,
-      position_to_data_axis=array.data_axis_for_logical_axis,
-      rows=rows,
-      columns=columns,
+  # Retrieve the adapter for this array, which we will use to construct
+  # the rendering.
+  adapter = type_registries.lookup_by_mro(
+      type_registries.NDARRAY_ADAPTER_REGISTRY, type(array)
   )
-
-
-def render_sharded_shape(
-    sharding: jax.sharding.Sharding,
-    shape_or_namedarray_struct: (
-        jax.ShapeDtypeStruct | named_axes.NamedArrayBase | tuple[int, ...] | Any
-    ),
-    rows: list[int | named_axes.AxisName] | None = None,
-    columns: list[int | named_axes.AxisName] | None = None,
-) -> ArrayvizRendering:
-  """Renders the sharding an array would have, based on its shape.
-
-  Args:
-    sharding: A sharding to visualize.
-    shape_or_namedarray_struct: Either an arbitrary object with a ``.shape``
-      attribute, a tuple of integers, or a NamedArray wrapping a
-      `jax.lax.ShapeDtypeStruct`.
-    rows: Optional explicit ordering of axes for the visualization rows.
-    columns: Optional explicit ordering of axes for the visualization columns.
-
-  Returns:
-    A rendering of the result of sharding an array with this shape using the
-    given sharding.
-  """
-  if isinstance(shape_or_namedarray_struct, tuple):
-    shape_or_namedarray_struct = jax.ShapeDtypeStruct(
-        shape=shape_or_namedarray_struct, dtype=jnp.float32
-    )
-  elif not isinstance(shape_or_namedarray_struct, named_axes.NamedArrayBase):
-    shape_or_namedarray_struct = jax.ShapeDtypeStruct(
-        shape=shape_or_namedarray_struct.shape, dtype=jnp.float32
+  if adapter is None:
+    raise TypeError(
+        "Cannot render sharding for array with unrecognized type"
+        f" {type(array)} (not found in array adapter registry)"
     )
 
-  def _traced_fixup(array):
-    if not isinstance(array, named_axes.NamedArrayBase):
-      array = named_axes.wrap(array)
-    array.check_valid()
-    return array.as_namedarrayview()
+  # Extract information about axis names, indices, and sizes, along with the
+  # sharding info.
+  array_axis_info = adapter.get_axis_info_for_array_data(array)
+  sharding_info = adapter.get_sharding_info_for_array_data(array)
+  if sharding_info is None:
+    raise ValueError(
+        "Cannot render sharding for array without sharding info (not provided"
+        f" by array adapter for {type(array)})."
+    )
 
-  view = jax.eval_shape(_traced_fixup, shape_or_namedarray_struct)
-  assert view.data_array.shape == view.data_shape
-  return _render_sharding(
-      array_shape=view.data_shape,
-      shard_shape=sharding.shard_shape(view.data_shape),
-      device_indices_map=sharding.devices_indices_map(view.data_shape),
-      name_to_data_axis=view.data_axis_for_name,
-      position_to_data_axis=view.data_axis_for_logical_axis,
+  return render_sharding_info(
+      array_axis_info=array_axis_info,
+      sharding_info=sharding_info,
       rows=rows,
       columns=columns,
   )

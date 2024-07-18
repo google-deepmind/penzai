@@ -17,9 +17,9 @@
 from __future__ import annotations
 
 import dataclasses
+import sys
 from typing import Any
 
-import jax
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import part_interface
 from penzai.treescope.handlers import builtin_atom_handler
@@ -53,11 +53,13 @@ class NotRoundtrippable:
       cls, obj: Any, repr_override: str | None = None
   ) -> NotRoundtrippable:
     """Constructs a NotRoundtrippable from an object."""
-    if isinstance(obj, jax.Array) and not isinstance(obj, jax.core.Tracer):
-      # Don't output the internal implementation type.
-      ty = jax.Array
-    else:
-      ty = type(obj)
+    ty = type(obj)
+    # Hide implementation details of JAX arrays if JAX is imported.
+    if "jax" in sys.modules:
+      jax = sys.modules["jax"]
+      if isinstance(obj, jax.Array) and not isinstance(obj, jax.core.Tracer):
+        # Don't output the internal implementation type.
+        ty = jax.Array
     if repr_override is None:
       repr_value = repr(obj)
     else:

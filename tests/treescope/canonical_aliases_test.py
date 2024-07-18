@@ -22,14 +22,15 @@ import jax
 import numpy
 import penzai.core.named_axes
 import penzai.core.struct
-from tests import fixtures as fixture_parent
-from tests.fixtures import treescope_examples_fixture as fixture_lib
+from tests.treescope import fixtures as fixture_parent
+from tests.treescope.fixtures import treescope_examples_fixture as fixture_lib
 from penzai.treescope import canonical_aliases
+from penzai.treescope import type_registries
 
 
 def fresh_canonical_aliases():
   return canonical_aliases._alias_environment.set_scoped(
-      canonical_aliases.CanonicalAliasEnvironment({}, [])
+      canonical_aliases.CanonicalAliasEnvironment({})
   )
 
 
@@ -420,7 +421,7 @@ class TreescopeCanonicalAliasesTest(parameterized.TestCase):
       ),
   )
   def test_default_canonical_aliases(self, target, alias_string):
-    canonical_aliases.update_lazy_aliases()
+    type_registries.update_registries_for_imports()
     self.assertEqual(str(canonical_aliases.lookup_alias(target)), alias_string)
 
 

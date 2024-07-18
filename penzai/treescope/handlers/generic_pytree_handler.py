@@ -14,9 +14,9 @@
 
 """Pretty-print handlers for generic pytrees."""
 
+import sys
 from typing import Any
 
-import jax
 from penzai.treescope import renderer
 from penzai.treescope.foldable_representation import basic_parts
 from penzai.treescope.foldable_representation import common_structures
@@ -35,6 +35,12 @@ def handle_arbitrary_pytrees(
     | type(NotImplemented)
 ):
   """Generic foldable fallback for an unrecognized pytree type."""
+  if "jax" not in sys.modules:
+    # JAX isn't imported, so we can't check the JAX pytree registry.
+    return NotImplemented
+
+  jax = sys.modules["jax"]
+
   # Is this a pytree?
   paths_and_subtrees, treedef = jax.tree_util.tree_flatten_with_path(
       node, is_leaf=lambda subtree: subtree is not node
