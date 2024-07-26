@@ -27,7 +27,7 @@ class PartitioningTest(absltest.TestCase):
         "c": {"c1": 5, "c2": 6},
     }
     selection = pz.select(my_object).at(
-        lambda root: (root["a"], root["b"]["b1"])
+        lambda root: (root["a"], root["b"]["b1"]), multiple=True
     )
 
     with self.subTest("at_selected"):

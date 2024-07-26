@@ -313,7 +313,7 @@ class TreescopeRendererTest(parameterized.TestCase):
             {"value": fixture_lib.StructWithOneChild(13)},
             {"value": 3},
         ],
-    }).at(lambda root: (root["b"], root["c"][1]["value"].foo))
+    }).at(lambda root: (root["b"], root["c"][1]["value"].foo), multiple=True)
 
     with self.subTest("visible_selection"):
       rendered_ir = selection.__treescope_root_repr__()

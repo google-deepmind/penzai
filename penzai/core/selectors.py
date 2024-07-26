@@ -22,8 +22,8 @@ import dataclasses
 import functools
 import typing
 from typing import Any, Callable, Collection, Generic, Iterable, Literal, Mapping, Sequence
+import warnings
 
-import equinox as eqx
 import jax
 import numpy as np
 from penzai.core import partitioning
@@ -142,6 +142,17 @@ class _InProgressSelectionBoundary:
   """
 
   selected: Any
+
+
+@dataclasses.dataclass(frozen=False)
+class _LeafWrapper:
+  """Helper object for tagging a leaf of a PyTree during ``.at(...)``.
+
+  Attributes:
+    wrapped_leaf: The leaf being wrapped.
+  """
+
+  wrapped_leaf: Any
 
 
 def _is_hole_or_quote(subtree: Any) -> bool:
@@ -489,7 +500,8 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
 
   def at(
       self,
-      accessor_fn: Callable[[SelectedSubtree], Any | tuple[Any, ...]],
+      accessor_fn: Callable[[SelectedSubtree], Any | Collection[Any]],
+      multiple: bool | None = None,
   ) -> "Selection":
     """Selects a specific child of each selected node.
 
@@ -510,26 +522,109 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
 
       pz.select(obj).at(lambda x: x.bar[2]["baz"])
 
-    ``Selection.at`` is implemented using `equinox.tree_at`.
-
     Args:
       accessor_fn: A function which takes each element of the current selection
-        and returns a node or tuple of nodes within that selection. This
-        function must be structural; it must depend only on the PyTree structure
-        of its input and not on the actual values of the leaves. See
-        `equinox.tree_at` for the full set of requirements.
+        and returns a single node within that selection (if ``multiple`` is
+        False) or a collection of nodes (if ``multiple`` is True). This function
+        must be structural; it must depend only on the PyTree structure of its
+        input and not on the actual values or Python IDs of the leaves. It will
+        be called with a copy of the object where every PyTree leaf and every
+        empty PyTree node (e.g. an empty tuple or the None singleton) are
+        wrapped with an internal wrapper object.
+      multiple: Whether `accessor_fn` returns a collection of nodes to select,
+        rather than a single node. If `None`, first tries to find it as a single
+        node, and if that fails, tries to find it as a collection of nodes but
+        emits a warning.
 
     Returns:
       A modified selection that selects the specific child of each node in the
-      original selection.
+      original selection (or the set of nodes if ``multiple`` was True).
     """
-    # Use eqx.tree_at on each selected node to identify the subtree to select.
-    add_boundary = functools.partial(
-        eqx.tree_at,
-        accessor_fn,
-        replace_fn=_InProgressSelectionBoundary,
-    )
-    with_boundary = self.apply(add_boundary)
+
+    def _is_leaf_or_childless(node):
+      result = penzai_tree_util.tree_flatten_exactly_one_level(node)
+      if result is None:
+        return True
+      else:
+        children, _ = result
+        return not children
+
+    def _unwrap(l: _LeafWrapper):
+      assert isinstance(l, _LeafWrapper)
+      return l.wrapped_leaf
+
+    # This logic is based on equinox.tree_at, but kept separate to avoid
+    # depending on equinox.
+    def _process_one(node, multiple=multiple):
+      # Make a pytree copy of the node, and wrap the leaves so that they are
+      # unique objects.
+      uniquified_copy = jax.tree_util.tree_map(
+          _LeafWrapper, node, is_leaf=_is_leaf_or_childless
+      )
+      # Run the accessor.
+      needle_or_needles = accessor_fn(uniquified_copy)
+      if multiple:
+        needles = needle_or_needles
+      else:
+        needles = (needle_or_needles,)
+      needle_ids = set(id(x) for x in needles)
+      # Find the needle by Python ID; each needle should only appear once.
+      leaves_or_needles, treedef = jax.tree_util.tree_flatten(
+          uniquified_copy, is_leaf=lambda t: id(t) in needle_ids
+      )
+      new_leaves = []
+      found_ids = set()
+      for leaf_or_needle in leaves_or_needles:
+        if id(leaf_or_needle) in needle_ids:
+          if id(leaf_or_needle) in found_ids:
+            raise ValueError(
+                "accessor_fn returned a value that appeared twice in the input"
+                " tree! This should not happen; Penzai should have ensured each"
+                " value appears only once. Please file an issue! Value was:"
+                f" {leaf_or_needle}"
+            )
+          found_ids.add(id(leaf_or_needle))
+          new_leaves.append(
+              _InProgressSelectionBoundary(
+                  jax.tree_util.tree_map(_unwrap, leaf_or_needle)
+              )
+          )
+        else:
+          new_leaves.append(_unwrap(leaf_or_needle))
+      missing_needles = [
+          needle for needle in needles if id(needle) not in found_ids
+      ]
+      if missing_needles:
+        if multiple is None and isinstance(needle_or_needles, Collection):
+          try:
+            result = _process_one(node, multiple=True)
+          except ValueError:
+            pass
+          else:
+            warnings.warn(
+                "Returning a collection of nodes from the accessor function for"
+                " `Selection.at` without passing `multiple=True` is deprecated."
+                " If you intended to select multiple nodes, please pass"
+                " `multiple=True` to `Selection.at`."
+            )
+            return result
+
+        if multiple:
+          raise ValueError(
+              "accessor_fn returned a value that was not found in the tree! The"
+              " return value must be a collection of PyTree nodes or leaves "
+              f" from the provided argument PyTree. Missing: {missing_needles}"
+          )
+        else:
+          assert len(missing_needles) == 1
+          raise ValueError(
+              "accessor_fn returned a value that was not found in the tree! The"
+              " return value must be a single PyTree node or leaf from the"
+              f" provided argument PyTree. Missing: {missing_needles[0]}"
+          )
+      return treedef.unflatten(new_leaves)
+
+    with_boundary = self.apply(_process_one)
     with _wrap_selection_errors(self):
       return _build_selection_from_boundary(with_boundary)
 

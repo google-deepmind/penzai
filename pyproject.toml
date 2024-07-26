@@ -20,7 +20,6 @@ keywords = []
 # `jaxlib` needed depends on the user's hardware, so we cannot install it here.
 dependencies = [
     "absl-py>=1.4.0",
-    "equinox>=0.11.3",
     "jax>=0.4.23",
     "numpy>=1.25.2",
     "ordered_set>=4.1.0",

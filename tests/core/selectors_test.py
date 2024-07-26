@@ -139,9 +139,10 @@ class SelectorsTest(absltest.TestCase):
     self.assertEqual(
         (
             pz.select(make_example_object())
-            .at(lambda root: (root['c'][0], root['c'][1]))
+            .at(lambda root: (root['c'][0], root['c'][1]), multiple=True)
             .at(lambda subtree: subtree['value'])
-        ).apply(SELECTED_PART),
+            .apply(SELECTED_PART)
+        ),
         {
             'a': 1,
             'b': CustomLeaf(tag=10),
@@ -151,6 +152,67 @@ class SelectorsTest(absltest.TestCase):
                 {'value': 3},
             ],
         },
+    )
+
+  def test_select_at_accessor_deprecated_auto_multiple(self):
+    with self.assertWarns(UserWarning) as cm:
+      self.assertEqual(
+          (
+              pz.select(make_example_object())
+              .at(lambda root: (root['c'][0], root['c'][1]))
+              .apply(SELECTED_PART)
+          ),
+          {
+              'a': 1,
+              'b': CustomLeaf(tag=10),
+              'c': [
+                  SELECTED_PART({'value': CustomLeaf(tag=12)}),
+                  SELECTED_PART({'value': CustomLeaf(tag=13)}),
+                  {'value': 3},
+              ],
+          },
+      )
+    self.assertIn(
+        'Returning a collection of nodes from the accessor function for'
+        ' `Selection.at` without passing `multiple=True` is deprecated.',
+        str(cm.warning),
+    )
+
+  def test_select_at_accessor_fails_not_multiple(self):
+    with self.assertRaisesWithPredicateMatch(
+        ValueError,
+        lambda exc: (
+            'accessor_fn returned a value that was not found in the tree'
+            in str(exc)
+        ),
+    ):
+      _ = (
+          pz.select(make_example_object())
+          .at(lambda root: (root['c'][0], root['c'][1]), multiple=False)
+          .apply(SELECTED_PART)
+      )
+
+  def test_select_at_accessor_can_select_singletons(self):
+    # The singletons None and () have the same ID even when flattened and
+    # unflattened by jax.tree_util, so they need special handling to be able
+    # to select.
+    thing_with_singletons = [None, None, None, None, (), (), (), ()]
+    self.assertEqual(
+        (
+            pz.select(thing_with_singletons)
+            .at(lambda r: (r[1], r[2], r[5], r[7]), multiple=True)
+            .apply(SELECTED_PART)
+        ),
+        [
+            None,
+            SELECTED_PART(None),
+            SELECTED_PART(None),
+            None,
+            (),
+            SELECTED_PART(()),
+            (),
+            SELECTED_PART(()),
+        ],
     )
 
   def test_select_at_instances_of__example_1(self):
