@@ -21,15 +21,15 @@ import dataclasses
 from penzai.core._treescope_handlers import struct_handler
 from penzai.experimental.v2.nn import grouping
 from penzai.experimental.v2.nn import layer
-from penzai.treescope import formatting_util
-from penzai.treescope import renderer
-from penzai.treescope import rendering_parts
+from treescope import formatting_util
+from treescope import renderers
+from treescope import rendering_parts
 
 
 def handle_layer(
     node: layer.Layer,
     path: str | None,
-    subtree_renderer: renderer.TreescopeSubtreeRenderer,
+    subtree_renderer: renderers.TreescopeSubtreeRenderer,
 ) -> (
     rendering_parts.RenderableTreePart
     | rendering_parts.RenderableAndLineAnnotations

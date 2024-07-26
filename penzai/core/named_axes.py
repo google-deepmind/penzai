@@ -1216,7 +1216,7 @@ class NamedArrayBase(abc.ABC):
       yield self[i]
 
   # Rendering
-  def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
+  def __treescope_repr__(self, path: str | None, subtree_renderer: Any):
     """Treescope handler for named arrays."""
     from penzai.core._treescope_handlers import named_axes_handlers  # pylint: disable=g-import-not-at-top
 

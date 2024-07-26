@@ -59,7 +59,7 @@ class Elementwise(layer.Layer):
       return self.fn(value)
 
   def treescope_color(self) -> str:
-    from penzai.treescope import formatting_util  # pylint: disable=g-import-not-at-top
+    from treescope import formatting_util  # pylint: disable=g-import-not-at-top
 
     return formatting_util.color_from_string(repr(self.fn))
 

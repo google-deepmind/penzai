@@ -92,7 +92,7 @@ class SelectionQuote(struct.Struct):
   we never look at those subtrees when rebuilding the tree from a selection.
 
   One situation where selections-of-selections may appear is when using
-  `penzai.treescope` to visualize a `Selection`. To
+  `treescope` to visualize a `Selection`. To
   support even higher levels of nesting, or trees where the user has inserted
   their own `SelectionHole` or ``SelectionQuote`` for some reason, we also
   quote ``SelectionQuote``; it's not clear that there are many uses for this
@@ -1299,7 +1299,7 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
     else:
       return new_selection.deselect()
 
-  def __penzai_root_repr__(self):
+  def __treescope_root_repr__(self):
     """Renders this selection as the root object in a treescope rendering."""
     from penzai.core._treescope_handlers import selection_rendering  # pylint: disable=g-import-not-at-top
 

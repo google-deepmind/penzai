@@ -16,16 +16,11 @@
 
 from absl.testing import absltest
 from absl.testing import parameterized
-import jax.numpy as jnp
 import numpy as np
 from penzai.core import named_axes
-from penzai.treescope import array_autovisualizer
-from penzai.treescope import arrayviz
-from penzai.treescope import autovisualize
-from penzai.treescope import default_renderer
-from penzai.treescope import ndarray_adapters
-from penzai.treescope import type_registries
-import torch
+import treescope
+from treescope import ndarray_adapters
+from treescope import type_registries
 
 
 class NdarrayAdaptersTest(parameterized.TestCase):
@@ -35,7 +30,7 @@ class NdarrayAdaptersTest(parameterized.TestCase):
     type_registries.update_registries_for_imports()
 
   @parameterized.product(
-      array_type=["jax", "torch", "NamedArray", "NamedArrayView"],
+      array_type=["NamedArray", "NamedArrayView"],
       dtype=[np.int32, np.float32, np.bool_],
   )
   def test_adapter_positional_numpy_consistency(self, array_type, dtype):
@@ -49,13 +44,7 @@ class NdarrayAdaptersTest(parameterized.TestCase):
 
     mask_np = (reshaped_arange % 3) != 0
 
-    if array_type == "jax":
-      array = jnp.array(array_np)
-      mask = jnp.array(mask_np)
-    elif array_type == "torch":
-      array = torch.tensor(array_np)
-      mask = torch.tensor(mask_np)
-    elif array_type == "NamedArray":
+    if array_type == "NamedArray":
       array = named_axes.wrap(array_np)
       mask = (
           named_axes.wrap(mask_np.transpose((1, 0)))
@@ -160,11 +149,10 @@ class NdarrayAdaptersTest(parameterized.TestCase):
       with self.subTest("summary_fast" if fast else "summary_slow"):
         summary_info_np = np_adapter.get_array_summary(array_np, fast=True)
         summary_info = cur_adapter.get_array_summary(array, fast=True)
-        if array_type in ("NamedArray", "NamedArrayView"):
-          summary_info_np = (
-              summary_info_np.replace("(19, 23)", "(19, 23 |)")
-              + " (wrapping jax.Array)"
-          )
+        summary_info_np = (
+            summary_info_np.replace("(19, 23)", "(19, 23 |)")
+            + " (wrapping jax.Array)"
+        )
         self.assertEqual(
             summary_info_np.split(" ", 1)[1], summary_info.split(" ", 1)[1]
         )
@@ -201,24 +189,8 @@ class NdarrayAdaptersTest(parameterized.TestCase):
         ),
     )
 
-  def test_pytorch_named_axes_info(self):
-    data = np.arange(19 * 23).reshape((19, 23))
-    array = torch.tensor(data).rename("foo", None)
-    adapter = type_registries.lookup_ndarray_adapter(array)
-    self.assertIsNotNone(adapter)
-    self.assertEqual(
-        adapter.get_axis_info_for_array_data(array),
-        (
-            ndarray_adapters.NamedPositionalAxisInfo(0, "foo", 19),
-            ndarray_adapters.PositionalAxisInfo(1, 23),
-        ),
-    )
-
   @parameterized.product(
       array_type=[
-          "numpy",
-          "jax",
-          "torch",
           "NamedArray:positional",
           "NamedArray:named",
           "NamedArrayView",
@@ -233,13 +205,7 @@ class NdarrayAdaptersTest(parameterized.TestCase):
     else:
       array_np = reshaped_arange.astype(dtype)
 
-    if array_type == "numpy":
-      array = array_np
-    elif array_type == "jax":
-      array = jnp.array(array_np)
-    elif array_type == "torch":
-      array = torch.tensor(array_np)
-    elif array_type == "NamedArray:positional":
+    if array_type == "NamedArray:positional":
       array = named_axes.wrap(array_np)
     elif array_type == "NamedArray:named":
       array = named_axes.wrap(array_np).tag("a", "b")
@@ -251,24 +217,24 @@ class NdarrayAdaptersTest(parameterized.TestCase):
       raise ValueError(f"Unsupported array_type: {array_type}")
 
     with self.subTest("explicit_unmasked"):
-      res = arrayviz.render_array(array)
+      res = treescope.render_array(array)
       self.assertTrue(hasattr(res, "_repr_html_"))
 
     with self.subTest("explicit_masked"):
-      res = arrayviz.render_array(array, valid_mask=array > 100)
+      res = treescope.render_array(array, valid_mask=array > 100)
       self.assertTrue(hasattr(res, "_repr_html_"))
 
     with self.subTest("explicit_masked_truncated"):
-      res = arrayviz.render_array(
+      res = treescope.render_array(
           array, valid_mask=array > 100, truncate=True, maximum_size=100
       )
       self.assertTrue(hasattr(res, "_repr_html_"))
 
     with self.subTest("automatic"):
-      with autovisualize.active_autovisualizer.set_scoped(
-          array_autovisualizer.ArrayAutovisualizer()
+      with treescope.active_autovisualizer.set_scoped(
+          treescope.ArrayAutovisualizer()
       ):
-        res = default_renderer.render_to_html(
+        res = treescope.render_to_html(
             array, ignore_exceptions=False, compressed=False
         )
         self.assertIsInstance(res, str)

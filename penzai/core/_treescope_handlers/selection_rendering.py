@@ -20,12 +20,12 @@ from typing import Any
 
 import jax
 from penzai.core import selectors
-from penzai.treescope import context
-from penzai.treescope import default_renderer
-from penzai.treescope import layout_algorithms
-from penzai.treescope import lowering
-from penzai.treescope import renderer
-from penzai.treescope import rendering_parts
+import treescope
+from treescope import context
+from treescope import layout_algorithms
+from treescope import lowering
+from treescope import renderers
+from treescope import rendering_parts
 
 
 @dataclasses.dataclass
@@ -78,7 +78,7 @@ class SelectionBoundaryLayoutMark:
 def _wrap_selected_nodes(
     node: Any,
     path: str | None,
-    node_renderer: renderer.TreescopeSubtreeRenderer,
+    node_renderer: renderers.TreescopeSubtreeRenderer,
 ) -> (
     rendering_parts.RenderableTreePart
     | rendering_parts.RenderableAndLineAnnotations
@@ -165,7 +165,7 @@ def render_selection_to_foldable_representation(
     A representation of the selection, expanded accordingly.
   """
   # Fetch the default renderer, and add selection-specific handlers.
-  base_renderer = default_renderer.active_renderer.get()
+  base_renderer = treescope.active_renderer.get()
   extended_renderer = base_renderer.extended_with(
       wrapper_hooks=[_wrap_selected_nodes],
   )

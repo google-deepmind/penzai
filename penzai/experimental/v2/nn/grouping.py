@@ -78,7 +78,7 @@ class Sequential(layer_base.Layer):
     return value
 
   def treescope_color(self) -> str | tuple[str, str]:
-    from penzai.treescope import formatting_util  # pylint: disable=g-import-not-at-top
+    from treescope import formatting_util  # pylint: disable=g-import-not-at-top
 
     if type(self) is Sequential:  # pylint: disable=unidiomatic-typecheck
       return "#cdcdcd", "color-mix(in oklab, #cdcdcd 25%, white)"
@@ -146,7 +146,7 @@ class NamedGroup(layer_base.Layer):
     return value
 
   def treescope_color(self) -> str | tuple[str, str]:
-    from penzai.treescope import formatting_util  # pylint: disable=g-import-not-at-top
+    from treescope import formatting_util  # pylint: disable=g-import-not-at-top
 
     accent = formatting_util.color_from_string(self.name)
     return accent, f"color-mix(in oklab, {accent} 25%, white)"
@@ -209,7 +209,7 @@ class CheckedSequential(layer_base.Layer):
     return value
 
   def treescope_color(self) -> str | tuple[str, str]:
-    from penzai.treescope import formatting_util  # pylint: disable=g-import-not-at-top
+    from treescope import formatting_util  # pylint: disable=g-import-not-at-top
 
     if type(self) is CheckedSequential:  # pylint: disable=unidiomatic-typecheck
       return "#cdcdcd"

@@ -35,7 +35,7 @@ import flax
 import flax.typing
 import jax
 from penzai import pz
-from penzai.treescope import formatting_util
+from treescope import formatting_util
 
 
 @pz.pytree_dataclass

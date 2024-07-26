@@ -23,12 +23,12 @@ import jax
 import numpy as np
 from penzai.core import named_axes
 from penzai.core._treescope_handlers import struct_handler
-from penzai.treescope import dtype_util
-from penzai.treescope import lowering
-from penzai.treescope import ndarray_adapters
-from penzai.treescope import renderer
-from penzai.treescope import rendering_parts
-from penzai.treescope.external import jax_support
+from treescope import dtype_util
+from treescope import lowering
+from treescope import ndarray_adapters
+from treescope import renderers
+from treescope import rendering_parts
+from treescope.external import jax_support
 
 
 def named_array_and_contained_type_summary(
@@ -92,7 +92,7 @@ def named_array_and_contained_type_summary(
 def handle_named_arrays(
     node: Any,
     path: str | None,
-    subtree_renderer: renderer.TreescopeSubtreeRenderer,
+    subtree_renderer: renderers.TreescopeSubtreeRenderer,
 ) -> (
     rendering_parts.RenderableTreePart
     | rendering_parts.RenderableAndLineAnnotations

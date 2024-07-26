@@ -16,46 +16,39 @@
 
 # pylint: disable=g-multiple-import,g-importing-member,unused-import
 
-from penzai.treescope.array_autovisualizer import (
+from penzai.treescope._compatibility_setup import (
+    display,
+    register_as_default,
+    basic_interactive_setup,
+)
+from treescope import (
     ArrayAutovisualizer,
-)
-from penzai.treescope.arrayviz import (
-    default_diverging_colormap,
-    default_sequential_colormap,
-    integer_digitbox,
-    render_array,
-    text_on_color,
-    render_array_sharding,
-)
-from penzai.treescope.autovisualize import (
+    active_autovisualizer,
+    active_expansion_strategy,
+    active_renderer,
     Autovisualizer,
     ChildAutovisualizer,
+    default_diverging_colormap,
+    default_magic_autovisualizer,
+    default_sequential_colormap,
+    integer_digitbox,
     IPythonVisualization,
-    CustomTreescopeVisualization,
-    active_autovisualizer,
-)
-from penzai.treescope.default_renderer import (
-    active_renderer,
-    active_expansion_strategy,
-    render_to_text,
+    register_autovisualize_magic,
+    register_context_manager_magic,
+    render_array_sharding,
+    render_array,
     render_to_html,
+    render_to_text,
     using_expansion_strategy,
 )
-from penzai.treescope.figures import (
+from treescope.figures import (
     inline,
     indented,
     with_font_size,
     with_color,
     bolded,
     styled,
-)
-from penzai.treescope.treescope_ipython import (
-    default_magic_autovisualizer,
-    display,
-    register_as_default,
-    register_autovisualize_magic,
-    register_context_manager_magic,
-    basic_interactive_setup,
+    text_on_color,
 )
 
 vocab_autovisualizer = ArrayAutovisualizer.for_tokenizer

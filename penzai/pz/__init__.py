@@ -51,16 +51,18 @@ from penzai.core.syntactic_sugar import (
 from penzai.core.tree_util import (
     pretty_keystr,
 )
-from penzai.treescope.context import (
-    ContextualValue,
+from penzai.treescope._compatibility_setup import (
+    show,
     disable_interactive_context,
     enable_interactive_context,
 )
-from penzai.treescope.dataclass_util import (
+from treescope.context import (
+    ContextualValue,
+)
+from treescope.dataclass_util import (
     dataclass_from_attributes,
     init_takes_fields,
 )
-from penzai.treescope.treescope_ipython import show
 
 from . import de
 from . import nn

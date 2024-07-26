@@ -12,119 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Defines some classes for use in rendering tests.
-
-This is in a separate module so we can test treescope's handling of module
-names during qualified name lookup.
-"""
+"""Defines some classes for use in rendering tests."""
 
 from __future__ import annotations
 
-import dataclasses
-import enum
-import typing
 from typing import Any
 
-import jax
 from penzai import pz
-import torch
-
-
-class MyTestEnum(enum.Enum):
-  FOO = 1
-  BAR = 2
 
 
 @pz.pytree_dataclass
 class StructWithOneChild(pz.Struct):
   foo: Any
-
-
-@dataclasses.dataclass
-class DataclassWithOneChild:
-  foo: Any
-
-
-@dataclasses.dataclass
-class DataclassWithTwoChildren:
-  foo: Any
-  bar: Any
-
-
-@dataclasses.dataclass(frozen=True)
-class EmptyDataclass:
-  pass
-
-
-class SomeNamedtupleClass(typing.NamedTuple):
-  foo: Any
-  bar: Any
-
-
-class SomeOuterClass:
-
-  @dataclasses.dataclass
-  class NestedClass:
-    foo: Any
-
-
-def make_class_with_weird_qualname():
-  @dataclasses.dataclass
-  class ClassDefinedInAFunction:  # pylint: disable=redefined-outer-name
-    foo: Any
-
-  return ClassDefinedInAFunction
-
-
-ClassDefinedInAFunction = make_class_with_weird_qualname()
-
-
-class RedefinedClass:
-  """A class that will later be redefined."""
-
-  pass
-
-
-OriginalRedefinedClass = RedefinedClass
-
-
-class RedefinedClass:  # pylint: disable=function-redefined
-  """The redefined class; no longer the same as `_OriginalRedefinedClass`."""
-
-  pass
-
-
-class _PrivateClass:
-
-  def some_function(self):
-    pass
-
-
-def _private_function():
-  pass
-
-
-class SomeFunctionLikeWrapper:
-  func: Any
-
-  def __init__(self, func):
-    self.func = func
-
-  def __call__(self, *args, **kwargs):
-    return self.func(*args, **kwargs)
-
-  @property
-  def __wrapped__(self):
-    return self.func
-
-
-@SomeFunctionLikeWrapper
-def wrapped_function():
-  pass
-
-
-immutable_constant = (1, 2, 3)
-mutable_constant = [1, 2, 3]
 
 
 @pz.pytree_dataclass
@@ -133,55 +32,6 @@ class ExampleLayer(pz.Layer):
 
   def __call__(self, value: int) -> int:
     return value + self.foo
-
-
-# pytype is confused about the dataclass transform here
-some_callable_block = ExampleLayer(foo=0)  # pytype: disable=wrong-keyword-args
-
-
-@jax.tree_util.register_pytree_with_keys_class
-class UnknownPytreeNode:
-  """A Pytree node treescope doesn't know."""
-
-  def __init__(self, x, y):
-    self.x = x
-    self.y = y
-
-  def __repr__(self):
-    return f"<custom repr for UnknownPytreeNode: x={self.x}, y={self.y}>"
-
-  def tree_flatten_with_keys(self):
-    return (
-        ((jax.tree_util.GetAttrKey("x"), self.x), ("custom_key", self.y)),
-        "example_pytree_aux_data",
-    )
-
-  @classmethod
-  def tree_unflatten(cls, aux_data, children):
-    del aux_data
-    return cls(*children)
-
-
-class UnknownObjectWithBuiltinRepr:
-  pass
-
-
-class UnknownObjectWithOneLineRepr:
-
-  def __repr__(self):
-    return "<custom repr for UnknownObjectWithOneLineRepr>"
-
-
-class UnknownObjectWithMultiLineRepr:
-
-  def __repr__(self):
-    return "<custom repr\n  for\n  UnknownObjectWithMultiLineRepr\n>"
-
-
-class UnknownObjectWithBadMultiLineRepr:
-
-  def __repr__(self):
-    return "Non-idiomatic\nmultiline\nobject"
 
 
 @pz.pytree_dataclass
@@ -197,27 +47,3 @@ class LayerThatHoldsStuff(pz.Layer):
   @pz.checked_layer_call
   def __call__(self, value: int) -> int:
     return value
-
-
-class SomePyTorchModule(torch.nn.Module):
-  """A basic PyTorch module to test rendering."""
-
-  def __init__(self):
-    super().__init__()
-    # Attributes
-    self.attr_one = 123
-    self.attr_two = "abc"
-    # Child modules
-    self.linear = torch.nn.Linear(10, 10)
-    self.mod_list = torch.nn.ModuleList(
-        [torch.nn.LayerNorm(10), torch.nn.SiLU()]
-    )
-    # Parameters
-    self.foo = torch.nn.Parameter(torch.ones(5))
-    # Buffers
-    self.register_buffer("bar", torch.zeros(5))
-
-  @classmethod
-  def build(cls):
-    torch.random.manual_seed(1234)
-    return cls()

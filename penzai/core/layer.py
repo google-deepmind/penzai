@@ -218,7 +218,7 @@ class Layer(struct.Struct, abc.ABC):
             " decorate with `penzai.core.layer.unchecked_layer_call`.)"
         )
 
-  def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
+  def __treescope_repr__(self, path: str | None, subtree_renderer: Any):
     from penzai.core._treescope_handlers import layer_handler  # pylint: disable=g-import-not-at-top
 
     return layer_handler.handle_layers(self, path, subtree_renderer)

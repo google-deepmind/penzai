@@ -679,7 +679,7 @@ class Struct(metaclass=AbstractStructMetaclass):
     """
     # By default, we render structs in color if they define __call__.
     if hasattr(self, "__call__"):
-      from penzai.treescope import formatting_util  # pylint: disable=g-import-not-at-top
+      from treescope import formatting_util  # pylint: disable=g-import-not-at-top
 
       type_string = type(self).__module__ + "." + type(self).__qualname__
       return formatting_util.color_from_string(type_string)
@@ -689,24 +689,24 @@ class Struct(metaclass=AbstractStructMetaclass):
   def __repr__(self):
     """Renders this object with treescope, on a single line."""
     # Defer to Treescope.
-    from penzai.treescope import default_renderer  # pylint: disable=g-import-not-at-top
+    import treescope  # pylint: disable=g-import-not-at-top
 
-    with default_renderer.using_expansion_strategy(max_height=1):
-      return default_renderer.render_to_text(self, ignore_exceptions=True)
+    with treescope.using_expansion_strategy(max_height=1):
+      return treescope.render_to_text(self, ignore_exceptions=True)
 
   def _repr_pretty_(self, p, cycle):
     """Pretty-prints this object for an IPython pretty-printer."""
     del cycle
     # Defer to Treescope.
-    from penzai.treescope import default_renderer  # pylint: disable=g-import-not-at-top
+    import treescope  # pylint: disable=g-import-not-at-top
 
-    rendering = default_renderer.render_to_text(self, ignore_exceptions=True)
+    rendering = treescope.render_to_text(self, ignore_exceptions=True)
     for i, line in enumerate(rendering.split("\n")):
       if i:
         p.break_()
       p.text(line)
 
-  def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
+  def __treescope_repr__(self, path: str | None, subtree_renderer: Any):
     from penzai.core._treescope_handlers import struct_handler  # pylint: disable=g-import-not-at-top
 
     return struct_handler.handle_structs(self, path, subtree_renderer)

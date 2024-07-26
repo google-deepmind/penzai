@@ -24,10 +24,10 @@ from penzai.core import struct
 from penzai.core._treescope_handlers import layer_handler
 from penzai.core._treescope_handlers import struct_handler
 from penzai.data_effects import effect_base
-from penzai.treescope import context
-from penzai.treescope import formatting_util
-from penzai.treescope import renderer
-from penzai.treescope import rendering_parts
+from treescope import context
+from treescope import formatting_util
+from treescope import renderers
+from treescope import rendering_parts
 
 _known_handlers: context.ContextualValue[
     dict[str, tuple[effect_base.EffectHandler, str | None]] | None
@@ -44,7 +44,7 @@ handler was defined.
 def handle_data_effects_objects(
     node: Any,
     path: str | None,
-    subtree_renderer: renderer.TreescopeSubtreeRenderer,
+    subtree_renderer: renderers.TreescopeSubtreeRenderer,
 ) -> (
     rendering_parts.RenderableTreePart
     | rendering_parts.RenderableAndLineAnnotations

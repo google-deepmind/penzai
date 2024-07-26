@@ -21,9 +21,9 @@ from typing import Any
 
 import numpy as np
 from penzai.core import shapecheck
-from penzai.treescope import dtype_util
-from penzai.treescope import renderer
-from penzai.treescope import rendering_parts
+from treescope import dtype_util
+from treescope import renderers
+from treescope import rendering_parts
 
 
 def _wrap_dimvar(msg: str) -> rendering_parts.RenderableTreePart:
@@ -93,7 +93,7 @@ def _arraystructure_summary(
 def handle_arraystructures(
     node: Any,
     path: str | None,
-    subtree_renderer: renderer.TreescopeSubtreeRenderer,
+    subtree_renderer: renderers.TreescopeSubtreeRenderer,
 ) -> (
     rendering_parts.RenderableTreePart
     | rendering_parts.RenderableAndLineAnnotations

@@ -20,10 +20,10 @@ import dataclasses
 from typing import Any, Callable
 
 from penzai.core import struct
-from penzai.treescope import dataclass_util
-from penzai.treescope import formatting_util
-from penzai.treescope import renderer
-from penzai.treescope import rendering_parts
+from treescope import dataclass_util
+from treescope import formatting_util
+from treescope import renderers
+from treescope import rendering_parts
 
 
 def render_struct_constructor(
@@ -100,7 +100,7 @@ def struct_attr_style_fn_for_fields(
 def handle_structs(
     node: Any,
     path: str | None,
-    subtree_renderer: renderer.TreescopeSubtreeRenderer,
+    subtree_renderer: renderers.TreescopeSubtreeRenderer,
 ) -> (
     rendering_parts.RenderableTreePart
     | rendering_parts.RenderableAndLineAnnotations

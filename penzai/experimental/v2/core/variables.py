@@ -524,13 +524,13 @@ class LabeledVariable(AbstractVariable, Generic[T]):
 
   def __repr__(self):
     # Defer to Treescope.
-    from penzai.treescope import default_renderer  # pylint: disable=g-import-not-at-top
+    import treescope  # pylint: disable=g-import-not-at-top
 
-    with default_renderer.using_expansion_strategy(max_height=1):
-      return default_renderer.render_to_text(self, ignore_exceptions=True)
+    with treescope.using_expansion_strategy(max_height=1):
+      return treescope.render_to_text(self, ignore_exceptions=True)
 
-  def __penzai_repr__(self, path: str | None, subtree_renderer: Any):
-    from penzai.treescope import repr_lib  # pylint: disable=g-import-not-at-top
+  def __treescope_repr__(self, path: str | None, subtree_renderer: Any):
+    from treescope import repr_lib  # pylint: disable=g-import-not-at-top
 
     return repr_lib.render_object_constructor(
         type(self),

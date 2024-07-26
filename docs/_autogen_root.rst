@@ -18,13 +18,6 @@
   penzai.example_models
   penzai.toolshed
 
-  penzai.treescope.arrayviz
-  penzai.treescope.autovisualize
-  penzai.treescope.default_renderer
-  penzai.treescope.figures
-  penzai.treescope.repr_lib
-  penzai.treescope.treescope_ipython
-
   penzai.experimental.v2.core
   penzai.experimental.v2.nn
   penzai.experimental.v2.models

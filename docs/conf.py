@@ -35,7 +35,6 @@ import typing
 import penzai.core
 import penzai.data_effects
 import penzai.nn
-import penzai.treescope
 import penzai.pz
 
 import penzai.example_models.simple_mlp
@@ -275,6 +274,7 @@ intersphinx_mapping = {
     'equinox': ('https://docs.kidger.site/equinox/', None),
     'numpy': ('https://numpy.org/doc/stable/', None),
     'python': ('https://docs.python.org/3/', None),
+    'treescope': ('https://treescope.readthedocs.io/en/stable/', None),
 }
 
 source_suffix = ['.rst', '.md', '.ipynb']

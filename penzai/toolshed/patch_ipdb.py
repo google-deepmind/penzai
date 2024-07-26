@@ -25,9 +25,8 @@ IPython magics like ``%debug``. This also has the advantage of automatically
 patching all subclasses of IPython's debugger as well (unless they specifically
 override the displayhook).
 
-Note that this will only use `penzai.treescope` if treescope has been registered
-as the default IPython display hook, using
-`pz.ts.register_as_default()`
+Note that this will only use `treescope` if treescope has been registered
+as the default IPython display hook, using `treescope.register_as_default()`
 """
 
 import IPython.core.debugger

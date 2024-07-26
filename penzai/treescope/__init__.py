@@ -12,38 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Treescope: Penzai's interactive HTML pretty-printer and array visualizer.
+"""Compatibility stub for treescope.
 
-You can configure treescope as the default IPython pretty-printer using ::
+The treescope pretty-printer has moved into a separate module `treescope`.
+This module contains compatibility stubs for the previously-stable parts of the
+extension API, which are still available in the `penzai.treescope` namespace.
 
-  pz.ts.basic_interactive_setup()
-
-or, for more control: ::
-
-  pz.ts.register_as_default()
-  pz.ts.register_autovisualize_magic()
-  pz.enable_interactive_context()
-  pz.ts.active_autovisualizer.set_interactive(pz.ts.ArrayAutovisualizer())
-
-You can also pretty-print individual values using `pz.show` or `pz.ts.display`.
-See also the :doc:`pz.ts </api/pz.ts>` module for convenient access to the most
-commonly-used treescope functions and classes.
+New code should import from `treescope` directly. This module and its submodules
+will be deprecated and eventually removed.
 """
 
-from . import array_autovisualizer
-from . import arrayviz
-from . import autovisualize
-from . import canonical_aliases
-from . import context
-from . import dataclass_util
-from . import default_renderer
-from . import figures
 from . import formatting_util
-from . import handlers
-from . import lowering
-from . import ndarray_adapters
-from . import renderer
-from . import rendering_parts
 from . import repr_lib
-from . import treescope_ipython
-from . import type_registries

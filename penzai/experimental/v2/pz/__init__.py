@@ -74,16 +74,18 @@ from penzai.experimental.v2.core.variables import (
     unbind_state_vars,
     freeze_state_vars,
 )
-from penzai.treescope.context import (
-    ContextualValue,
+from penzai.treescope._compatibility_setup import (
+    show,
     disable_interactive_context,
     enable_interactive_context,
 )
-from penzai.treescope.dataclass_util import (
+from treescope.context import (
+    ContextualValue,
+)
+from treescope.dataclass_util import (
     dataclass_from_attributes,
     init_takes_fields,
 )
-from penzai.treescope.treescope_ipython import show
 
 from . import nn
 from penzai.pz import ts  # pylint: disable=g-bad-import-order

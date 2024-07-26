@@ -15,8 +15,8 @@
 
 from typing import Any, Mapping
 
-from penzai.treescope import canonical_aliases
 from sphinx import application
+from treescope import canonical_aliases
 
 
 def substitute_pz_in_autodoc_docstring(app, what, name, obj, options, lines):

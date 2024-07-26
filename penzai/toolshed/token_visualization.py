@@ -23,7 +23,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from penzai import pz
-from penzai.treescope import figures
+from treescope import figures
 
 # pylint: disable=invalid-name
 
@@ -138,10 +138,7 @@ def show_token_array(
           piece = pz.ts.with_color(piece, "orange")
       subparts.append(
           pz.ts.inline(
-              pz.ts.integer_digitbox(tok, label_bottom=""),
-              pz.ts.with_color(
-                  pz.ts.with_font_size(f" {tok}", "0.5em"), "gray"
-              ),
+              pz.ts.integer_digitbox(tok, label=f"{tok}"),
               " ",
               piece,
               wrap=False,

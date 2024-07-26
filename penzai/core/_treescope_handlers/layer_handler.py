@@ -25,12 +25,12 @@ from penzai.core import shapecheck
 from penzai.core._treescope_handlers import struct_handler
 from penzai.data_effects import effect_base
 from penzai.nn import grouping
-from penzai.treescope import context
-from penzai.treescope import formatting_util
-from penzai.treescope import handlers
-from penzai.treescope import layout_algorithms
-from penzai.treescope import renderer
-from penzai.treescope import rendering_parts
+from treescope import context
+from treescope import formatting_util
+from treescope import handlers
+from treescope import layout_algorithms
+from treescope import renderers
+from treescope import rendering_parts
 
 _already_seen_layer: context.ContextualValue[bool] = context.ContextualValue(
     module=__name__, qualname="_already_seen_layer", initial_value=False
@@ -44,7 +44,7 @@ This is used to enable rendering effects only for the outermost layer object.
 def handle_layers(
     node: Any,
     path: str | None,
-    subtree_renderer: renderer.TreescopeSubtreeRenderer,
+    subtree_renderer: renderers.TreescopeSubtreeRenderer,
     obvious_input_output_structure_types: tuple[type[Any], ...] = (
         grouping.CheckStructure,
         grouping.CheckedSequential,

@@ -18,6 +18,29 @@ from absl.testing import absltest
 import jax
 import jax.numpy as jnp
 from penzai import pz
+from penzai.core import tree_util
+
+
+class TreeUtilTest(absltest.TestCase):
+  """Tests for core/tree_util.py."""
+
+  def test_tree_flatten_exactly_one_level_nested_pytree(self):
+    result = tree_util.tree_flatten_exactly_one_level(
+        {"a": [1, 2], "b": [3, 4]}
+    )
+    self.assertIsNotNone(result)
+    keys_and_subtrees, treedef = result
+    self.assertEqual(
+        keys_and_subtrees,
+        [
+            (jax.tree_util.DictKey("a"), [1, 2]),
+            (jax.tree_util.DictKey("b"), [3, 4]),
+        ],
+    )
+    self.assertEqual(treedef.unflatten(["x", "y"]), {"a": "x", "b": "y"})
+
+  def test_tree_flatten_exactly_one_level_leaf(self):
+    self.assertIsNone(tree_util.tree_flatten_exactly_one_level(42))
 
 
 class RandomStreamTest(absltest.TestCase):
