@@ -21,14 +21,128 @@ from typing import Any, Callable
 
 import jax
 from penzai.experimental.v2 import pz
-from penzai.toolshed import sharding_util as sharding_util_v1
 
 PyTreeOfArrays = Any
 PyTreeOfNamedArrays = Any
 PyTreeOfShardings = Any
 
-name_to_name_sharding = sharding_util_v1.name_to_name_sharding
-name_to_name_device_put = sharding_util_v1.name_to_name_device_put
+
+def name_to_name_sharding(
+    tree: PyTreeOfNamedArrays,
+    mesh: jax.sharding.Mesh,
+    axis_name_to_mesh_name: (
+        dict[pz.nx.AxisName, str | tuple[str, ...]] | None
+    ) = None,
+    ignore_unnamed_arrays: bool = False,
+    as_shape_dtype_struct: bool = False,
+) -> PyTreeOfShardings:
+  """Shards a tree of `pz.nx.NamedArray` objects based on their axis names.
+
+  Args:
+    tree: A PyTree of `pz.nx.NamedArray` instances, with the same structure as
+      the tree you want to shard. It is OK for the NamedArray instances to have
+      invalid or missing data arrays; the data is not used.
+    mesh: The `jax.sharding.Mesh` to shard the tree to.
+    axis_name_to_mesh_name: A mapping from array axis names to mesh axis names.
+      If an axis name is not present, that axis will not be sharded. If a mesh
+      axis name is a tuple, the corresponding axis will be sharded to multiple
+      mesh axes. If this dictionary is not provided, it will be inferred as an
+      "identity" mapping, where each axis is sharded to a mesh axis with the
+      same name (if present).
+    ignore_unnamed_arrays: Whether to ignore non-NamedArray leaves. If True, any
+      leaf that is not a NamedArray will be given a ``None`` sharding, usually
+      indicating that JAX should infer a sharding. If False, a ``ValueError``
+      will be raised if any leaf is not a NamedArray.
+    as_shape_dtype_struct: If True, instead of directly returning a PyTree of
+      ``NamedSharding``, return a PyTree of ``jax.ShapeDTypeStruct`` where the
+      ``.sharding`` attribute is the ``NamedSharding``. This can be useful for
+      building inputs to `orbax.checkpoint`, for instance.
+
+  Returns:
+    A PyTree with the same structure as the input tree, but with all
+    `pz.nx.NamedArray` instances replaced with versions that have
+    ``jax.sharding.NamedSharding`` leaves in place of their actual data arrays.
+    This is suitable for passing as the ``in_shardings`` or ``out_shardings``
+    for `jax.jit`, or as the sharding for `jax.device_put`.
+  """
+  if axis_name_to_mesh_name is None:
+    axis_name_to_mesh_name = {name: name for name in mesh.axis_names}
+
+  def sharding_for_leaf(leaf):
+    if isinstance(leaf, pz.nx.NamedArray):
+      pspec_elts = []
+      for axis_name in leaf.named_axes.keys():
+        if axis_name in axis_name_to_mesh_name:
+          pspec_elts.append(axis_name_to_mesh_name[axis_name])
+        else:
+          pspec_elts.append(None)
+      data_array = jax.sharding.NamedSharding(
+          mesh, jax.sharding.PartitionSpec(*pspec_elts)
+      )
+      if as_shape_dtype_struct:
+        data_array = jax.ShapeDtypeStruct(
+            shape=leaf.data_array.shape,
+            dtype=leaf.data_array.dtype,
+            sharding=data_array,
+        )
+      return dataclasses.replace(leaf, data_array=data_array)
+    elif isinstance(leaf, pz.nx.NamedArrayView):
+      pspec_elts = [None for _ in leaf.data_shape]
+      for axis_name, data_axis in leaf.data_axis_for_name.items():
+        if axis_name in axis_name_to_mesh_name:
+          pspec_elts[data_axis] = axis_name_to_mesh_name[axis_name]
+      data_array = jax.sharding.NamedSharding(
+          mesh, jax.sharding.PartitionSpec(*pspec_elts)
+      )
+      if as_shape_dtype_struct:
+        data_array = jax.ShapeDtypeStruct(
+            shape=leaf.data_array.shape,
+            dtype=leaf.data_array.dtype,
+            sharding=data_array,
+        )
+      return dataclasses.replace(leaf, data_array=data_array)
+    elif not ignore_unnamed_arrays:
+      raise ValueError(
+          f"Cannot infer a name-based sharding for non-NamedArray leaf {leaf}."
+          " If this leaf should be given a `None` sharding, set"
+          " `ignore_unnamed_arrays=True`."
+      )
+    elif as_shape_dtype_struct:
+      return jax.ShapeDtypeStruct(
+          shape=leaf.shape, dtype=leaf.dtype, sharding=None
+      )
+    else:
+      return None
+
+  return jax.tree_util.tree_map(
+      sharding_for_leaf, tree, is_leaf=pz.nx.is_namedarray
+  )
+
+
+def name_to_name_device_put(
+    tree: PyTreeOfNamedArrays,
+    mesh: jax.sharding.Mesh,
+    axis_name_to_mesh_name: dict[str, str | tuple[str, ...]] | None = None,
+) -> PyTreeOfNamedArrays:
+  """Shards a tree of `pz.nx.NamedArray` objects based on their axis names.
+
+  Args:
+    tree: A PyTree of NamedArrays.
+    mesh: The Mesh to shard the tree to.
+    axis_name_to_mesh_name: A mapping from array axis names to mesh axis names.
+      If an axis name is not present, that axis will not be sharded. If a mesh
+      axis name is a tuple, the corresponding axis will be sharded to multiple
+      mesh axes. If this dictionary is not provided, it will be inferred as an
+      "identity" mapping, where each axis is sharded to a mesh axis with the
+      same name (if present).
+
+  Returns:
+    A PyTree with the same structure as the input tree, but with all NamedArrays
+    put onto the appropriate devices according to the mesh.
+  """
+  return jax.device_put(
+      tree, name_to_name_sharding(tree, mesh, axis_name_to_mesh_name)
+  )
 
 
 def sharded_init(

@@ -16,19 +16,10 @@
 
 # pylint: disable=g-multiple-import,g-importing-member,unused-import
 
-from penzai.core.layer import (
-    Layer,
-    LayerLike,
-    checked_layer_call,
-    unchecked_layer_call,
-)
 import penzai.core.named_axes as nx
 from penzai.core.partitioning import (
     NotInThisPartition,
     combine,
-)
-from penzai.core.random_stream import (
-    RandomStream,
 )
 from penzai.core.selectors import (
     Selection,
@@ -51,6 +42,38 @@ from penzai.core.syntactic_sugar import (
 from penzai.core.tree_util import (
     pretty_keystr,
 )
+
+from penzai.experimental.v2.core.auto_order_types import (
+    AutoOrderedAcrossTypes,
+)
+from penzai.experimental.v2.core.random_stream import (
+    RandomStream,
+)
+from penzai.experimental.v2.core.variables import (
+    VariableConflictError,
+    UnboundVariableError,
+    VariableLabel,
+    AbstractVariable,
+    AbstractVariableValue,
+    AbstractVariableSlot,
+    unbind_variables,
+    bind_variables,
+    freeze_variables,
+    variable_jit,
+    Parameter,
+    ParameterValue,
+    ParameterSlot,
+    AutoStateVarLabel,
+    ScopedStateVarLabel,
+    scoped_auto_state_var_labels,
+    StateVariable,
+    StateVariableValue,
+    StateVariableSlot,
+    unbind_params,
+    freeze_params,
+    unbind_state_vars,
+    freeze_state_vars,
+)
 from penzai.treescope._compatibility_setup import (
     show,
     disable_interactive_context,
@@ -64,6 +87,5 @@ from treescope.dataclass_util import (
     init_takes_fields,
 )
 
-from . import de
 from . import nn
-from . import ts
+from . import ts  # pylint: disable=g-bad-import-order

@@ -92,7 +92,7 @@ Neural Networks
 :obj:`pz.nn` is an alias namespace for Penzai's declarative neural network
 system, which uses a combinator-based design to expose all of your model's
 operations as nodes in your model PyTree. :obj:`pz.nn` re-exports layers from
-submodules of :obj:`penzai.nn` in a single convenient namespace.
+submodules of :obj:`penzai.deprecated.v1.nn` in a single convenient namespace.
 
 See the documentation for :obj:`pz.nn` to view all of the
 methods and classes accessible through this alias namespace.
@@ -104,7 +104,7 @@ Data Effects
 represents side inputs, side outputs, randomness, and mutable state as typed
 attributes inside your model PyTree, and allows handling them using functional
 effect handlers. :obj:`pz.de` re-exports effect requests and effect handlers
-from submodules of :obj:`penzai.data_effects` in a single convenient namespace.
+from submodules of :obj:`penzai.deprecated.v1.data_effects` in a single convenient namespace.
 
 See the documentation for :obj:`pz.de` to view all of the
 methods and classes accessible through this alias namespace.
@@ -126,7 +126,7 @@ See :obj:`penzai.core.shapecheck` for documentation of all of the methods and
 classes accessible through the `pz.chk` alias.
 
 The following decorators can be used to enable runtime shape-checking on
-:obj:`penzai.core.layer.Layer` (``pz.Layer``) subclasses:
+:obj:`penzai.deprecated.v1.core.layer.Layer` (``pz.Layer``) subclasses:
 
 .. autosummary::
   pz.checked_layer_call

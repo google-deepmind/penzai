@@ -16,33 +16,36 @@
 
 # pylint: disable=g-multiple-import,g-importing-member,unused-import
 
-from penzai.nn.attention import (
-    ApplyAttentionMask,
+from penzai.experimental.v2.nn.attention import (
+    ApplyExplicitAttentionMask,
+    ApplyCausalAttentionMask,
+    ApplyCausalSlidingWindowAttentionMask,
     Attention,
     KVCachingAttention,
 )
-from penzai.nn.basic_ops import (
+from penzai.experimental.v2.nn.basic_ops import (
     CastToDType,
     Elementwise,
     Softmax,
 )
-from penzai.nn.combinators import (
+from penzai.experimental.v2.nn.combinators import (
     Residual,
     BranchAndAddTogether,
     BranchAndMultiplyTogether,
 )
-from penzai.nn.dropout import (
+from penzai.experimental.v2.nn.dropout import (
     DisabledDropout,
     maybe_dropout,
     StochasticDropout,
 )
-from penzai.nn.embeddings import (
+from penzai.experimental.v2.nn.embeddings import (
     EmbeddingTable,
     EmbeddingLookup,
     EmbeddingDecode,
     ApplyRoPE,
+    ApplyRoPEToSubset,
 )
-from penzai.nn.grouping import (
+from penzai.experimental.v2.nn.grouping import (
     CheckedSequential,
     CheckStructure,
     Identity,
@@ -53,9 +56,17 @@ from penzai.nn.grouping import (
     NamedGroup,
     Sequential,
 )
-from penzai.nn.linear_and_affine import (
+from penzai.experimental.v2.nn.layer import (
+    Layer,
+)
+from penzai.experimental.v2.nn.layer_stack import (
+    LayerStackVarBehavior,
+    LayerStackGetAttrKey,
+    LayerStack,
+    layerstack_axes_from_keypath,
+)
+from penzai.experimental.v2.nn.linear_and_affine import (
     AddBias,
-    BiasInitializer,
     ConstantRescale,
     NamedEinsum,
     Affine,
@@ -70,23 +81,13 @@ from penzai.nn.linear_and_affine import (
     constant_initializer,
     zero_initializer,
 )
-from penzai.nn.parameters import (
-    add_parameter_prefix,
-    FrozenParameter,
-    initialize_parameters,
-    SharedParamTag,
-    SharedParameterLookup,
-    mark_shareable,
-    attach_shared_parameters,
-    Parameter,
+from penzai.experimental.v2.nn.parameters import (
     ParameterLike,
-    ShareableUninitializedParameter,
-    SupportsParameterRenaming,
-    UninitializedParameter,
-    UninitializedParameterError,
-    check_no_duplicated_parameters,
+    derive_param_key,
+    make_parameter,
+    assert_no_parameter_slots,
 )
-from penzai.nn.standardization import (
+from penzai.experimental.v2.nn.standardization import (
     LayerNorm,
     Standardize,
     RMSLayerNorm,

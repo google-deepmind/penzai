@@ -14,10 +14,8 @@
 
 """Penzai core types and functions."""
 
-from . import layer
 from . import named_axes
 from . import partitioning
-from . import random_stream
 from . import selectors
 from . import shapecheck
 from . import struct

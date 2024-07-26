@@ -13,9 +13,9 @@
   :recursive:
 
   penzai.core
-  penzai.nn
-  penzai.data_effects
-  penzai.example_models
+  penzai.deprecated.v1.nn
+  penzai.deprecated.v1.data_effects
+  penzai.deprecated.v1.example_models
   penzai.toolshed
 
   penzai.experimental.v2.core

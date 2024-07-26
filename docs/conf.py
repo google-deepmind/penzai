@@ -33,12 +33,12 @@ import sys
 import typing
 
 import penzai.core
-import penzai.data_effects
-import penzai.nn
+import penzai.deprecated.v1.data_effects
+import penzai.deprecated.v1.nn
 import penzai.pz
 
-import penzai.example_models.simple_mlp
-import penzai.example_models.gemma
+import penzai.deprecated.v1.example_models.simple_mlp
+import penzai.deprecated.v1.example_models.gemma
 
 import penzai.toolshed.jit_wrapper
 import penzai.toolshed.lora

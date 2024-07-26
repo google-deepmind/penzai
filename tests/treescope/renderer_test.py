@@ -27,6 +27,7 @@ from penzai import pz
 from penzai.core._treescope_handlers import selection_rendering
 import penzai.core.selectors
 import penzai.core.struct
+from penzai.deprecated.v1 import pz as pz_v1
 from tests.treescope.fixtures import treescope_examples_fixture as fixture_lib
 import treescope
 from treescope import layout_algorithms
@@ -46,7 +47,7 @@ class TreescopeRendererTest(parameterized.TestCase):
 
   @parameterized.named_parameters(
       dict(
-          testcase_name="penzai_layer",
+          testcase_name="deprecated_v1_penzai_layer",
           target=fixture_lib.ExampleLayer(100),
           expected_collapsed="ExampleLayer(foo=100)",
           expected_expanded=textwrap.dedent("""\
@@ -143,17 +144,17 @@ class TreescopeRendererTest(parameterized.TestCase):
           ),
       ),
       dict(
-          testcase_name="layer_annotations",
-          target=pz.nn.Sequential([
-              pz.nn.Identity(),
-              pz.de.WithRandomKeyFromArg.handling(
+          testcase_name="deprecated_v1_layer_annotations",
+          target=pz_v1.nn.Sequential([
+              pz_v1.nn.Identity(),
+              pz_v1.de.WithRandomKeyFromArg.handling(
                   fixture_lib.LayerThatHoldsStuff({
-                      "a": pz.de.RandomRequest(),
-                      "b": pz.de.SideInputRequest(tag="side"),
+                      "a": pz_v1.de.RandomRequest(),
+                      "b": pz_v1.de.SideInputRequest(tag="side"),
                   }),
                   handler_id="foo",
               ),
-              pz.nn.Identity(),
+              pz_v1.nn.Identity(),
           ]),
           expand_depth=5,
           expected_collapsed=(
@@ -203,13 +204,13 @@ class TreescopeRendererTest(parameterized.TestCase):
                 ],
               )"""),
           expected_roundtrip=textwrap.dedent("""\
-              penzai.nn.grouping.Sequential(
+              penzai.deprecated.v1.nn.grouping.Sequential(
                 # #╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
-                # # Unhandled effects: penzai.data_effects.side_input.SideInputEffect
+                # # Unhandled effects: penzai.deprecated.v1.data_effects.side_input.SideInputEffect
                 # #╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
                 sublayers=[
-                  penzai.nn.grouping.Identity(),
-                  penzai.data_effects.random.WithRandomKeyFromArg(
+                  penzai.deprecated.v1.nn.grouping.Identity(),
+                  penzai.deprecated.v1.data_effects.random.WithRandomKeyFromArg(
                     # #╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮
                     # # Input: (
                     #   penzai.core.shapecheck.Wildcard('input to body'),
@@ -232,12 +233,12 @@ class TreescopeRendererTest(parameterized.TestCase):
                       # }
                       # #╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯
                       stuff={
-                        'a': penzai.data_effects.random.HandledRandomRef(handler_id='foo'), # Handled by penzai.data_effects.random.WithRandomKeyFromArg
-                        'b': penzai.data_effects.side_input.SideInputRequest(tag='side'),
+                        'a': penzai.deprecated.v1.data_effects.random.HandledRandomRef(handler_id='foo'), # Handled by penzai.deprecated.v1.data_effects.random.WithRandomKeyFromArg
+                        'b': penzai.deprecated.v1.data_effects.side_input.SideInputRequest(tag='side'),
                       },
                     ),
                   ),
-                  penzai.nn.grouping.Identity(),
+                  penzai.deprecated.v1.nn.grouping.Identity(),
                 ],
               )"""),
       ),

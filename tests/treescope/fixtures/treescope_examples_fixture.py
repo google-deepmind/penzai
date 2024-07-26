@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Any
 
 from penzai import pz
+from penzai.deprecated.v1 import pz as pz_v1
 
 
 @pz.pytree_dataclass
@@ -27,7 +28,7 @@ class StructWithOneChild(pz.Struct):
 
 
 @pz.pytree_dataclass
-class ExampleLayer(pz.Layer):
+class ExampleLayer(pz_v1.Layer):
   foo: int
 
   def __call__(self, value: int) -> int:
@@ -35,7 +36,7 @@ class ExampleLayer(pz.Layer):
 
 
 @pz.pytree_dataclass
-class LayerThatHoldsStuff(pz.Layer):
+class LayerThatHoldsStuff(pz_v1.Layer):
   stuff: Any
 
   def input_structure(self):
@@ -44,6 +45,6 @@ class LayerThatHoldsStuff(pz.Layer):
   def output_structure(self):
     return {"output": pz.chk.ArraySpec(named_shape={"foo": 5})}
 
-  @pz.checked_layer_call
+  @pz_v1.checked_layer_call
   def __call__(self, value: int) -> int:
     return value

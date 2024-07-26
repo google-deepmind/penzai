@@ -52,18 +52,18 @@ useable independently:
 * A declarative combinator-based neural network library, where models are
   represented as easy-to-modify data structures:
 
-  * `penzai.nn` (``pz.nn``): An alternative to other neural network libraries like
+  * `penzai.deprecated.v1.nn` (``pz.nn``): An alternative to other neural network libraries like
     Flax, Haiku, Keras, or Equinox, which exposes the full structure of your model's
     forward pass in the model pytree. This means you can see everything your model
     does by pretty printing it, and inject new runtime logic with `jax.tree_util`.
     Like Equinox, there's no magic: models are just callable pytrees under the
     hood.
 
-  * `penzai.data_effects` (``pz.de``): An opt-in system for side arguments, random
+  * `penzai.deprecated.v1.data_effects` (``pz.de``): An opt-in system for side arguments, random
     numbers, and state variables that is built on pytree traversal and puts you
     in control, without getting in the way of writing or using your model.
 
-  * **(NEW)** `penzai.experimental.v2`: An improved version of `penzai.nn`
+  * **(NEW)** `penzai.experimental.v2`: An improved version of `penzai.deprecated.v1.nn`
     with less boilerplate, including first-class support for mutable state and
     parameter sharing.
 
@@ -110,7 +110,7 @@ and import it using
 ::
 
   import penzai
-  from penzai import pz
+  from penzai.deprecated.v1 import pz
 
 (:obj:`penzai.pz` is an *alias namespace*, which makes it easier to reference
 common Penzai objects.)
@@ -128,7 +128,7 @@ interactive use::
 
 Here's how you could initialize and visualize a simple neural network::
 
-  from penzai.example_models import simple_mlp
+  from penzai.deprecated.v1.example_models import simple_mlp
   mlp = pz.nn.initialize_parameters(
       simple_mlp.MLP.from_config([8, 32, 32, 8]),
       jax.random.key(42),
@@ -190,11 +190,11 @@ models. Afterward, you could:
 
    api/pz
    _autosummary/penzai.core
-   _autosummary/penzai.nn
-   _autosummary/penzai.data_effects
+   _autosummary/penzai.deprecated.v1.nn
+   _autosummary/penzai.deprecated.v1.data_effects
    api/treescope
    _autosummary/penzai.toolshed
-   _autosummary/penzai.example_models
+   _autosummary/penzai.deprecated.v1.example_models
    api/penzai.experimental.v2
 
 
