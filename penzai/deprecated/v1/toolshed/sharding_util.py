@@ -21,7 +21,7 @@ from typing import Any
 
 import jax
 from penzai.deprecated.v1 import pz
-from penzai.experimental.v2.toolshed import sharding_util as sharding_util_v2
+from penzai.toolshed import sharding_util as sharding_util_v2
 
 PyTreeOfArrays = Any
 PyTreeOfNamedArrays = Any

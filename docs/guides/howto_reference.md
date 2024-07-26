@@ -5,7 +5,7 @@ This notebook is a guide to accomplishing a variety of tasks with Penzai, using 
 
 For this guide, we assume you have imported the experimental V2 version of the `pz` alias namespace:
 ```
-from penzai.experimental.v2 import pz
+from penzai import pz
 ```
 
 ## Visualization
@@ -223,7 +223,7 @@ Penzai's Gemma implementation includes a conversion utility that converts the ["
 ```python
 import kagglehub
 import orbax.checkpoint
-from penzai.experimental.v2.models.transformer import variants
+from penzai.models.transformer import variants
 
 weights_dir = kagglehub.model_download('google/gemma/Flax/7b')
 ckpt_path = os.path.join(weights_dir, '7b')
@@ -239,7 +239,7 @@ Penzai also includes re-implementations of the architectures used by [Llama](htt
 
 ```python
 import transformers
-from penzai.experimental.v2.models.transformer import variants
+from penzai.models.transformer import variants
 
 # To load a Llama model:
 hf_model = transformers.LlamaForCausalLM.from_pretrained(...)

@@ -202,8 +202,8 @@ from penzai.deprecated.v1.example_models import simple_mlp
 import penzai.toolshed
 
 # New
-from penzai.experimental.v2 import pz
-from penzai.experimental.v2.models import simple_mlp
+from penzai import pz
+from penzai.models import simple_mlp
 import penzai.experimental.v2.toolshed
 ```
 
@@ -381,7 +381,7 @@ model = gemma.model_core.GemmaTransformer.from_pretrained(flax_params_dict)
 # (model is an instance of GemmaTransformer)
 
 # New
-from penzai.experimental.v2.models.transformer import variants
+from penzai.models.transformer import variants
 model = variants.gemma.gemma_from_pretrained_checkpoint(flax_params_dict)
 # (model is an instance of TransformerLM)
 ```

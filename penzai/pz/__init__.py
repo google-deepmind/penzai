@@ -16,10 +16,16 @@
 
 # pylint: disable=g-multiple-import,g-importing-member,unused-import
 
+from penzai.core.auto_order_types import (
+    AutoOrderedAcrossTypes,
+)
 import penzai.core.named_axes as nx
 from penzai.core.partitioning import (
     NotInThisPartition,
     combine,
+)
+from penzai.core.random_stream import (
+    RandomStream,
 )
 from penzai.core.selectors import (
     Selection,
@@ -42,14 +48,7 @@ from penzai.core.syntactic_sugar import (
 from penzai.core.tree_util import (
     pretty_keystr,
 )
-
-from penzai.experimental.v2.core.auto_order_types import (
-    AutoOrderedAcrossTypes,
-)
-from penzai.experimental.v2.core.random_stream import (
-    RandomStream,
-)
-from penzai.experimental.v2.core.variables import (
+from penzai.core.variables import (
     VariableConflictError,
     UnboundVariableError,
     VariableLabel,

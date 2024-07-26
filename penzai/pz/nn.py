@@ -16,36 +16,36 @@
 
 # pylint: disable=g-multiple-import,g-importing-member,unused-import
 
-from penzai.experimental.v2.nn.attention import (
+from penzai.nn.attention import (
     ApplyExplicitAttentionMask,
     ApplyCausalAttentionMask,
     ApplyCausalSlidingWindowAttentionMask,
     Attention,
     KVCachingAttention,
 )
-from penzai.experimental.v2.nn.basic_ops import (
+from penzai.nn.basic_ops import (
     CastToDType,
     Elementwise,
     Softmax,
 )
-from penzai.experimental.v2.nn.combinators import (
+from penzai.nn.combinators import (
     Residual,
     BranchAndAddTogether,
     BranchAndMultiplyTogether,
 )
-from penzai.experimental.v2.nn.dropout import (
+from penzai.nn.dropout import (
     DisabledDropout,
     maybe_dropout,
     StochasticDropout,
 )
-from penzai.experimental.v2.nn.embeddings import (
+from penzai.nn.embeddings import (
     EmbeddingTable,
     EmbeddingLookup,
     EmbeddingDecode,
     ApplyRoPE,
     ApplyRoPEToSubset,
 )
-from penzai.experimental.v2.nn.grouping import (
+from penzai.nn.grouping import (
     CheckedSequential,
     CheckStructure,
     Identity,
@@ -56,16 +56,16 @@ from penzai.experimental.v2.nn.grouping import (
     NamedGroup,
     Sequential,
 )
-from penzai.experimental.v2.nn.layer import (
+from penzai.nn.layer import (
     Layer,
 )
-from penzai.experimental.v2.nn.layer_stack import (
+from penzai.nn.layer_stack import (
     LayerStackVarBehavior,
     LayerStackGetAttrKey,
     LayerStack,
     layerstack_axes_from_keypath,
 )
-from penzai.experimental.v2.nn.linear_and_affine import (
+from penzai.nn.linear_and_affine import (
     AddBias,
     ConstantRescale,
     NamedEinsum,
@@ -81,13 +81,13 @@ from penzai.experimental.v2.nn.linear_and_affine import (
     constant_initializer,
     zero_initializer,
 )
-from penzai.experimental.v2.nn.parameters import (
+from penzai.nn.parameters import (
     ParameterLike,
     derive_param_key,
     make_parameter,
     assert_no_parameter_slots,
 )
-from penzai.experimental.v2.nn.standardization import (
+from penzai.nn.standardization import (
     LayerNorm,
     Standardize,
     RMSLayerNorm,

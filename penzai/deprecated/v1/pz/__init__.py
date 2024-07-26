@@ -66,4 +66,4 @@ from treescope.dataclass_util import (
 
 from . import de
 from . import nn
-from penzai.experimental.v2.pz import ts  # pylint: disable=g-bad-import-order
+from penzai.pz import ts  # pylint: disable=g-bad-import-order

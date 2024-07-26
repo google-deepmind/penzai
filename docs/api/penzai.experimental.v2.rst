@@ -19,7 +19,7 @@ You can read about the V2 design in the guide :doc:`"How to Think in Penzai (v2 
 
 To use the V2 API, we suggest importing the `pz` alias namespace from `penzai.experimental.v2.pz`: ::
 
-  from penzai.experimental.v2 import pz
+  from penzai import pz
 
 The rest of this page lists the main components used in the V2 API.
 
