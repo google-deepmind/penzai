@@ -120,7 +120,7 @@ def register_as_default(streaming: bool = True, compress_html: bool = True):
   treescope.register_as_default(
       streaming=streaming, compress_html=compress_html
   )
-  treescope.active_renderer.set_interactive(
+  treescope.active_renderer.set_globally(
       _active_renderer_extended_with_penzai_repr()
   )
 
@@ -137,7 +137,7 @@ def basic_interactive_setup(autovisualize_arrays: bool = True):
     autovisualize_arrays: Whether to automatically visualize arrays.
   """
   treescope.basic_interactive_setup(autovisualize_arrays=autovisualize_arrays)
-  treescope.active_renderer.set_interactive(
+  treescope.active_renderer.set_globally(
       _active_renderer_extended_with_penzai_repr()
   )
 

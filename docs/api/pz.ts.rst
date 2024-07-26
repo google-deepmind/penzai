@@ -4,6 +4,14 @@
 .. module:: penzai.pz.ts
 .. currentmodule:: penzai
 
+Treescope, Penzai's interactive pretty-printer, has moved to an independent
+package `treescope`. See the
+`Treescope documentation <https://treescope.readthedocs.io/en/stable/>`_
+for more information.
+
+The alias namespace ``pz.ts`` contains shorthand aliases for commonly-used
+Treescope functions. However, we recommend that new users use `treescope`
+directly.
 
 Using Treescope in IPython Notebooks
 ------------------------------------
@@ -22,7 +30,6 @@ Showing Objects Explicitly
 .. autosummary::
   pz.ts.render_array
   pz.ts.render_array_sharding
-  pz.ts.render_sharded_shape
   pz.ts.integer_digitbox
   pz.ts.text_on_color
   pz.ts.display
@@ -63,7 +70,6 @@ Building Autovisualizers
   pz.ts.Autovisualizer
   pz.ts.ChildAutovisualizer
   pz.ts.IPythonVisualization
-  pz.ts.CustomTreescopeVisualization
   pz.ts.vocab_autovisualizer
   pz.ts.default_magic_autovisualizer
 
@@ -76,10 +82,3 @@ Rendering to Strings
   pz.ts.render_to_text
   pz.ts.render_to_html
 
-
-Utility Types
--------------
-
-.. autosummary::
-
-  pz.ts.NotRoundtrippable

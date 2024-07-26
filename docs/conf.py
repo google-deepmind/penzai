@@ -33,25 +33,36 @@ import sys
 import typing
 
 import penzai.core
-import penzai.deprecated.v1.data_effects
-import penzai.deprecated.v1.nn
 import penzai.pz
 
+import penzai.models.simple_mlp
+import penzai.models.transformer
+
+import penzai.toolshed.auto_nmap
+import penzai.toolshed.basic_training
+import penzai.toolshed.gradient_checkpointing
+import penzai.toolshed.jit_wrapper
+import penzai.toolshed.lora
+import penzai.toolshed.model_rewiring
+import penzai.toolshed.patch_ipdb
+import penzai.toolshed.sharding_util
+import penzai.toolshed.token_visualization
+import penzai.toolshed.unflaxify
+
+import penzai.deprecated.v1.pz
 import penzai.deprecated.v1.example_models.simple_mlp
 import penzai.deprecated.v1.example_models.gemma
 
-import penzai.toolshed.jit_wrapper
-import penzai.toolshed.lora
-import penzai.toolshed.interleave_intermediates
-import penzai.toolshed.sharding_util
-import penzai.toolshed.check_layers_by_tracing
-import penzai.toolshed.isolate_submodel
-import penzai.toolshed.basic_training
-import penzai.toolshed.annotate_shapes
-import penzai.toolshed.model_rewiring
-import penzai.toolshed.token_visualization
-import penzai.toolshed.unflaxify
-import penzai.toolshed.patch_ipdb
+import penzai.deprecated.v1.toolshed.annotate_shapes
+import penzai.deprecated.v1.toolshed.basic_training
+import penzai.deprecated.v1.toolshed.check_layers_by_tracing
+import penzai.deprecated.v1.toolshed.interleave_intermediates
+import penzai.deprecated.v1.toolshed.isolate_submodel
+import penzai.deprecated.v1.toolshed.jit_wrapper
+import penzai.deprecated.v1.toolshed.lora
+import penzai.deprecated.v1.toolshed.model_rewiring
+import penzai.deprecated.v1.toolshed.sharding_util
+import penzai.deprecated.v1.toolshed.unflaxify
 
 from sphinx.util import logging as sphinx_logging
 

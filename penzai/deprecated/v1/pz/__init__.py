@@ -63,6 +63,10 @@ from treescope.dataclass_util import (
     dataclass_from_attributes,
     init_takes_fields,
 )
+from treescope.formatting_util import (
+    oklch_color,
+    color_from_string,
+)
 
 from . import de
 from . import nn

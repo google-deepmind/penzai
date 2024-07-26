@@ -22,8 +22,10 @@ from treescope import canonical_aliases
 def substitute_pz_in_autodoc_docstring(app, what, name, obj, options, lines):
   """Rewrites docstrings for objects defined in `penzai.pz` to add alias links."""
   del app, what, options
-  if name.startswith("penzai.pz") or name.startswith(
-      "penzai.experimental.v2.pz"
+  if (
+      name.startswith("penzai.pz")
+      or name.startswith("penzai.experimental.v2.pz")
+      or name.startswith("penzai.deprecated.v1.pz")
   ):
     if not lines:
       lines.append("")

@@ -13,19 +13,18 @@
   :recursive:
 
   penzai.core
+  penzai.nn
+  penzai.models
+  penzai.toolshed
+
+  penzai.deprecated.v1.core
   penzai.deprecated.v1.nn
   penzai.deprecated.v1.data_effects
   penzai.deprecated.v1.example_models
-  penzai.toolshed
-
-  penzai.experimental.v2.core
-  penzai.experimental.v2.nn
-  penzai.experimental.v2.models
-  penzai.experimental.v2.toolshed
+  penzai.deprecated.v1.toolshed
 
 .. toctree::
   :hidden:
 
   notebooks/induction_heads_2B
-  notebooks/v2_induction_heads_2B
   _include/_glue_figures

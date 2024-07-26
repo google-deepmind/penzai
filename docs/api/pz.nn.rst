@@ -5,25 +5,15 @@
 .. currentmodule:: penzai
 
 
-Parameters
-----------
+Layers and Parameter Utilities
+------------------------------
 
 .. autosummary::
-
-  pz.nn.Parameter
+  pz.nn.Layer
   pz.nn.ParameterLike
-  pz.nn.UninitializedParameter
-  pz.nn.add_parameter_prefix
-  pz.nn.initialize_parameters
-  pz.nn.FrozenParameter
-  pz.nn.mark_shareable
-  pz.nn.ShareableUninitializedParameter
-  pz.nn.attach_shared_parameters
-  pz.nn.SharedParameterLookup
-  pz.nn.SharedParamTag
-  pz.nn.SupportsParameterRenaming
-  pz.nn.check_no_duplicated_parameters
-  pz.nn.UninitializedParameterError
+  pz.nn.derive_param_key
+  pz.nn.make_parameter
+  pz.nn.assert_no_parameter_slots
 
 
 Basic Combinators
@@ -67,7 +57,6 @@ Linear and Affine Layers
   pz.nn.NamedEinsum
   pz.nn.LinearInPlace
   pz.nn.LinearOperatorWeightInitializer
-  pz.nn.BiasInitializer
   pz.nn.contract
   pz.nn.variance_scaling_initializer
   pz.nn.xavier_normal_initializer
@@ -103,8 +92,20 @@ Language Modeling
 .. autosummary::
   pz.nn.Attention
   pz.nn.KVCachingAttention
-  pz.nn.ApplyAttentionMask
+  pz.nn.ApplyExplicitAttentionMask
+  pz.nn.ApplyCausalAttentionMask
+  pz.nn.ApplyCausalSlidingWindowAttentionMask
   pz.nn.EmbeddingTable
   pz.nn.EmbeddingLookup
   pz.nn.EmbeddingDecode
   pz.nn.ApplyRoPE
+
+
+Layer Stacks
+------------
+
+.. autosummary::
+  pz.nn.LayerStack
+  pz.nn.LayerStackVarBehavior
+  pz.nn.layerstack_axes_from_keypath
+  pz.nn.LayerStackGetAttrKey

@@ -3,7 +3,7 @@
 Penzai includes two neural network APIs:
 
 - The initial design (V1), implemented in `penzai.deprecated.v1.nn` and `penzai.deprecated.v1.data_effects` and used in `penzai.deprecated.v1.example_models`.
-- A newer simpified design (V2), implemented in `penzai.experimental.v2`, which changes how parameters, state, and side effects work to simplify the user experience and remove boilerplate.
+- A newer simpified design (V2), now available in `penzai.nn` and used in `penzai.models`, which changes how parameters, state, and side effects work to simplify the user experience and remove boilerplate.
 
 This document explains the major changes in the V2 API, relative to the V1 API. In short:
 
@@ -24,18 +24,18 @@ This document explains the major changes in the V2 API, relative to the V1 API. 
 - The built-in Transformer implementation also supports loading Llama, Mistral, and GPT-NeoX / Pythia models.
   - This implementation is in `penzai.experimental.v2.models.transformer`, and shares the same high-level interface across all transformer variants.
 
-For Penzai release v0.2.0, we are planning to move the V2 API to penzai.deprecated.v1.nn, and deprecate the original system.
-(This will be a **breaking change** to `penzai.deprecated.v1.nn` and Penzai's existing model implementations.)
+With Penzai release v0.2.0, `penzai.nn` now uses the V2 API, and the V1 API has moved to `penzai.deprecated.v1.nn`.
+(This is a **breaking change** to Penzai's existing model implementations.)
 
-This document is intended for users who are already familiar with the old v1 API. If you haven't used the v1 API at all, you may wish to skip this document and instead read ["How to Think in Penzai (v2 API)"](../notebooks/v2_how_to_think_in_penzai.ipynb), which gives a self-contained introduction to the new system.
+This document is intended for users who are already familiar with the old v1 API. If you haven't used the v1 API at all, you may wish to skip this document and instead read ["How to Think in Penzai"](../notebooks/how_to_think_in_penzai.ipynb), which gives a self-contained introduction to the new system.
 
 ## Background
 
-In the original design, Penzai represents models as PyTrees of arrays, inspired by Equinox. This simplifies the process of passing them through JAX transformations, since JAX already understands how to traverse PyTrees and their data. In particular, Penzai models can currently be passed through JAX transformations at the top level.
+In the original design, Penzai represented models as PyTrees of arrays, inspired by Equinox. This simplified the process of passing them through JAX transformations, since JAX already understands how to traverse PyTrees and their data. In particular, Penzai models could be passed through JAX transformations at the top level.
 
 However, there are some features which are difficult to express in an immutable PyTree. For instance, we may want to use the same parameter value in multiple layers (shared parameters), or collect mutable state. Penzai has a system, `penzai.deprecated.v1.data_effects`, designed to support this, which works by temporarily replacing certain sentinel nodes in the PyTree structure (effect references) with mutable Python objects (effect implementations).
 
-To preserve a "functional" top-level interface, Penzai currently requires invariants to be maintained across models that use these features:
+To preserve a "functional" top-level interface, Penzai previously required invariants to be maintained across models that use these features:
 - All effects must be children of a handler block, which "handles" them.
   - This handler block is responsible for replacing the effect references with the mutable Python implementations.
 - Every parameter must appear in the model tree exactly once.
@@ -53,7 +53,7 @@ While this design simplifies passing Penzai models through JAX transformations, 
   - For instance, there is no current way to support wrapping a single block in `jax.jit` or `jax.remat`, because that block may have effects in it due to some outer handler.
   - This is a blocker for supporting more general and powerful transformations inside Penzai models.
 
-## Planned Changes
+## Changes
 
 ### Parameters and state variables becoming mutable, shareable variable objects
 
@@ -171,7 +171,7 @@ To share parameters between layers, the same layer can simply be used twice. Thi
 
 ### Simpler side inputs as keyword arguments
 
-Some Penzai layers need access to "side inputs" that do not come directly from their previous layer (e.g. the `ApplyAttentionMask` layer needs to know what attention mask to use). In the v1 API, this is possible using the side input effect in `penzai.deprecated.v1.data_effects`, but this requires a fair amount of boilerplate to use. Much of this boilerplate involves handler IDs and bound effect references, which are used to ensure that there are no conflicts between different inputs.
+Some Penzai layers need access to "side inputs" that do not come directly from their previous layer (e.g. the `ApplyAttentionMask` layer needs to know what attention mask to use). In the v1 API, this was possible using the side input effect in `penzai.deprecated.v1.data_effects`, but this requires a fair amount of boilerplate to use. Much of this boilerplate involves handler IDs and bound effect references, which are used to ensure that there are no conflicts between different inputs.
 
 The v2 API replaces this with a simpler keyword-argument system. The signature of `Layer` is now
 
@@ -184,36 +184,27 @@ class Layer(pz.Struct, abc.ABC):
 where `**side_inputs` is a collection of arbitrary side inputs. Importantly, each `Layer` should ignore all side inputs it does not recognize. Combinator layers like `Sequential` can then simply forward all side inputs to all of their children.
 
 
-### Deprecation of `penzai.deprecated.v1.data_effects`
+### Deprecation of `data_effects`
 
-In the v2 API, the functionality originally provided by `data_effects` will instead be enabled by variables, keyword argument side inputs, or a combination of these. Given this, the original `data_effects` system will be deprecated and no longer recommended for use.
+In the v2 API, the functionality originally provided by `data_effects` is instead enabled by variables, keyword argument side inputs, or a combination of these. Given this, the original `data_effects` system is deprecated and no longer recommended for use.
 
 
 ## Migration Guide
 
 ### Imports
 
-To start using the v2 API right now, you can change your imports to refer to `penzai.experimental.v2`:
+The V2 API has been moved to the top-level namespace, which means that importing from `penzai.nn` (or using the `penzai.pz` aliases) will refer to the new V2 API components. To simplify migration, the original versions can still be accessed through the `penzai.deprecated.v1` namespace:
 
 ```python
-# Old
-from penzai.deprecated.v1 import pz
-from penzai.deprecated.v1.example_models import simple_mlp
-import penzai.toolshed
-
-# New
-from penzai import pz
-from penzai.models import simple_mlp
-import penzai.experimental.v2.toolshed
-```
-
-After the v0.2.0 release, these will be moved out of `penzai.experimental.v2` and into the main `penzai` namespace, with the `penzai.experimental.v2` becoming aliases. To simplify migration in the short term, we also plan to make the original versions accessible through the `penzai.deprecated.v1` namespace:
-
-```python
-# Compatibility imports after v0.2.0
+# Old V1 API:
 from penzai.deprecated.v1 import pz
 from penzai.deprecated.v1.example_models import simple_mlp
 import penzai.deprecated.v1.toolshed
+
+# New V2 API:
+from penzai import pz
+from penzai.models import simple_mlp
+import penzai.toolshed
 ```
 
 
@@ -372,7 +363,7 @@ for k, var in vars.items:
 
 ### Loading pretrained transformers
 
-The V2 API includes a new transformer implementation with support for additional transformer variants. If you are using the current Gemma model, you will need to change how you load it:
+The V2 API includes a new transformer implementation with support for additional transformer variants. If you are using the v1 Gemma model, you will need to change how you load it:
 
 ```python
 # Old

@@ -1,28 +1,29 @@
 
-# How-To Guide - Common Tasks
+# Guide - Common Tasks
 
-This notebook is a guide to accomplishing a variety of tasks with Penzai, using the new (currently experimental) V2 NN API.
+This notebook is a guide to accomplishing a variety of tasks with Penzai, using the new V2 NN API.
 
-For this guide, we assume you have imported the experimental V2 version of the `pz` alias namespace:
+For this guide, we assume you have imported the `pz` alias namespace:
 ```
 from penzai import pz
 ```
 
 ## Visualization
 
-This is a short overview of some of Penzai's visualization tools. For more, see the tutorials on [pretty printing](../notebooks/treescope_prettyprinting.ipynb) and [array visualization](../notebooks/treescope_arrayviz.ipynb).
+The Treescope pretty-printer has moved to a separate package. This is a short overview of how to use it; see the [Treescope documentation](https://treescope.readthedocs.io/en/stable/) for more details.
 
 ### Setting up pretty-printing
-When using Penzai in IPython notebooks, it's recommended to set up Penzai's pretty-printer as the default pretty-printer and turn on array autovisualization. You can do this by running
+When using Penzai in IPython notebooks, it's recommended to set up Treescope as the default pretty-printer and turn on array autovisualization. You can do this by running
 
 ```
-pz.ts.basic_interactive_setup()
+import treescope
+treescope.basic_interactive_setup(autovisualize_arrays=True)
 ```
 
-Alternatively, you can instead pretty-print specific objects using `pz.show(...)`.
+Alternatively, you can instead pretty-print specific objects using `treescope.show(...)`.
 
 ### Manually vizualizing arrays
-Automatic visualization truncates large arrays to avoid showing visualizations that are too large. You can manually render specific arrays using `pz.ts.render_array`, which will show the full array data, and also allows you to customize axis labels or add annotations for particular values.
+Automatic visualization truncates large arrays to avoid showing visualizations that are too large. You can manually render specific arrays using `treescope.render_array`, which will show the full array data, and also allows you to customize axis labels or add annotations for particular values.
 
 ----------------------------
 ## Using Named Axes
@@ -90,7 +91,7 @@ Another option is to call `current_array.order_like(target_array)`, or `pz.nx.or
 
 ----------------------------
 
-## Building Models (V2 API)
+## Building Models
 
 ### Initializing models or layers from scratch
 
@@ -210,11 +211,11 @@ class SimpleLinear(pz.nn.Layer):
     )
 ```
 
-You can read more about Penzai's conventions for layers in "How to Think in Penzai (v2 API)", or see more examples in `penzai.experimental.v2.nn`.
+You can read more about Penzai's conventions for layers in ["How to Think in Penzai"](../notebooks/how_to_think_in_penzai.ipynb), or see more examples in `penzai.nn`.
 
 ----------------------------
 
-## Loading Pretrained Models (V2 API)
+## Loading Pretrained Models
 
 ### Loading Gemma
 
@@ -262,7 +263,7 @@ When working with pretrained models, you may wish to freeze their parameters so 
 
 ----------------------------
 
-## Using Models and Variables (V2 API)
+## Using Models and Variables
 
 ### Running the model forward pass
 
@@ -362,7 +363,7 @@ However, you can also store `RandomStream`s as layer attributes, which will ensu
 
 
 ----------------------------
-## Modifying and Patching Models (V2 API)
+## Modifying and Patching Models
 
 ### Modifying model layers by position or by type
 
@@ -422,11 +423,11 @@ To modify the intermediate, you can instead return a modified value in the `__ca
 
 Note that interventions in Penzai models always involve changing the structure of copies of the model. You can visualize the intervention by pretty-printing the modified model.
 
-(`penzai.experimental.v2.toolshed.save_intermediates` also includes a built-in layer you can use to save intermediates at particular places in a model, if you don't want to implement it from scratch.)
+(`penzai.toolshed.save_intermediates` also includes a built-in layer you can use to save intermediates at particular places in a model, if you don't want to implement it from scratch.)
 
 ### Isolating small components of models
 
-Penzai provides a utility `call_and_extract_submodel` to capture the activations flowing into and out of a particular layer in a model, defined in `penzai.experimental.v2.toolshed.isolate_submodel`. This can help with investigation and debugging of parts of models.
+Penzai provides a utility `call_and_extract_submodel` to capture the activations flowing into and out of a particular layer in a model, defined in `penzai.toolshed.isolate_submodel`. This can help with investigation and debugging of parts of models.
 
 To use it, first select the particular layer you want to extract using `pz.select`. Then, call `call_and_extract_submodel`, passing the model and the input. This will produce an `IsolatedSubmodel` data structure which captures the model, its inputs, its saved outputs, and the states of any `StateVariable`s used by it. These can then be used to re-run the submodel in a controlled setting and debug or intervene on its behavior.
 
@@ -439,7 +440,7 @@ This can be useful for simplifying or ablating model components, or for removing
 
 ### Linearizing layers
 
-It is sometimes useful to replace layers with a linear approximation around a particular input. Penzai includes a utility for this called `LinearizeAndAdjust` in `penzai.experimental.v2.toolshed.model_rewiring`. `LinearizeAndAdjust` can be used like
+It is sometimes useful to replace layers with a linear approximation around a particular input. Penzai includes a utility for this called `LinearizeAndAdjust` in `penzai.toolshed.model_rewiring`. `LinearizeAndAdjust` can be used like
 
 ```
 patched_model = (
@@ -496,7 +497,7 @@ For more control, you can also define your own layer and insert it in place of t
 
 By default, when computing gradients through a model, JAX will save all of the intermediate values produced by the computation. This can sometimes lead to out-of-memory errors.
 
-To prevent this, you can enable gradient checkpointing, which tells JAX to recompute some intermediate values during the backward pass. In Penzai models, you can enable gradient checkpointing using the `Checkpointed` combinator from `penzai.experimental.v2.toolshed.gradient_checkpointing`, which adapts the `jax.checkpoint` function transformation to support Penzai's variables. For instance, to prevent saving intermediate values inside each attention layer, you can use something like
+To prevent this, you can enable gradient checkpointing, which tells JAX to recompute some intermediate values during the backward pass. In Penzai models, you can enable gradient checkpointing using the `Checkpointed` combinator from `penzai.toolshed.gradient_checkpointing`, which adapts the `jax.checkpoint` function transformation to support Penzai's variables. For instance, to prevent saving intermediate values inside each attention layer, you can use something like
 
 ```
 checkpointed_model = (
@@ -510,17 +511,17 @@ checkpointed_model = (
 
 
 ----------------------------
-## Training and Fine-Tuning Models (V2 API)
+## Training and Fine-Tuning Models
 
 ### Training model parameters
 
-Penzai provides a basic `StatefulTrainer` object in `penzai.experimental.v2.toolshed.basic_training`, which is designed to allow you to quickly set up a training loop for a loss function. This trainer object will update the values of `Parameter` variables in the model automatically, similar to e.g. PyTorch optimizers.
+Penzai provides a basic `StatefulTrainer` object in `penzai.toolshed.basic_training`, which is designed to allow you to quickly set up a training loop for a loss function. This trainer object will update the values of `Parameter` variables in the model automatically, similar to e.g. PyTorch optimizers.
 
 Penzai models are compatible with any JAX training loop, however. If you prefer a purely functional training loop to a stateful one, you can use `pz.unbind_params(model, freeze=True)` to obtain a deduplicated PyTree of model parameters, then update these parameters using your preferred JAX PyTree-compatible optimizer or training loop implementation. (This is how `StatefulTrainer` is implemented internally, except that it also updates the value of the original stateful `Parameter` variables after each training iteration.)
 
 ### Low-rank adaptation
 
-To finetune a model using low-rank adaptation, you can use the function `loraify_linears_in_selection` defined in `penzai.experimental.v2.toolshed.lora`. First, you will likely want to freeze the existing parameters, using `pz.freeze_params`. Then, you can use `pz.select` to identify the parts of the model that should be adapted, and then use `loraify_linears_in_selection` to insert new `LowRankAdapter` layers with new parameters.
+To finetune a model using low-rank adaptation, you can use the function `loraify_linears_in_selection` defined in `penzai.toolshed.lora`. First, you will likely want to freeze the existing parameters, using `pz.freeze_params`. Then, you can use `pz.select` to identify the parts of the model that should be adapted, and then use `loraify_linears_in_selection` to insert new `LowRankAdapter` layers with new parameters.
 
 `loraify_linears_in_selection` returns a modified copy of the model, where each of the `pz.nn.Linear` layers in the original model has been replaced with a `lora.LowRankAdapter` with the same signature. As with any other Penzai model transformation, you can visualize the new model structure by pretty-printing the new model copy.
 
