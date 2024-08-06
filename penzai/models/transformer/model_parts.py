@@ -101,6 +101,10 @@ class TransformerFeedForward(pz.nn.Sequential):
 class TransformerBlock(pz.nn.Sequential):
   """Informatively-named Sequential subclass for the main transformer blocks."""
 
+  def treescope_color(self):
+    color = "oklch(0.785 0.103 186.9 / 1.0)"
+    return color, f"color-mix(in oklab, {color} 25%, white)"
+
 
 @pz.pytree_dataclass
 class TransformerLM(pz.nn.Layer):

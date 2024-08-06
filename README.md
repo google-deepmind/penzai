@@ -153,11 +153,10 @@ intermediates = var.value
 ```
 
 To learn more about how to build and manipulate neural networks with Penzai,
-we recommend starting with the "How to Think in Penzai" tutorial ([V1 API version][how_to_think_1], [V2 API version][how_to_think_2]), or one
-of the other tutorials in the [Penzai documentation][].
+we recommend starting with the ["How to Think in Penzai" tutorial][how_to_think]
+or one of the other tutorials in the [Penzai documentation][].
 
-[how_to_think_1]: https://penzai.readthedocs.io/en/stable/notebooks/how_to_think_in_penzai.html
-[how_to_think_2]: https://penzai.readthedocs.io/en/stable/notebooks/how_to_think_in_penzai.html
+[how_to_think]: https://penzai.readthedocs.io/en/stable/notebooks/how_to_think_in_penzai.html
 [Penzai documentation]: https://penzai.readthedocs.io
 
 

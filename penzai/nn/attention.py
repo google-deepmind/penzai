@@ -245,6 +245,9 @@ class Attention(layer_base.Layer):
     output = self.attn_value_to_output((attn, value), **side_inputs)
     return output
 
+  def treescope_color(self):
+    return "oklch(0.785 0.103 38.5 / 1.0)"
+
 
 @struct.pytree_dataclass
 class KVCachingAttention(layer_base.Layer):
