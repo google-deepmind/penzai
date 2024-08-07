@@ -64,6 +64,9 @@ AttentionType = AttentionTypeGlobalCausal | AttentionTypeSlidingWindowCausal
 class LlamalikeTransformerConfig:
   """Common configuration parameters for a "llama-like" transformer.
 
+  This config encompasses the parameters for the Llama, Mistral, and Gemma
+  model families.
+
   These are held in a single configuration object to simplify argument passing
   during construction of the model.
 
@@ -86,6 +89,16 @@ class LlamalikeTransformerConfig:
     attention_type: A single attention type or sequence of per-layer attention
       types. If a sequence, its length should evenly divide the number of
       decoder blocks, and will be repeated to match the number of blocks.
+    use_post_attn_norm: Whether to add a normalization layer after the attention
+      block.
+    use_post_ffw_norm: Whether to add a normalization layer after the
+      feedforward block.
+    final_logit_softcap: If not None, used as the tanh soft cap for the final
+      transformer logits.
+    attn_logits_soft_cap: If not None, used as the tanh soft cap for the
+      attention logits.
+    query_scaling_factor: Scaling factor for the query vectors. If "default",
+      defaults to 1 / sqrt(projection_dim).
     parameter_dtype: Floating dtype to use for all parameters.
     activation_dtype: Floating dtype to use for activations and KV cache tables.
     use_layer_stack: Whether to stack the blocks together using a LayerStack.
@@ -105,6 +118,11 @@ class LlamalikeTransformerConfig:
   attention_type: AttentionType | Sequence[AttentionType] = (
       AttentionTypeGlobalCausal()
   )
+  use_post_attn_norm: bool = False
+  use_post_ffw_norm: bool = False
+  final_logit_softcap: float | None = None
+  attn_logits_soft_cap: float | None = None
+  query_scaling_factor: float | Literal["default"] = "default"
   parameter_dtype: jax.typing.DTypeLike = jnp.float32
   activation_dtype: jax.typing.DTypeLike = jnp.float32
   use_layer_stack: bool = False
@@ -218,6 +236,11 @@ def build_llamalike_attention(
       config
   )
 
+  if config.query_scaling_factor == "default":
+    query_scaling_factor = projection_dim**-0.5
+  else:
+    query_scaling_factor = config.query_scaling_factor
+
   # As used in https://github.com/google-deepmind/gemma.
   # (This exact value is probably not important.)
   masked_out_value = jnp.array(-2.3819763e38, dtype=config.activation_dtype)
@@ -245,6 +268,28 @@ def build_llamalike_attention(
   else:
     raise ValueError(f"Unsupported attention type {attention_type}")
 
+  query_key_to_attn_sublayers = [
+      pz.nn.NamedEinsum(
+          (
+              {"seq": "tq", **qkv_einsum, **q_einsum, "projection": "p"},
+              {"seq": "tkv", **qkv_einsum, "projection": "p"},
+          ),
+          {"seq": "tq", **qkv_einsum, **q_einsum, "kv_seq": "tkv"},
+      ),
+  ]
+  if config.attn_logits_soft_cap is not None:
+    query_key_to_attn_sublayers.append(
+        pz.nn.TanhSoftCap(
+            soft_cap=jnp.array(
+                config.attn_logits_soft_cap, dtype=config.activation_dtype
+            )
+        )
+    )
+  query_key_to_attn_sublayers.extend([
+      attn_masker,
+      pz.nn.Softmax("kv_seq"),
+  ])
+
   return pz.nn.Attention(
       input_to_query=pz.nn.Sequential([
           pz.nn.Linear.from_config(
@@ -264,7 +309,7 @@ def build_llamalike_attention(
               max_wavelength=config.rope_wavelength,
           ),
           pz.nn.ConstantRescale(
-              by=jnp.array(projection_dim**-0.5, dtype=config.activation_dtype)
+              by=jnp.array(query_scaling_factor, dtype=config.activation_dtype)
           ),
       ]),
       input_to_key=pz.nn.Sequential([
@@ -290,17 +335,7 @@ def build_llamalike_attention(
               dtype=config.parameter_dtype,
           ),
       ]),
-      query_key_to_attn=pz.nn.Sequential([
-          pz.nn.NamedEinsum(
-              (
-                  {"seq": "tq", **qkv_einsum, **q_einsum, "projection": "p"},
-                  {"seq": "tkv", **qkv_einsum, "projection": "p"},
-              ),
-              {"seq": "tq", **qkv_einsum, **q_einsum, "kv_seq": "tkv"},
-          ),
-          attn_masker,
-          pz.nn.Softmax("kv_seq"),
-      ]),
+      query_key_to_attn=pz.nn.Sequential(query_key_to_attn_sublayers),
       attn_value_to_output=pz.nn.Sequential([
           pz.nn.NamedEinsum(
               (
@@ -342,39 +377,55 @@ def build_llamalike_block(
   Returns:
     A full transformer block.
   """
+  attn_sequence = [
+      pz.nn.RMSLayerNorm.from_config(
+          name=f"{name}/pre_attention_norm",
+          init_base_rng=init_base_rng,
+          across_axes={"embedding": config.embedding_dim},
+          dtype=config.parameter_dtype,
+          epsilon=config.rms_norm_eps,
+      ),
+      build_llamalike_attention(
+          f"{name}/attention",
+          init_base_rng,
+          config,
+          block_index=block_index,
+      ),
+  ]
+  if config.use_post_attn_norm:
+    attn_sequence.append(
+        pz.nn.RMSLayerNorm.from_config(
+            name=f"{name}/post_attention_norm",
+            init_base_rng=init_base_rng,
+            across_axes={"embedding": config.embedding_dim},
+            dtype=config.parameter_dtype,
+            epsilon=config.rms_norm_eps,
+        )
+    )
+  ffw_sequence = [
+      pz.nn.RMSLayerNorm.from_config(
+          name=f"{name}/pre_ffw_norm",
+          init_base_rng=init_base_rng,
+          across_axes={"embedding": config.embedding_dim},
+          dtype=config.parameter_dtype,
+          epsilon=config.rms_norm_eps,
+      ),
+      build_llamalike_feedforward(f"{name}/mlp", init_base_rng, config),
+  ]
+  if config.use_post_ffw_norm:
+    ffw_sequence.append(
+        pz.nn.RMSLayerNorm.from_config(
+            name=f"{name}/post_ffw_norm",
+            init_base_rng=init_base_rng,
+            across_axes={"embedding": config.embedding_dim},
+            dtype=config.parameter_dtype,
+            epsilon=config.rms_norm_eps,
+        )
+    )
   return model_parts.TransformerBlock(
       sublayers=[
-          pz.nn.Residual(
-              pz.nn.Sequential([
-                  pz.nn.RMSLayerNorm.from_config(
-                      name=f"{name}/pre_attention_norm",
-                      init_base_rng=init_base_rng,
-                      across_axes={"embedding": config.embedding_dim},
-                      dtype=config.parameter_dtype,
-                      epsilon=config.rms_norm_eps,
-                  ),
-                  build_llamalike_attention(
-                      f"{name}/attention",
-                      init_base_rng,
-                      config,
-                      block_index=block_index,
-                  ),
-              ])
-          ),
-          pz.nn.Residual(
-              pz.nn.Sequential([
-                  pz.nn.RMSLayerNorm.from_config(
-                      name=f"{name}/pre_ffw_norm",
-                      init_base_rng=init_base_rng,
-                      across_axes={"embedding": config.embedding_dim},
-                      dtype=config.parameter_dtype,
-                      epsilon=config.rms_norm_eps,
-                  ),
-                  build_llamalike_feedforward(
-                      f"{name}/mlp", init_base_rng, config
-                  ),
-              ])
-          ),
+          pz.nn.Residual(pz.nn.Sequential(attn_sequence)),
+          pz.nn.Residual(pz.nn.Sequential(ffw_sequence)),
       ],
   )
 
@@ -462,6 +513,15 @@ def build_llamalike_transformer(
             init_base_rng=init_base_rng,
             input_axes={"embedding": config.embedding_dim},
             output_axes={"vocabulary": config.vocab_size},
+        )
+    )
+
+  if config.final_logit_softcap:
+    sublayers.append(
+        pz.nn.TanhSoftCap(
+            soft_cap=jnp.array(
+                config.final_logit_softcap, dtype=config.activation_dtype
+            )
         )
     )
 

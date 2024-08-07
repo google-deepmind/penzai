@@ -42,7 +42,7 @@ Basic Operations
   pz.nn.CheckStructure
   pz.nn.Identity
   pz.nn.CastToDType
-
+  pz.nn.TanhSoftCap
 
 Linear and Affine Layers
 ------------------------

@@ -136,7 +136,7 @@ class RMSStandardize(layer_base.Layer):
     @named_axes.nmap
     def _rms_standardize(x):
       var = jnp.mean(jnp.square(x))
-      return x * jnp.reciprocal(jnp.sqrt(var + self.epsilon))
+      return x * jax.lax.rsqrt(var + self.epsilon)
 
     return _rms_standardize(value.untag(*across)).tag(*across)
 

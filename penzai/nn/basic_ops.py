@@ -20,6 +20,7 @@ import dataclasses
 from typing import Any, Callable
 
 import jax
+import jax.numpy as jnp
 from penzai.core import named_axes
 from penzai.core import struct
 from penzai.nn import layer
@@ -86,3 +87,17 @@ class CastToDType(layer.Layer):
 
   def __call__(self, value: Any, **_unused_side_inputs) -> Any:
     return jax.tree_util.tree_map(lambda x: x.astype(self.dtype), value)
+
+
+@struct.pytree_dataclass
+class TanhSoftCap(layer.Layer):
+  """Softly rescales a value to lie within a range using tanh.
+
+  Attributes:
+    soft_cap: The value to rescale to.
+  """
+
+  soft_cap: float | jax.Array
+
+  def __call__(self, value: Any, **_unused_side_inputs) -> Any:
+    return named_axes.nmap(jnp.tanh)(value / self.soft_cap) * self.soft_cap

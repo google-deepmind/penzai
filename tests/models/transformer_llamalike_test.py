@@ -70,6 +70,22 @@ class LlamalikeTransformerTest(parameterized.TestCase):
           activation_dtype=jnp.float32,
           mlp_variant="swiglu",
       ),
+      dict(
+          testcase_name="like_gemma2",
+          num_kv_heads=4,
+          query_head_multiplier=2,
+          parameter_dtype=jnp.bfloat16,
+          activation_dtype=jnp.bfloat16,
+          query_scaling_factor=0.7,
+          attention_type=(
+              llamalike_common.AttentionTypeSlidingWindowCausal(8),
+              llamalike_common.AttentionTypeGlobalCausal(),
+          ),
+          use_post_attn_norm=True,
+          use_post_ffw_norm=True,
+          final_logit_softcap=30.0,
+          attn_logits_soft_cap=50.0,
+      ),
   )
   def test_build_and_run_gemma(
       self,
@@ -78,6 +94,7 @@ class LlamalikeTransformerTest(parameterized.TestCase):
       parameter_dtype,
       activation_dtype,
       mlp_variant="geglu_approx",
+      **extra_kwargs,
   ):
     def run_traced(rng_key):
 
@@ -95,6 +112,7 @@ class LlamalikeTransformerTest(parameterized.TestCase):
               mlp_variant=mlp_variant,
               rope_wavelength=10_000,
               tie_embedder_and_logits=True,
+              **extra_kwargs,
           ),
           init_base_rng=rng_key,
       )
@@ -146,6 +164,22 @@ class LlamalikeTransformerTest(parameterized.TestCase):
           parameter_dtype=jnp.float32,
           activation_dtype=jnp.float32,
       ),
+      dict(
+          testcase_name="like_gemma2",
+          num_kv_heads=4,
+          query_head_multiplier=2,
+          parameter_dtype=jnp.bfloat16,
+          activation_dtype=jnp.bfloat16,
+          query_scaling_factor=0.7,
+          attention_type=(
+              llamalike_common.AttentionTypeSlidingWindowCausal(8),
+              llamalike_common.AttentionTypeGlobalCausal(),
+          ),
+          use_post_attn_norm=True,
+          use_post_ffw_norm=True,
+          final_logit_softcap=30.0,
+          attn_logits_soft_cap=50.0,
+      ),
   )
   def test_build_and_run_sampling_mode(
       self,
@@ -153,6 +187,7 @@ class LlamalikeTransformerTest(parameterized.TestCase):
       query_head_multiplier: int,
       parameter_dtype,
       activation_dtype,
+      **extra_kwargs,
   ):
 
     model = llamalike_common.build_llamalike_transformer(
@@ -169,6 +204,7 @@ class LlamalikeTransformerTest(parameterized.TestCase):
             parameter_dtype=parameter_dtype,
             activation_dtype=activation_dtype,
             tie_embedder_and_logits=True,
+            **extra_kwargs,
         ),
         init_base_rng=jax.random.key(2),
     )

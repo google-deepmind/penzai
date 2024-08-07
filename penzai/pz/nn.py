@@ -27,6 +27,7 @@ from penzai.nn.basic_ops import (
     CastToDType,
     Elementwise,
     Softmax,
+    TanhSoftCap,
 )
 from penzai.nn.combinators import (
     Residual,

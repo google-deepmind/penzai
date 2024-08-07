@@ -217,22 +217,56 @@ You can read more about Penzai's conventions for layers in ["How to Think in Pen
 
 ## Loading Pretrained Models
 
-### Loading Gemma
+### Loading Gemma or Gemma 2
 
-Penzai's Gemma implementation includes a conversion utility that converts the ["Flax" model weights from Kaggle](https://www.kaggle.com/models/google/gemma) into the correct form. You can load it using:
+Penzai's Gemma implementation includes a conversion utility that converts the "Flax" model weights from Kaggle ([Gemma 1](https://www.kaggle.com/models/google/gemma), [Gemma 2](https://www.kaggle.com/models/google/gemma-2)) into the correct form. You can load it using:
 
 ```python
 import kagglehub
 import orbax.checkpoint
 from penzai.models.transformer import variants
 
+# Download Gemma 1 7B:
 weights_dir = kagglehub.model_download('google/gemma/Flax/7b')
 ckpt_path = os.path.join(weights_dir, '7b')
 
+# Load the parameters into Penzai:
 checkpointer = orbax.checkpoint.PyTreeCheckpointer()
 flax_params_dict = checkpointer.restore(ckpt_path)
 model = variants.gemma.gemma_from_pretrained_checkpoint(flax_params_dict)
 ```
+
+To load Gemma 2, you can substitute the corresponding Kaggle model name and checkpoint path. For instance, to load the Gemma 2 9B model, you can use:
+
+```python
+weights_dir = kagglehub.model_download('google/gemma-2/flax/gemma2-9b')
+ckpt_path = os.path.join(weights_dir, 'gemma2_9b_pt')
+```
+
+See the "Model Variations" section on the Kaggle model pages for details about the names and paths for each checkpoint. (You may also need to create a Kaggle account and request access to each model before you can download the checkpoints.)
+
+If you are using multiple accelerator devices (e.g. for a TPU v2 Colab kernel), you may want to shard the parameters over the devices while loading them. To do so, you can pass a sharding specification to `orbax.checkpoint`. For instance, to shard over the last axis of every parameter, you can use
+
+```python
+from jax.experimental import mesh_utils
+
+checkpointer = orbax.checkpoint.PyTreeCheckpointer()
+metadata = checkpointer.metadata(ckpt_path)
+
+n_devices = jax.local_device_count()
+sharding_devices = mesh_utils.create_device_mesh((n_devices,))
+sharding = jax.sharding.PositionalSharding(sharding_devices)
+restore_args = jax.tree_util.tree_map(
+    lambda m: orbax.checkpoint.ArrayRestoreArgs(
+        restore_type=jax.Array,
+        sharding=sharding.reshape((1,) * (len(m.shape) - 1) + (n_devices,))
+    ),
+    metadata,
+)
+flax_params_dict = checkpointer.restore(ckpt_path, restore_args=restore_args)
+```
+
+to load the Flax parameters before converting them into the Penzai model.
 
 ### Loading Llama, Mistral, or GPT-NeoX / Pythia
 
