@@ -159,6 +159,19 @@ or one of the other tutorials in the [Penzai documentation][].
 [how_to_think]: https://penzai.readthedocs.io/en/stable/notebooks/how_to_think_in_penzai.html
 [Penzai documentation]: https://penzai.readthedocs.io
 
+## Citation
+
+If you have found Penzai to be useful for your research, please consider
+citing the following writeup (also avaliable on [arXiv](https://arxiv.org/abs/2408.00211)):
+
+```
+@article{johnson2024penzai,
+    author={Daniel D. Johnson},
+    title={{Penzai} + {Treescope}: A Toolkit for Interpreting, Visualizing, and Editing Models As Data},
+    year={2024},
+    journal={ICML 2024 Workshop on Mechanistic Interpretability}
+}
+```
 
 ---
 

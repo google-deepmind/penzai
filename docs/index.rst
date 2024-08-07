@@ -206,6 +206,22 @@ models. Afterward, you could:
    api/penzai.deprecated.v1
 
 
+Citation
+--------
+
+If you have found Penzai to be useful for your research, please consider
+citing the following writeup (also avaliable on `arXiv <https://arxiv.org/abs/2408.00211>`_):
+
+.. code-block:: none
+
+  @article{johnson2024penzai,
+      author={Daniel D. Johnson},
+      title={{Penzai} + {Treescope}: A Toolkit for Interpreting, Visualizing, and Editing Models As Data},
+      year={2024},
+      journal={ICML 2024 Workshop on Mechanistic Interpretability}
+  }
+
+
 License
 -------
 
