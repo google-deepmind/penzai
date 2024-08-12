@@ -1,7 +1,17 @@
 name: Unittests
 
-# Allow to trigger the workflow manually (e.g. when deps changes)
-on: [push, workflow_dispatch]
+on:
+  # Allow to trigger the workflow manually (e.g. when deps changes)
+  workflow_dispatch:
+  # Run on pushes to main or test branches
+  push:
+    branches:
+      - main
+      - 'test_*'
+  # Run on pull requests to main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   unittest-job:
