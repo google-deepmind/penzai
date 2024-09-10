@@ -120,6 +120,16 @@ class AbstractVariable(abc.ABC):
     """Updates the value of this variable to match a frozen variable."""
     raise NotImplementedError("update must be overridden by subclasses.")
 
+  @typing.final
+  def __get_state_as_jax_pytree__(self) -> AbstractVariableValue:
+    """Mutable variable protocol method, for JAX ecosystem interoperability."""
+    return self.freeze()
+
+  @typing.final
+  def __set_state_from_jax_pytree__(self, value: AbstractVariableValue):
+    """Mutable variable protocol method, for JAX ecosystem interoperability."""
+    return self.update(value)
+
 
 class AbstractVariableValue(struct.Struct, abc.ABC):
   """Base class for all frozen variables."""
@@ -140,6 +150,11 @@ class AbstractVariableValue(struct.Struct, abc.ABC):
     for the variables created by `unfreeze_as_copy`).
     """
     raise NotImplementedError("get_slot must be overridden by subclasses.")
+
+  @typing.final
+  def __jax_pytree_state_to_new_variable__(self):
+    """Mutable variable protocol method, for JAX ecosystem interoperability."""
+    return self.unfreeze_as_copy()
 
 
 class AbstractVariableSlot(struct.Struct, abc.ABC):

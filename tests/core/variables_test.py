@@ -319,6 +319,25 @@ class VariablesTest(parameterized.TestCase):
     ):
       variables.variable_jit(bad)(10)
 
+  def test_variable_protocol_methods(self):
+    var1 = variables.StateVariable(value=1, label="var1")
+    var1_value = var1.__get_state_as_jax_pytree__()
+    self.assertEqual(
+        var1_value,
+        variables.StateVariableValue(value=1, label="var1"),
+    )
+
+    var2 = var1_value.__jax_pytree_state_to_new_variable__()
+    self.assertIsInstance(var2, variables.StateVariable)
+    self.assertEqual(var2.value, 1)
+    self.assertEqual(var2.label, "var1")
+    self.assertIsNot(var1, var2)
+
+    var1.__set_state_from_jax_pytree__(
+        variables.StateVariableValue(value=2, label="var1")
+    )
+    self.assertEqual(var1.value, 2)
+
 
 if __name__ == "__main__":
   absltest.main()
