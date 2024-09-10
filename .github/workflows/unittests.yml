@@ -3,12 +3,11 @@ name: Unittests
 on:
   # Allow to trigger the workflow manually (e.g. when deps changes)
   workflow_dispatch:
-  # Run on pushes to main or test branches
+  # Run on pushes to main
   push:
     branches:
       - main
-      - 'test_*'
-  # Run on pull requests to main
+  # Run on pull requests to main (including test branches)
   pull_request:
     branches:
       - main
@@ -19,7 +18,7 @@ jobs:
     timeout-minutes: 30
 
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
+      group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ github.head_ref || 'none' }}
       cancel-in-progress: true
 
     steps:
