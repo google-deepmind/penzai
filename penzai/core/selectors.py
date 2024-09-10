@@ -1279,22 +1279,26 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
       )
     return self.apply_and_inline(lambda x: (value, x))
 
-  def show_selection(self):
+  def show_selection(self, ignore_exceptions: bool = False):
     """Renders the selection in IPython.
 
     This method is intended to visualize the selection object itself, and
     renders boxes around the selected nodes.
 
     This method should only be used when IPython is available.
+
+    Args:
+      ignore_exceptions: Whether to catch errors during rendering and show a
+        fallback for those subtrees.
     """
     # Import selection_rendering here to avoid a circular import.
     from penzai.core._treescope_handlers import selection_rendering  # pylint: disable=g-import-not-at-top
 
     selection_rendering.display_selection_streaming(
-        self, visible_selection=True
+        self, visible_selection=True, ignore_exceptions=ignore_exceptions
     )
 
-  def show_value(self):
+  def show_value(self, ignore_exceptions: bool = False):
     """Renders the original tree in IPython, expanding up to the selected nodes.
 
     This method is intended to visualize a value but emphasizing the selected
@@ -1302,12 +1306,16 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
     but isn't actually an object we care about.
 
     This method should only be used when IPython is available.
+
+    Args:
+      ignore_exceptions: Whether to catch errors during rendering and show a
+        fallback for those subtrees.
     """
     # Import selection_rendering here to avoid a circular import.
     from penzai.core._treescope_handlers import selection_rendering  # pylint: disable=g-import-not-at-top
 
     selection_rendering.display_selection_streaming(
-        self, visible_selection=False
+        self, visible_selection=False, ignore_exceptions=ignore_exceptions
     )
 
   def assert_count_is(self, count: int) -> Selection:

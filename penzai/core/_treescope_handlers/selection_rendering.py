@@ -309,4 +309,9 @@ def display_selection_streaming(
         visible_selection=visible_selection,
         ignore_exceptions=ignore_exceptions,
     )
-  lowering.display_streaming_as_root(rendered_ir, deferreds, roundtrip=False)
+  lowering.display_streaming_as_root(
+      rendered_ir,
+      deferreds,
+      roundtrip=False,
+      ignore_exceptions=ignore_exceptions,
+  )
