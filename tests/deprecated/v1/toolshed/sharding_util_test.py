@@ -200,7 +200,6 @@ class ShardingUtilTest(absltest.TestCase):
                   data_array=jax.ShapeDtypeStruct(
                       shape=(4, 8, 6),
                       dtype=np.dtype('float32'),
-                      named_shape={},
                       sharding=jax.sharding.NamedSharding(
                           explicit_mesh, P('mesh_axis_1', 'mesh_axis_0', None)
                       ),
@@ -211,7 +210,6 @@ class ShardingUtilTest(absltest.TestCase):
                   data_array=jax.ShapeDtypeStruct(
                       shape=(8,),
                       dtype=np.dtype('float32'),
-                      named_shape={},
                       sharding=jax.sharding.NamedSharding(
                           explicit_mesh, P('mesh_axis_1')
                       ),
@@ -222,7 +220,6 @@ class ShardingUtilTest(absltest.TestCase):
                   data_array=jax.ShapeDtypeStruct(
                       shape=(8, 12),
                       dtype=np.dtype('float32'),
-                      named_shape={},
                       sharding=jax.sharding.NamedSharding(
                           explicit_mesh, P('mesh_axis_0', None)
                       ),
@@ -251,7 +248,6 @@ class ShardingUtilTest(absltest.TestCase):
                   data_array=jax.ShapeDtypeStruct(
                       shape=(4, 8, 6),
                       dtype=np.dtype('float32'),
-                      named_shape={},
                       sharding=jax.sharding.NamedSharding(
                           explicit_mesh, P('mesh_axis_1', 'mesh_axis_0', None)
                       ),
@@ -264,7 +260,6 @@ class ShardingUtilTest(absltest.TestCase):
                   data_array=jax.ShapeDtypeStruct(
                       shape=(8,),
                       dtype=np.dtype('float32'),
-                      named_shape={},
                       sharding=jax.sharding.NamedSharding(
                           explicit_mesh, P('mesh_axis_1')
                       ),
@@ -277,7 +272,6 @@ class ShardingUtilTest(absltest.TestCase):
                   data_array=jax.ShapeDtypeStruct(
                       shape=(8, 12),
                       dtype=np.dtype('float32'),
-                      named_shape={},
                       sharding=jax.sharding.NamedSharding(
                           explicit_mesh, P('mesh_axis_0', None)
                       ),
