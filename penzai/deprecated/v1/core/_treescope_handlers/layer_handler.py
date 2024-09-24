@@ -149,7 +149,7 @@ def handle_layers(
           )
         extra_annotations.append(
             rendering_parts.fold_condition(
-                expanded=rendering_parts.floating_annotation_with_separate_focus(
+                expanded=rendering_parts.floating_annotation_with_separate_focus(  # pylint: disable=line-too-long
                     rendering_parts.in_outlined_box(
                         rendering_parts.comment_color(
                             rendering_parts.siblings(

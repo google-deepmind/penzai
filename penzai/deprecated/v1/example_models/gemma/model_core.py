@@ -111,7 +111,7 @@ class GemmaTransformerConfig:
   activation_dtype: jax.typing.DTypeLike
 
 
-@pz.pytree_dataclass(has_implicitly_inherited_fields=True)
+@pz.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class GemmaFeedForward(pz.nn.Sequential):
   """Implementation of the feed-forward block in Gemma."""
 
@@ -180,7 +180,7 @@ class GemmaFeedForward(pz.nn.Sequential):
     ])
 
 
-@pz.pytree_dataclass(has_implicitly_inherited_fields=True)
+@pz.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class GemmaAttention(pz.nn.Attention):
   """Gemma-specific configuration of the self-attention layer.
 
@@ -297,7 +297,7 @@ class GemmaAttention(pz.nn.Attention):
     )
 
 
-@pz.pytree_dataclass(has_implicitly_inherited_fields=True)
+@pz.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class GemmaTransformerBlock(pz.nn.Sequential):
   """Main decoder block for the Gemma transformer architecture.
 
@@ -441,7 +441,7 @@ class GemmaTransformer(pz.Layer):
     return self.body((inputs.tokens, inputs.positions, inputs.attention_mask))
 
   def input_structure(self) -> pz.chk.StructureAnnotation:
-    return GemmaInputs(
+    return GemmaInputs(  # pytype: disable=wrong-arg-types
         tokens=pz.chk.Wildcard("tokens"),
         positions=pz.chk.Wildcard("positions"),
         attention_mask=pz.chk.Wildcard("attention mask"),
@@ -512,7 +512,7 @@ class GemmaTransformer(pz.Layer):
       ckpt_params: dict[str, Any],
       upcast_activations_to_float32: bool = False,
   ) -> GemmaTransformer:
-    """Constructs a ``GemmaTransformer`` from the official Gemma Flax checkpoint.
+    """Constructs a ``GemmaTransformer`` from an official Gemma Flax checkpoint.
 
     The parameters of the loaded ``GemmaTransformer`` will be close to those in
     the original checkpoint with a few modifications:

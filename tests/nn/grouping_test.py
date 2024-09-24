@@ -49,7 +49,7 @@ class GroupingTest(parameterized.TestCase):
 
   def test_inline_anonymous_sequentials(self):
 
-    @pz.pytree_dataclass(has_implicitly_inherited_fields=True)
+    @pz.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
     class MySequentialSubclass(pz.nn.Sequential):
       pass
 

@@ -99,7 +99,7 @@ def get_effect_color(effect_protocol: type[Any]) -> str:
   """Gets the default color for a given effect (for treescope rendering)."""
   if effect_protocol in _EFFECT_COLORS:
     return _EFFECT_COLORS[effect_protocol]
-  from treescope import formatting_util  # pylint: disable=g-import-not-at-top
+  from treescope import formatting_util  # pylint: disable=import-outside-toplevel
 
   return formatting_util.color_from_string(effect_protocol.__qualname__)
 
@@ -205,7 +205,7 @@ def free_effect_types(model_tree: Any) -> list[type[Any]]:
 
 
 def broken_handler_refs(model_tree: Any) -> list[HandledEffectRef]:
-  """Collects the effect types of each broken `HandledEffectRef` in a (sub)model.
+  """Collects effect types of each broken `HandledEffectRef` in a (sub)model.
 
   A broken handler reference occurs when a model contains a `HandledEffectRef`
   and is then removed from the handler for that ref. This is OK if you are
@@ -390,7 +390,7 @@ class HandledEffectRef(struct.Struct, abc.ABC):
     return get_effect_color(self.effect_protocol())
 
   def __treescope_repr__(self, path: str | None, subtree_renderer: Any):
-    from penzai.deprecated.v1.data_effects import _treescope_handlers  # pylint: disable=g-import-not-at-top
+    from penzai.deprecated.v1.data_effects import _treescope_handlers  # pylint: disable=import-outside-toplevel
 
     return _treescope_handlers.handle_data_effects_objects(
         self, path, subtree_renderer
@@ -444,7 +444,7 @@ class EffectRuntimeImpl(abc.ABC):
     return get_effect_color(self.effect_protocol())
 
   def __treescope_repr__(self, path: str | None, subtree_renderer: Any):
-    from penzai.deprecated.v1.data_effects import _treescope_handlers  # pylint: disable=g-import-not-at-top
+    from penzai.deprecated.v1.data_effects import _treescope_handlers  # pylint: disable=import-outside-toplevel
 
     return _treescope_handlers.handle_data_effects_objects(
         self, path, subtree_renderer
@@ -509,7 +509,7 @@ class EffectHandler(layer_base.Layer, abc.ABC):
     )
 
   def treescope_color(self):
-    from treescope import formatting_util  # pylint: disable=g-import-not-at-top
+    from treescope import formatting_util  # pylint: disable=import-outside-toplevel
 
     protocol = self.effect_protocol()
     if isinstance(protocol, type):
@@ -518,7 +518,7 @@ class EffectHandler(layer_base.Layer, abc.ABC):
       return formatting_util.color_from_string(type(self).__qualname__)
 
   def __treescope_repr__(self, path: str | None, subtree_renderer: Any):
-    from penzai.deprecated.v1.data_effects import _treescope_handlers  # pylint: disable=g-import-not-at-top
+    from penzai.deprecated.v1.data_effects import _treescope_handlers  # pylint: disable=import-outside-toplevel
 
     return _treescope_handlers.handle_data_effects_objects(
         self, path, subtree_renderer

@@ -31,8 +31,8 @@ import collections
 import dataclasses
 from typing import Any, Callable, Sequence
 
-import flax
-import flax.typing
+import flax  # pytype: disable=import-error
+import flax.typing  # pytype: disable=import-error
 import jax
 from penzai import pz
 from treescope import formatting_util
@@ -137,7 +137,7 @@ class InterceptedFlaxModuleMethod(pz.nn.Layer):
     """
     scope_data = self.scope_data
     if scope_data is None:
-      scope_data = InterceptedFlaxScopeData({}, {}, {}, {})
+      scope_data = InterceptedFlaxScopeData({}, {}, {}, frozenset({}))
     if random_streams is None:
       random_streams = {}
     if "params" in scope_data.variables:
@@ -237,7 +237,7 @@ class _FlaxModelInterceptState:
   unclaimed_collections: dict[str, dict[str, Any]]
   submodule_call_path: tuple[str, ...]
   intercept_counter: int
-  submodule_calls: dict[str, pz.nn.Layer]
+  submodule_calls: dict[tuple[int, str], pz.nn.Layer]
 
 
 def _common_prefix(parts: Sequence[tuple[Any, ...]]) -> tuple[Any, ...]:
@@ -405,7 +405,7 @@ def unflaxify_apply(
         if context.module.scope.name_reserved(k, col=col):
           converted_immutable_variables[col][k] = v
 
-    scope_data = InterceptedFlaxScopeData(
+    scope_data = InterceptedFlaxScopeData(  # pytype: disable=wrong-arg-types
         parameters=converted_parameters,
         variables=converted_variables,
         immutable_variables=converted_immutable_variables,

@@ -228,7 +228,7 @@ class ApplyRoPE(layer_base.Layer):
   """
 
   embedding_axis: str = dataclasses.field(metadata={"pytree_node": False})
-  max_wavelength: int = dataclasses.field(metadata={"pytree_node": False})
+  max_wavelength: float = dataclasses.field(metadata={"pytree_node": False})
   positions_input_name: str = dataclasses.field(metadata={"pytree_node": False})
 
   def _apply_1d(self, input_slice: jax.Array, position: jax.Array) -> jax.Array:
@@ -301,13 +301,13 @@ class ApplyRoPEToSubset(layer_base.Layer):
   """
 
   embedding_axis: str = dataclasses.field(metadata={"pytree_node": False})
-  max_wavelength: int = dataclasses.field(metadata={"pytree_node": False})
+  max_wavelength: float = dataclasses.field(metadata={"pytree_node": False})
   rope_subset_size: int = dataclasses.field(metadata={"pytree_node": False})
   positions_input_name: str = dataclasses.field(metadata={"pytree_node": False})
 
   def __call__(
       self, inputs: named_axes.NamedArray, **side_inputs
-  ) -> named_axes.NamedArray:
+  ) -> named_axes.NamedArrayBase:
     rotary_input = inputs[
         {self.embedding_axis: _slice[: self.rope_subset_size]}
     ]

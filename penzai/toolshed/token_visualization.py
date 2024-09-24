@@ -37,15 +37,12 @@ class SentencePieceProcessorLike(Protocol):
 
   def GetPieceSize(self) -> int:
     """Returns the number of tokens in the vocabulary."""
-    ...
 
   def IdToPiece(self, id: int) -> str:  # pylint: disable=redefined-builtin
     """Decodes a token ID to a string."""
-    ...
 
   def IsControl(self, id: int) -> bool:  # pylint: disable=redefined-builtin
     """Identifies whether a token is a control token."""
-    ...
 
 
 def _fixup_tokens_and_name_order(

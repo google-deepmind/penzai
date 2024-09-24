@@ -45,7 +45,6 @@ class SideInputEffect(Protocol[_T]):
 
   def ask(self) -> _T:
     """Retrieves the value for the side input."""
-    ...
 
 
 @struct.pytree_dataclass
@@ -65,7 +64,7 @@ class SideInputRequest(Generic[_T], effect_base.EffectRequest):
     return SideInputEffect
 
 
-@struct.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args
+@struct.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class HandledSideInputRef(effect_base.HandledEffectRef):
   """Reference for a handled side input effect."""
 
@@ -152,7 +151,7 @@ class WithSideInputsFromInputTuple(effect_base.EffectHandler):
       tags: Sequence[Tag],
       handler_id: str | None = None,
   ) -> WithSideInputsFromInputTuple:
-    """Builds a `WithSideInputsFromInputTuple` that handles effects in this layer.
+    """Builds a `WithSideInputsFromInputTuple` handling effects in this layer.
 
     Args:
       body: The layer to wrap. Usually will contain `SideInputRequest` nodes. If

@@ -26,7 +26,7 @@ import dataclasses
 from typing import Any, Protocol
 
 import jax
-import optax
+import optax  # pytype: disable=import-error
 from penzai import pz
 
 ModelPyTree = Any

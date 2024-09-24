@@ -32,10 +32,25 @@ jobs:
         # cache: pip
         # cache-dependency-path: '**/pyproject.toml'
 
-    - run: pip --version
-    - run: pip install -e .[dev,extras]
-    - run: pip freeze
+    - uses: astral-sh/setup-uv@v3
+      with:
+        version: "0.4.17"
+
+    - name: Install dependencies
+      run: |
+        uv sync --locked --extra extras --extra dev
+
+    # Check formatting
+    - name: Check pyink formatting
+      run: uv run pyink penzai --check
+
+    - name: Run pylint
+      run: uv run pylint penzai
 
     # Run tests
     - name: Run tests
-      run: python run_tests.py
+      run: uv run python run_tests.py
+
+    # Run typechecker
+    - name: Run pytype
+      run: uv run pytype --jobs auto penzai

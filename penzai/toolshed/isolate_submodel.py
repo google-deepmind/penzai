@@ -74,7 +74,7 @@ class IsolatedSubmodel(pz.Struct):
 
 @pz.pytree_dataclass
 class IsolationCapturer(pz.nn.Layer):
-  """Helper object that captures information necessary to isolate the submodel."""
+  """Helper object that captures information while running the submodel."""
 
   saved_calls: pz.StateVariable[list[IsolatedSubmodel]]
   wrapped: pz.nn.Layer

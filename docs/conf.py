@@ -24,7 +24,7 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
 # pylint: disable=g-bad-import-order
-# pylint: disable=g-import-not-at-top
+# pylint: disable=import-outside-toplevel
 import inspect
 import logging
 import os

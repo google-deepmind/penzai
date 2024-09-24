@@ -155,6 +155,6 @@ class Layer(struct.Struct, abc.ABC):
     return result, tuple(var.freeze() for var in mut_vars)
 
   def __treescope_repr__(self, path: str | None, subtree_renderer: Any):
-    from penzai.nn._treescope_handlers import layer_handler  # pylint: disable=g-import-not-at-top
+    from penzai.nn._treescope_handlers import layer_handler  # pylint: disable=import-outside-toplevel
 
     return layer_handler.handle_layer(self, path, subtree_renderer)

@@ -48,7 +48,7 @@ class Residual(layer_base.Layer):
   delta: layer_base.LayerLike
 
   def __call__(self, value: Any) -> Any:
-    """Runs each of the sublayers in sequence, then adds back the original input.
+    """Runs each of the sublayers in sequence, then adds the original input.
 
     Args:
       value: The input to the block.

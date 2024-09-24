@@ -68,10 +68,12 @@ disable=abstract-method,
         buffer-builtin,
         c-extension-no-member,
         consider-using-enumerate,
+        consider-using-in,
         cmp-builtin,
         cmp-method,
         coerce-builtin,
         coerce-method,
+        cyclic-import,  # used for treescope handlers
         delslice-method,
         div-method,
         duplicate-code,
@@ -113,6 +115,7 @@ disable=abstract-method,
         no-self-use,
         nonzero-method,
         not-callable,  # false positives for jax.jit
+        not-an-iterable,  # false positives around dataclasses
         oct-method,
         old-division,
         old-ne-operator,
@@ -141,14 +144,17 @@ disable=abstract-method,
         too-many-instance-attributes,
         too-many-locals,
         too-many-nested-blocks,
+        too-many-positional-arguments,
         too-many-public-methods,
         too-many-return-statements,
         too-many-statements,
         trailing-newlines,
         unichr-builtin,
         unicode-builtin,
+        unnecessary-lambda-assignment,
         unnecessary-pass,
         unpacking-in-except,
+        use-dict-literal,
         useless-else-on-loop,
         useless-object-inheritance,
         useless-suppression,
@@ -434,6 +440,6 @@ valid-metaclass-classmethod-first-arg=mcs
 
 # Exceptions that will emit a warning when being caught. Defaults to
 # "Exception"
-overgeneral-exceptions=StandardError,
-                       Exception,
-                       BaseException
+overgeneral-exceptions=builtins.StandardError,
+                       builtins.Exception,
+                       builtins.BaseException

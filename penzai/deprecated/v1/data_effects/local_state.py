@@ -72,11 +72,9 @@ class LocalStateEffect(Protocol[_T]):
 
   def get(self) -> _T:
     """Gets the current state of the local variable."""
-    ...
 
   def set(self, value: _T):
     """Sets the current state of the local variable."""
-    ...
 
 
 @struct.pytree_dataclass
@@ -201,7 +199,7 @@ class SharedLocalStateRequest(Generic[_T], effect_base.EffectRequest):
 
   def with_renamed_parameters(
       self, rename_fn: Callable[[str], str]
-  ) -> FrozenLocalStateRequest:
+  ) -> SharedLocalStateRequest:
     return dataclasses.replace(self, name=rename_fn(self.name))
 
 
@@ -521,7 +519,7 @@ def freeze_local_states(
   """
   already_made_request_for_state = set()
 
-  def _hole_for_ref(ref: effect_base.HandledEffectRef):
+  def _hole_for_ref(ref: HandledLocalStateRef):
     if ref.was_explicitly_named:
       name = ref.name
       if name in already_made_request_for_state:
