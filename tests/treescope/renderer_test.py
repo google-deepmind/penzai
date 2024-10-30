@@ -254,6 +254,7 @@ class TreescopeRendererTest(parameterized.TestCase):
       expected_roundtrip_collapsed: str | None = None,
       expand_depth: int = 1,
   ):
+    # TEST CHANGE 3
     if target_builder is not None:
       assert target is None
       target = target_builder()
