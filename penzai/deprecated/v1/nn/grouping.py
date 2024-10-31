@@ -80,7 +80,7 @@ class Sequential(layer_base.Layer):
     return value
 
   def treescope_color(self) -> str | tuple[str, str]:
-    from treescope import formatting_util  # pylint: disable=g-import-not-at-top
+    from treescope import formatting_util  # pylint: disable=import-outside-toplevel
 
     if type(self) is Sequential:  # pylint: disable=unidiomatic-typecheck
       return "#cdcdcd", "color-mix(in oklab, #cdcdcd 25%, white)"
@@ -146,7 +146,7 @@ class NamedGroup(layer_base.Layer):
     return value
 
   def treescope_color(self) -> str | tuple[str, str]:
-    from treescope import formatting_util  # pylint: disable=g-import-not-at-top
+    from treescope import formatting_util  # pylint: disable=import-outside-toplevel
 
     accent = formatting_util.color_from_string(self.name)
     return accent, f"color-mix(in oklab, {accent} 25%, white)"
@@ -197,7 +197,7 @@ class CheckedSequential(layer_base.Layer):
     return value
 
   def treescope_color(self) -> str | tuple[str, str]:
-    from treescope import formatting_util  # pylint: disable=g-import-not-at-top
+    from treescope import formatting_util  # pylint: disable=import-outside-toplevel
 
     if type(self) is CheckedSequential:  # pylint: disable=unidiomatic-typecheck
       return "#cdcdcd"
@@ -256,7 +256,7 @@ def is_sequential_or_named(tree: Any) -> bool:
 
 
 def is_anonymous_sequential(tree: Any) -> bool:
-  """Checks if the type of a node is exactly `Sequential`, not a named subclass."""
+  """Checks if the type of a node is exactly `Sequential`, not a subclass."""
   return type(tree) is Sequential  # pylint: disable=unidiomatic-typecheck
 
 

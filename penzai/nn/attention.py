@@ -133,7 +133,7 @@ class ApplyCausalAttentionMask(layer_base.Layer):
 
 @struct.pytree_dataclass
 class ApplyCausalSlidingWindowAttentionMask(layer_base.Layer):
-  """Builds and applies a sliding-window attention mask based on token positions.
+  """Builds and applies a sliding-window attention mask using token positions.
 
   This layer retrieves the token positions from its side input, and uses them
   to build a causal sliding-window attention mask, where values at a distance of

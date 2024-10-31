@@ -92,12 +92,12 @@ class TransformerMetadata:
   activation_dtype: jax.typing.DTypeLike
 
 
-@pz.pytree_dataclass(has_implicitly_inherited_fields=True)
+@pz.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class TransformerFeedForward(pz.nn.Sequential):
   """Informatively-named Sequential subclass for feedforward/MLP layers."""
 
 
-@pz.pytree_dataclass(has_implicitly_inherited_fields=True)
+@pz.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class TransformerBlock(pz.nn.Sequential):
   """Informatively-named Sequential subclass for the main transformer blocks."""
 

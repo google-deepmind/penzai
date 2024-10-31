@@ -74,7 +74,6 @@ class LinearOperatorWeightInitializer(Protocol):
     Returns:
       An initialized weight.
     """
-    ...
 
 
 def check_unique_axis_names_for_initializer(
@@ -83,7 +82,7 @@ def check_unique_axis_names_for_initializer(
     parallel_axes: dict[str, int],
     convolution_spatial_axes: dict[str, int],
 ) -> None:
-  """Checks that indices appear exactly once in the given axis specifications."""
+  """Checks that indices appear exactly once in the given axis specs."""
   seen_counts = collections.Counter(
       itertools.chain(
           input_axes.keys(),
@@ -317,11 +316,11 @@ class NamedEinsum(layer_base.Layer):
   )
 
   def __call__(
-      self, x: tuple[named_axes.NamedArray, ...], **_unused_side_inputs
+      self, arrays: tuple[named_axes.NamedArray, ...], **_unused_side_inputs
   ) -> named_axes.NamedArray:
     """Runs the einsum operation."""
     in_struct = self._input_structure()
-    dimvars = shapecheck.check_structure(x, in_struct)
+    dimvars = shapecheck.check_structure(arrays, in_struct)
 
     all_sum_names = set()
     for axname_to_sumname in self.input_axes:
@@ -331,15 +330,15 @@ class NamedEinsum(layer_base.Layer):
 
     # Build an einsum pattern using the non-string specification mode:
     einsum_args = []
-    for x, spec in zip(x, self.input_axes):
+    for arr, spec in zip(arrays, self.input_axes):
       if isinstance(spec, tuple):
         axname_to_sumname = {ax: ax for ax in spec}
       else:
         axname_to_sumname = spec
       local_ordering = [
-          axname for axname in x.named_shape if axname in axname_to_sumname
+          axname for axname in arr.named_shape if axname in axname_to_sumname
       ]
-      einsum_args.append(x.untag(*local_ordering))
+      einsum_args.append(arr.untag(*local_ordering))
       einsum_args.append(
           [axname_to_sumname[axname] for axname in local_ordering]
       )
@@ -589,7 +588,7 @@ class Linear(layer_base.Layer):
   @property
   def input_axes(self) -> dict[str, int]:
     """The axis names and sizes that should appear in the input only."""
-    return {
+    return {  # pytype: disable=bad-return-type
         name: size
         for name, size in self.weights.value.named_shape.items()
         if name in self.in_axis_names
@@ -598,7 +597,7 @@ class Linear(layer_base.Layer):
   @property
   def output_axes(self) -> dict[str, int]:
     """The axis names and sizes that will appear in the output only."""
-    return {
+    return {  # pytype: disable=bad-return-type
         name: size
         for name, size in self.weights.value.named_shape.items()
         if name in self.out_axis_names
@@ -606,8 +605,8 @@ class Linear(layer_base.Layer):
 
   @property
   def parallel_axes(self) -> dict[str, int]:
-    """The axis names and sizes that should appear in both the input and output."""
-    return {
+    """The axis names and sizes that should appear in both input and output."""
+    return {  # pytype: disable=bad-return-type
         name: size
         for name, size in self.weights.value.named_shape.items()
         if name not in self.in_axis_names and name not in self.out_axis_names
@@ -699,7 +698,9 @@ class Affine(grouping.Sequential):
       output_axes: dict[str, int],
       parallel_axes: dict[str, int] | None = None,
       parallel_broadcast_axes: dict[str, int] | None = None,
-      linear_initializer: LinearOperatorWeightInitializer = xavier_uniform_initializer,
+      linear_initializer: LinearOperatorWeightInitializer = (
+          xavier_uniform_initializer
+      ),
       bias_initializer: LinearOperatorWeightInitializer = zero_initializer,
       dtype: jax.typing.DTypeLike = jnp.float32,
       rename_outputs_if_necessary: bool = True,

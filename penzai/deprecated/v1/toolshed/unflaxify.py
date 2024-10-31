@@ -31,8 +31,8 @@ import collections
 import dataclasses
 from typing import Any, Callable, Sequence
 
-import flax
-import flax.typing
+import flax  # pytype: disable=import-error
+import flax.typing  # pytype: disable=import-error
 import jax
 from penzai.deprecated.v1 import pz
 from treescope import formatting_util
@@ -204,7 +204,7 @@ class _FlaxModelInterceptState:
   unclaimed_collections: dict[str, dict[str, Any]]
   submodule_call_path: tuple[str, ...]
   intercept_counter: int
-  submodule_calls: dict[str, pz.LayerLike]
+  submodule_calls: dict[tuple[int, str], pz.LayerLike]
 
 
 def _common_prefix(parts: Sequence[tuple[Any, ...]]) -> tuple[Any, ...]:

@@ -34,7 +34,7 @@ from typing import Any
 from penzai.deprecated.v1 import pz
 
 
-@pz.pytree_dataclass(has_implicitly_inherited_fields=True)
+@pz.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class LowRankAdapter(pz.nn.Sequential):
   """A LoRA parameter-efficient adaptation block, replacing a Linear layer."""
 

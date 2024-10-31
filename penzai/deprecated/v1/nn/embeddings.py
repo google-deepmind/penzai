@@ -105,7 +105,7 @@ class EmbeddingTable(struct.Struct):
           f"`embedding_axes` {embedding_axes}"
       )
 
-    return cls(
+    return cls(  # pytype: disable=wrong-arg-types
         embeddings=parameters.UninitializedParameter(
             initializer=functools.partial(
                 initializer,

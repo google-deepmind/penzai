@@ -22,7 +22,7 @@ import jax
 from penzai.deprecated.v1 import pz
 
 
-@pz.pytree_dataclass(has_implicitly_inherited_fields=True)
+@pz.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class MLP(pz.nn.Sequential):
   """Sequence of Affine layers."""
 
@@ -52,7 +52,7 @@ class MLP(pz.nn.Sequential):
     return cls(sublayers=children)
 
 
-@pz.pytree_dataclass(has_implicitly_inherited_fields=True)
+@pz.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class DropoutMLP(pz.nn.Sequential):
   """Sequence of Affine layers with dropout."""
 

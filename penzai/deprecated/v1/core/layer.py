@@ -202,7 +202,7 @@ class Layer(struct.Struct, abc.ABC):
     return shapecheck.ANY
 
   def __init_subclass__(cls, **kwargs):
-    """Checks that new subclasses of Layer have wrapped ``__call__`` if needed."""
+    """Checks that new subclasses of Layer have wrapped ``__call__`` if needed."""  # pylint: disable=line-too-long
     super().__init_subclass__(**kwargs)
     if cls.__call__ is not Layer.__call__ and (
         cls.input_structure is not Layer.input_structure
@@ -220,7 +220,7 @@ class Layer(struct.Struct, abc.ABC):
         )
 
   def __treescope_repr__(self, path: str | None, subtree_renderer: Any):
-    from penzai.deprecated.v1.core._treescope_handlers import layer_handler  # pylint: disable=g-import-not-at-top
+    from penzai.deprecated.v1.core._treescope_handlers import layer_handler  # pylint: disable=import-outside-toplevel
 
     return layer_handler.handle_layers(self, path, subtree_renderer)
 

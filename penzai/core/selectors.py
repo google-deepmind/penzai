@@ -811,7 +811,7 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
       if with_keypath or innermost:
         if with_keypath:
           wrapped_filter_fn = safe_filter_fn
-        if not with_keypath:
+        else:
           wrapped_filter_fn = lambda _, s: safe_filter_fn(s)
 
         def process_subtree(keypath, leaf_or_subtree) -> tuple[bool, Any]:
@@ -920,7 +920,7 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
         lambda subtree: isinstance(subtree, cls), innermost=innermost
     )
 
-  def at_equal_to(self, template: OtherSubtree) -> Selection[OtherSubtree]:  # pytype: disable=invalid-annotation
+  def at_equal_to(self, template: OtherSubtree) -> Selection[OtherSubtree]:  # pytype: disable=invalid-annotation  # pylint: disable=line-too-long
     """Selects subtrees that are equal to a particular object.
 
     Mostly a convenience wrapper for ::
@@ -939,7 +939,7 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
       equal to this object (with other on the left).
     """
     # Lazy import to avoid circular dependencies
-    import penzai.core.named_axes  # pylint: disable=g-import-not-at-top
+    import penzai.core.named_axes  # pylint: disable=import-outside-toplevel
 
     bypass_equal_types = (
         jax.Array,
@@ -1292,7 +1292,7 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
         fallback for those subtrees.
     """
     # Import selection_rendering here to avoid a circular import.
-    from penzai.core._treescope_handlers import selection_rendering  # pylint: disable=g-import-not-at-top
+    from penzai.core._treescope_handlers import selection_rendering  # pylint: disable=import-outside-toplevel
 
     selection_rendering.display_selection_streaming(
         self, visible_selection=True, ignore_exceptions=ignore_exceptions
@@ -1312,7 +1312,7 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
         fallback for those subtrees.
     """
     # Import selection_rendering here to avoid a circular import.
-    from penzai.core._treescope_handlers import selection_rendering  # pylint: disable=g-import-not-at-top
+    from penzai.core._treescope_handlers import selection_rendering  # pylint: disable=import-outside-toplevel
 
     selection_rendering.display_selection_streaming(
         self, visible_selection=False, ignore_exceptions=ignore_exceptions
@@ -1404,7 +1404,7 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
 
   def __treescope_root_repr__(self):
     """Renders this selection as the root object in a treescope rendering."""
-    from penzai.core._treescope_handlers import selection_rendering  # pylint: disable=g-import-not-at-top
+    from penzai.core._treescope_handlers import selection_rendering  # pylint: disable=import-outside-toplevel
 
     return selection_rendering.render_selection_to_foldable_representation(
         self, visible_selection=True, ignore_exceptions=True

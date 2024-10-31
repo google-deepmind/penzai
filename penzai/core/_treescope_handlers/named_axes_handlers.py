@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import dataclasses
 from typing import Any
+import typing
 
 import jax
 import numpy as np
@@ -252,6 +253,10 @@ class NamedArrayAdapter(
 
   def should_autovisualize(self, array: named_axes.NamedArrayBase) -> bool:
     assert isinstance(array, named_axes.NamedArray | named_axes.NamedArrayView)
+    array = typing.cast(
+        named_axes.NamedArray | named_axes.NamedArrayView,
+        array,
+    )
     return (
         isinstance(array.data_array, jax.Array)
         and not isinstance(array.data_array, jax.core.Tracer)

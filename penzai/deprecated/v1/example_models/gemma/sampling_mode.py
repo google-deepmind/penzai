@@ -35,7 +35,7 @@ from penzai.deprecated.v1 import pz
 from penzai.deprecated.v1.example_models.gemma import model_core
 
 
-@pz.pytree_dataclass(has_implicitly_inherited_fields=True)
+@pz.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class GemmaKVCachingAttention(pz.nn.KVCachingAttention):
   """Gemma-specific configuration of the key-value-caching attention layer.
 
@@ -223,7 +223,7 @@ class GemmaKVCachingTransformer(pz.Layer):
     )
 
   def input_structure(self) -> pz.chk.StructureAnnotation:
-    return GemmaKVCachingInputs(
+    return GemmaKVCachingInputs(  # pytype: disable=wrong-arg-types
         tokens=pz.chk.Wildcard("tokens"),
         positions=pz.chk.Wildcard("positions"),
         attention_mask=pz.chk.Wildcard("attention mask"),

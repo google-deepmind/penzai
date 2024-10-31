@@ -5,6 +5,14 @@
     "files.associations": {
         ".pylintrc": "ini"
     },
+    "files.watcherExclude": {
+        "**/.git/**": true
+    },
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/.pytest_cache": true,
+        "**/*.egg-info": true
+    },
     "python.testing.unittestEnabled": false,
     "python.testing.nosetestsEnabled": false,
     "python.testing.pytestEnabled": true,
@@ -13,16 +21,9 @@
         "editor.rulers": [80],
         "editor.tabSize": 2,
         "editor.formatOnSave": true,
-        "editor.detectIndentation": false
+        "editor.detectIndentation": false,
+        "editor.defaultFormatter": "ms-python.black-formatter",
     },
-    "python.formatting.provider": "black",
-    "python.formatting.blackPath": "pyink",
-    "files.watcherExclude": {
-        "**/.git/**": true
-    },
-    "files.exclude": {
-        "**/__pycache__": true,
-        "**/.pytest_cache": true,
-        "**/*.egg-info": true
-    }
+    "black-formatter.path": ["uvx", "pyink"],
+    "pylint.enabled": true,
 }

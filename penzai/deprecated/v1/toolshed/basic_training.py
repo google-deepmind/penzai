@@ -26,7 +26,7 @@ import dataclasses
 from typing import Any, Protocol
 
 import jax
-import optax
+import optax  # pytype: disable=import-error
 from penzai.deprecated.v1 import pz
 
 ModelPyTree = Any
@@ -330,8 +330,8 @@ def build_train_step_fn(
     compute_updates_fn = compute_training_outputs_and_updates
 
   def _train_step(
-      train_state: TrainState[ModelPyTree], **kwargs
-  ) -> tuple[TrainState[ModelPyTree], AuxOutPyTree]:
+      train_state: TrainState, **kwargs
+  ) -> tuple[TrainState, AuxOutPyTree]:
 
     # Run the step.
     new_params, new_opt_state, new_loss_fn_state, aux_outputs = (

@@ -62,7 +62,7 @@ def handle_layer(
 
   background_color, background_pattern = (
       formatting_util.parse_simple_color_and_pattern_spec(
-          node.treescope_color(), type(node).__name__
+          node.treescope_color(), type(node).__name__  # pytype: disable=attribute-error  # pylint: disable=line-too-long
       )
   )
 

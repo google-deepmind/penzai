@@ -382,7 +382,7 @@ class UninitializedParameter(
 ################################################################################
 
 
-@struct.pytree_dataclass(has_implicitly_inherited_fields=True, init=False)  # pytype: disable=wrong-keyword-args
+@struct.pytree_dataclass(has_implicitly_inherited_fields=True, init=False)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class ShareableUninitializedParameter(UninitializedParameter):
   """A shareable variant of an uninitialized parameter.
 
@@ -405,7 +405,7 @@ class ShareableUninitializedParameter(UninitializedParameter):
   def from_uninitialized(
       cls, uninit: UninitializedParameter
   ) -> ShareableUninitializedParameter:
-    """Returns a ``ShareableUninitializedParameter`` equivalent to ``uninit``."""
+    """Builds a ``ShareableUninitializedParameter`` equivalent to ``uninit``."""
     return cls(
         initializer=uninit.initializer,
         name=uninit.name,

@@ -92,3 +92,22 @@ from treescope.formatting_util import (
 
 from . import nn
 from . import ts  # pylint: disable=g-bad-import-order
+
+import typing
+
+if typing.TYPE_CHECKING:
+  # Workaround: Pyptype does not support re-exporting dataclass transforms.
+  # We need to re-annotate to convince Pytype this is a dataclass transform.
+  from typing_extensions import dataclass_transform
+  import dataclasses
+
+  @dataclass_transform(
+      frozen_default=True,  # pylint: disable=unexpected-keyword-arg  # pytype: disable=not-supported-yet
+      field_specifiers=(dataclasses.field,),
+  )
+  def pytree_dataclass(*args, **kwargs):  # pylint: disable=function-redefined
+    raise NotImplementedError()
+
+  del dataclass_transform
+  del dataclasses
+del typing

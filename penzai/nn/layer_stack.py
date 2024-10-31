@@ -329,7 +329,8 @@ class LayerStack(layer_base.Layer):
         k: v.tag_prefix(stack_axis) for k, v in namedarrays.items()
     }
     stacked_sublayers, stacked_variable_values = selectors.Selection(
-        selected_by_path=stacked_namedarrays, remainder=remainder
+        selected_by_path=collections.OrderedDict(stacked_namedarrays),
+        remainder=remainder,
     ).deselect()
 
     new_variables = []

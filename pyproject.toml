@@ -58,9 +58,10 @@ notebook = [
 dev = [
     "pylint>=2.6.0",
     "pyink>=24.3.0",
-    "pytest>=8.2.2",
     "ipython",
     "jupyter",
+    "pytest>=8.2.2",
+    "pytype",
 ]
 # Requirements for building documentation.
 docs = [
@@ -86,6 +87,11 @@ line-length = 80
 unstable = true
 pyink-indentation = 2
 pyink-use-majority-quotes = true
+
+[tool.pyright]
+include = [ "penzai" ]
+venvPath = ""
+venv = ".venv"
 
 [build-system]
 requires = ["flit_core >=3.8,<4"]

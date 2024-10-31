@@ -42,7 +42,6 @@ class SideOutputEffect(Protocol[_T]):
 
   def tell(self, value: _T, /):
     """Writes a value to the side output."""
-    ...
 
 
 @struct.pytree_dataclass

@@ -539,13 +539,13 @@ class LabeledVariable(AbstractVariable, Generic[T]):
 
   def __repr__(self):
     # Defer to Treescope.
-    import treescope  # pylint: disable=g-import-not-at-top
+    import treescope  # pylint: disable=import-outside-toplevel
 
     with treescope.using_expansion_strategy(max_height=1):
       return treescope.render_to_text(self, ignore_exceptions=True)
 
   def __treescope_repr__(self, path: str | None, subtree_renderer: Any):
-    from treescope import repr_lib  # pylint: disable=g-import-not-at-top
+    from treescope import repr_lib  # pylint: disable=import-outside-toplevel
 
     return repr_lib.render_object_constructor(
         type(self),
@@ -606,7 +606,7 @@ class Parameter(LabeledVariable[T]):
     return "#93cce1"
 
 
-@struct.pytree_dataclass(has_implicitly_inherited_fields=True)
+@struct.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class ParameterValue(LabeledVariableValue[T]):
   """The value of a Parameter, as a frozen JAX pytree.
 
@@ -656,7 +656,7 @@ class ParameterSlot(AbstractVariableSlot):
 
 @dataclasses.dataclass(frozen=True)
 class AutoStateVarLabel(auto_order_types.AutoOrderedAcrossTypes):
-  """A label for a StateVariable that is unique based on its Python object ID."""
+  """A label for a StateVariable that is unique based on Python object ID."""
 
   var_id: int
 
@@ -758,7 +758,7 @@ class StateVariable(LabeledVariable[T]):
     return "#f57603"
 
 
-@struct.pytree_dataclass(has_implicitly_inherited_fields=True)
+@struct.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class StateVariableValue(LabeledVariableValue[T]):
   """The value of a StateVariable, as a frozen JAX pytree.
 

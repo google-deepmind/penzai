@@ -35,12 +35,12 @@ _warnings.warn(
 def _make_redirector(stub_module_name: str, target_module_name: str | None):
   """Builds a redirector module for the given target module."""
 
-  # pylint: disable=g-import-not-at-top
+  # pylint: disable=import-outside-toplevel
   import importlib
   import importlib.machinery
   import importlib.util
   import sys
-  # pylint: enable=g-import-not-at-top
+  # pylint: enable=import-outside-toplevel
 
   spec = importlib.machinery.ModuleSpec(name=stub_module_name, loader=None)
   mod = importlib.util.module_from_spec(spec)

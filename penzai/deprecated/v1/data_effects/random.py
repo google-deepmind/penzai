@@ -36,7 +36,6 @@ class RandomEffect(Protocol):
 
   def next_key(self) -> jax.Array:
     """Returns a new random key."""
-    ...
 
 
 @struct.pytree_dataclass
@@ -65,7 +64,7 @@ class TaggedRandomRequest(effect_base.EffectRequest):
     return RandomEffect
 
 
-@struct.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args
+@struct.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class HandledRandomRef(effect_base.HandledEffectRef):
   """Reference for a handled random effect."""
 
@@ -311,7 +310,7 @@ class WithFrozenRandomState(effect_base.EffectHandler):
           [RandomRequest | TaggedRandomRequest], bool
       ] = _is_untagged_hole,
       handler_id: str | None = None,
-  ) -> WithStatefulRandomKey:
+  ) -> WithFrozenRandomState:
     """Builds a `WithFrozenRandomState` that handles effects in this layer.
 
     Args:

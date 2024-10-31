@@ -82,7 +82,6 @@ class LinearOperatorWeightInitializer(Protocol):
     Returns:
       An initialized weight.
     """
-    ...
 
 
 def check_unique_axis_names_for_initializer(
@@ -91,7 +90,7 @@ def check_unique_axis_names_for_initializer(
     parallel_axes: dict[str, int],
     convolution_spatial_axes: dict[str, int],
 ) -> None:
-  """Checks that indices appear exactly once in the given axis specifications."""
+  """Checks that indices appear exactly once in the axis specifications."""
   seen_counts = collections.Counter(
       itertools.chain(
           input_axes.keys(),
@@ -351,7 +350,7 @@ class NamedEinsum(layer_base.Layer):
 
   @layer_base.checked_layer_call
   def __call__(
-      self, x: tuple[named_axes.NamedArray, ...]
+      self, values: tuple[named_axes.NamedArray, ...]
   ) -> named_axes.NamedArray:
     """Runs the einsum operation."""
     all_sum_names = set()
@@ -362,15 +361,15 @@ class NamedEinsum(layer_base.Layer):
 
     # Build an einsum pattern using the non-string specification mode:
     einsum_args = []
-    for x, spec in zip(x, self.input_axes):
+    for array, spec in zip(values, self.input_axes):
       if isinstance(spec, tuple):
         axname_to_sumname = {ax: ax for ax in spec}
       else:
         axname_to_sumname = spec
       local_ordering = [
-          axname for axname in x.named_shape if axname in axname_to_sumname
+          axname for axname in array.named_shape if axname in axname_to_sumname
       ]
-      einsum_args.append(x.untag(*local_ordering))
+      einsum_args.append(array.untag(*local_ordering))
       einsum_args.append(
           [axname_to_sumname[axname] for axname in local_ordering]
       )
@@ -559,7 +558,7 @@ class Linear(layer_base.Layer):
           f" parallel_broadcast_axes={parallel_broadcast_axes}."
       )
 
-    return cls(
+    return cls(  # pytype: disable=wrong-arg-types
         weights=parameters.UninitializedParameter(
             functools.partial(
                 initializer,
@@ -622,7 +621,7 @@ class Linear(layer_base.Layer):
 
   @property
   def parallel_axes(self) -> dict[str, int]:
-    """The axis names and sizes that should appear in both the input and output."""
+    """The axis names and sizes that should appear in both input and output."""
     return {
         name: size
         for name, size in self.weights.value_structure.named_shape.items()
@@ -692,7 +691,7 @@ class AddBias(layer_base.Layer):
           initializer(prng_key, tuple(bias_shape), dtype)
       ).tag(*bias_names)
 
-    return cls(
+    return cls(  # pytype: disable=wrong-arg-types
         bias=parameters.UninitializedParameter(bias_initializer, name="bias"),
         new_axis_names=tuple(new_output_axes.keys()),
     )
@@ -739,7 +738,9 @@ class Affine(grouping.Sequential):
       output_axes: dict[str, int],
       parallel_axes: dict[str, int] | None = None,
       parallel_broadcast_axes: dict[str, int] | None = None,
-      linear_initializer: LinearOperatorWeightInitializer = xavier_uniform_initializer,
+      linear_initializer: LinearOperatorWeightInitializer = (
+          xavier_uniform_initializer
+      ),
       bias_initializer: BiasInitializer = jax.nn.initializers.zeros,
       dtype: jax.typing.DTypeLike = jnp.float32,
       rename_outputs_if_necessary: bool = True,

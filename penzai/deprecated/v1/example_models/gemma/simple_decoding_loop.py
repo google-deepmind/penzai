@@ -247,4 +247,4 @@ def temperature_sample_pyloop(
       ],
       "seq",
   )
-  return final_written
+  return final_written  # pytype: disable=bad-return-type
