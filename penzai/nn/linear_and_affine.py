@@ -421,12 +421,12 @@ class Linear(layer_base.Layer):
   def __call__(self, in_array: NamedArray, **_unused_side_inputs) -> NamedArray:
     """Runs the linear operator."""
     in_struct = self._input_structure()
-    dimvars = shapecheck.check_structure(in_array, in_struct)
+    dimvars = shapecheck.check_structure(in_array, in_struct, error_prefix=f"({self.weights.label[:-8]}) ")
 
     result = contract(self.in_axis_names, in_array, self.weights.value)
 
     out_struct = self._output_structure()
-    shapecheck.check_structure(result, out_struct, known_vars=dimvars)
+    shapecheck.check_structure(result, out_struct, known_vars=dimvars, error_prefix=f"({self.weights.label[:-8]}) ")
     return result
 
   @classmethod
