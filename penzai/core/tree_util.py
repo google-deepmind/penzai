@@ -16,11 +16,22 @@
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any, Optional
 
 import jax
 
 PyTreeDef = jax.tree_util.PyTreeDef
+
+
+@dataclasses.dataclass(frozen=True)
+class CustomGetAttrKey:
+  """Subclass-friendly variant of jax.tree_util.GetAttrKey."""
+
+  name: str
+
+  def __str__(self):
+    return f".{self.name}"
 
 
 def tree_flatten_exactly_one_level(
@@ -66,7 +77,10 @@ def pretty_keystr(keypath: tuple[Any, ...], tree: Any) -> str:
   parts = []
   for key in keypath:
     if isinstance(
-        key, jax.tree_util.GetAttrKey | jax.tree_util.FlattenedIndexKey
+        key,
+        jax.tree_util.GetAttrKey
+        | jax.tree_util.FlattenedIndexKey
+        | CustomGetAttrKey,
     ):
       parts.extend(("/", type(tree).__name__))
     split = tree_flatten_exactly_one_level(tree)

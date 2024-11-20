@@ -17,10 +17,11 @@
 from __future__ import annotations
 
 import collections
+from collections.abc import Hashable
 import copy
 import dataclasses
 import enum
-from typing import Any, Callable, Hashable
+from typing import Any, Callable
 
 import jax
 from penzai.core import named_axes
@@ -39,7 +40,7 @@ class LayerStackVarBehavior(enum.Enum):
 
 
 @dataclasses.dataclass(frozen=True)
-class LayerStackGetAttrKey(jax.tree_util.GetAttrKey):
+class LayerStackGetAttrKey(pz_tree_util.CustomGetAttrKey):
   """GetAttrKey for LayerStack with extra metadata.
 
   This allows us to identify whether a given PyTree leaf is contained inside a
