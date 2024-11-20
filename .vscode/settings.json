@@ -24,6 +24,6 @@
         "editor.detectIndentation": false,
         "editor.defaultFormatter": "ms-python.black-formatter",
     },
-    "black-formatter.path": ["uvx", "pyink"],
+    "black-formatter.path": ["uvx", "--python=>=3.9,!=3.12.5", "pyink"],
     "pylint.enabled": true,
 }
