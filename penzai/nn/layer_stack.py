@@ -38,7 +38,6 @@ class LayerStackVarBehavior(enum.Enum):
   PER_LAYER = enum.auto()
 
 
-@dataclasses.dataclass(frozen=True)
 class LayerStackGetAttrKey(jax.tree_util.GetAttrKey):
   """GetAttrKey for LayerStack with extra metadata.
 
@@ -47,9 +46,15 @@ class LayerStackGetAttrKey(jax.tree_util.GetAttrKey):
   used to manipulate variables inside a LayerStack in a stack-compatible way.
   """
 
-  name: str
   stack_axis: named_axes.AxisName
   stack_axis_size: int
+
+  def __init__(
+      self, name: str, stack_axis: named_axes.AxisName, stack_axis_size: int
+  ):
+    super().__init__(name)
+    self.stack_axis = stack_axis
+    self.stack_axis_size = stack_axis_size
 
 
 @struct.pytree_dataclass
