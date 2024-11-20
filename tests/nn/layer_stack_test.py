@@ -17,6 +17,7 @@
 from typing import Any
 from absl.testing import absltest
 import chex
+import collections
 import jax
 from penzai import pz
 
@@ -155,7 +156,18 @@ class LayerStackTest(absltest.TestCase):
     unbound_layer, layer_vars = pz.unbind_variables(layer)
     unbound_slot_layer, slot_layer_vars = pz.unbind_variables(slot_layer)
 
-    chex.assert_trees_all_equal(unbound_layer, unbound_slot_layer)
+    # Check as dictionaries to avoid limitations of chex:
+    unbound_layer_leaves, unbound_layer_treedef = (
+        jax.tree_util.tree_flatten_with_path(unbound_layer)
+    )
+    unbound_slot_layer_leaves, unbound_slot_layer_treedef = (
+        jax.tree_util.tree_flatten_with_path(unbound_slot_layer)
+    )
+    self.assertEqual(unbound_layer_treedef, unbound_slot_layer_treedef)
+    chex.assert_trees_all_equal(
+        collections.OrderedDict(unbound_layer_leaves),
+        collections.OrderedDict(unbound_slot_layer_leaves),
+    )
 
     slot_layer_vars_dict = {var.label: var for var in slot_layer_vars}
     for var in layer_vars:
