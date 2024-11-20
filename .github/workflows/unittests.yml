@@ -42,7 +42,7 @@ jobs:
 
     # Check formatting
     - name: Check pyink formatting
-      run: uv run pyink penzai --check
+      run: uv run pyink penzai tests --check
 
     - name: Run pylint
       run: uv run pylint penzai
