@@ -7,22 +7,18 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.11"
-  jobs:
-    post_checkout:
-      - bash docs/scripts/readthedocs_fetch_notebook_outputs.sh
+  commands:
+    # Fetch precomputed notebook outputs (if any)
+    - bash docs/scripts/readthedocs_fetch_notebook_outputs.sh
+    # Install and build using uv
+    - asdf plugin add uv
+    - asdf install uv latest
+    - asdf global uv latest
+    - uv sync --extra docs --frozen
+    - uv pip install readthedocs-sphinx-ext
+    - cd docs && uv run python -m sphinx -T -b html -d docs/_build/doctrees -D language=en . $READTHEDOCS_OUTPUT/html
 
 sphinx:
   builder: html
   configuration: docs/conf.py
   fail_on_warning: false
-
-python:
-  install:
-    # Equivalent to 'pip install .'
-    - method: pip
-      path: .
-    # Equivalent to 'pip install .[docs]'
-    - method: pip
-      path: .
-      extra_requirements:
-        - docs
