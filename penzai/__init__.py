@@ -14,4 +14,4 @@
 
 """A JAX research toolkit for building, editing and visualizing neural networks."""  # pylint: disable=line-too-long
 
-__version__ = '0.2.2'
+__version__ = '0.2.3'
