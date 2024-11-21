@@ -27,11 +27,14 @@ import jax.numpy as jnp
 from penzai.core import named_axes
 from penzai.core import shapecheck
 from penzai.core import struct
+from penzai.core import variables
 from penzai.nn import grouping
 from penzai.nn import layer as layer_base
 from penzai.nn import parameters
 
 NamedArray = named_axes.NamedArray
+Parameter = variables.Parameter
+ParameterValue = variables.ParameterValue
 
 
 class LinearOperatorWeightInitializer(Protocol):
@@ -421,12 +424,27 @@ class Linear(layer_base.Layer):
   def __call__(self, in_array: NamedArray, **_unused_side_inputs) -> NamedArray:
     """Runs the linear operator."""
     in_struct = self._input_structure()
-    dimvars = shapecheck.check_structure(in_array, in_struct)
+
+    # pytype: disable=attribute-error
+    if isinstance(
+        self.weights,
+        Parameter | ParameterValue,
+    ) and self.weights.label.endswith(".weights"):
+      error_prefix = f"({self.weights.label[:-8]}) "
+    else:
+      error_prefix = ""
+    # pytype: enable=attribute-error
+
+    dimvars = shapecheck.check_structure(
+        in_array, in_struct, error_prefix=error_prefix
+    )
 
     result = contract(self.in_axis_names, in_array, self.weights.value)
 
     out_struct = self._output_structure()
-    shapecheck.check_structure(result, out_struct, known_vars=dimvars)
+    shapecheck.check_structure(
+        result, out_struct, known_vars=dimvars, error_prefix=error_prefix
+    )
     return result
 
   @classmethod
