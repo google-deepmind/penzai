@@ -251,7 +251,7 @@ def _nmap_with_doc(
 
       # Otherwise, we still have names to vectorize over. Pop one name off the
       # stack and vectorize over it as needed.
-      vmap_name = remaining_names[0]
+      vmap_name = remaining_names[-1]
       reduced_views = []
       vmap_axes = []
       for view in current_views:
@@ -298,10 +298,10 @@ def _nmap_with_doc(
       return jax.vmap(
           functools.partial(
               recursive_vectorize_step,
-              remaining_names=remaining_names[1:],
+              remaining_names=remaining_names[:-1],
           ),
           in_axes=(vmap_axes,),
-          out_axes=0,
+          out_axes=-1,
           axis_name=vmap_name,
       )(reduced_views)
 
@@ -324,8 +324,11 @@ def _nmap_with_doc(
         return NamedArrayView(
             data_array=leaf,
             data_shape=leaf.shape,
-            data_axis_for_name={name: i for i, name in enumerate(all_names)},
-            data_axis_for_logical_axis=tuple(range(len(all_names), leaf.ndim)),
+            data_axis_for_name={
+                name: leaf.ndim - i - 1
+                for i, name in enumerate(reversed(all_names))
+            },
+            data_axis_for_logical_axis=tuple(range(leaf.ndim - len(all_names))),
         )
 
     return jax.tree_util.tree_map(handle_result, result_data)
