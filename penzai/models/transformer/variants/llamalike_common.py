@@ -596,7 +596,7 @@ def llamalike_from_huggingface_model(
       num_decoder_blocks=hf_config.num_hidden_layers,
       vocab_size=hf_config.vocab_size,
       mlp_variant="swiglu",
-      rope_wavelength=10_000,
+      rope_wavelength= hf_config.rope_theta,
       tie_embedder_and_logits=False,
       attention_type=attention_type,
       rms_norm_eps=hf_config.rms_norm_eps,
