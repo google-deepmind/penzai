@@ -2118,7 +2118,7 @@ wheels = [
 
 [[package]]
 name = "penzai"
-version = "0.2.3"
+version = "0.2.4"
 source = { editable = "." }
 dependencies = [
     { name = "absl-py" },
