@@ -23,8 +23,9 @@ training and kv-cache inference modes.
 
 from __future__ import annotations
 
+from collections.abc import Hashable
 import dataclasses
-from typing import Any, Hashable
+from typing import Any
 
 import jax
 import jax.numpy as jnp

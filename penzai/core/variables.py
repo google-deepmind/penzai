@@ -69,11 +69,12 @@ from __future__ import annotations
 
 import abc
 import contextlib
+from collections.abc import Callable, Hashable, Iterable
 import dataclasses
 import functools
 import inspect
 import typing
-from typing import Any, Callable, Generic, Hashable, Iterable, Literal, TypeAlias, TypeVar
+from typing import Any, Generic, Literal, TypeAlias, TypeVar
 
 import jax
 import jax.numpy as jnp

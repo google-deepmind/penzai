@@ -23,11 +23,12 @@ behave as a JAX pytree, not just neural network modules.
 from __future__ import annotations
 
 import abc
+from collections.abc import Callable, Hashable, Sequence
 import dataclasses
 import functools
 import inspect
 import typing
-from typing import Any, Callable, Hashable, Literal, Sequence, Type, TypeVar
+from typing import Any, Literal, Type, TypeVar
 
 import jax
 from typing_extensions import dataclass_transform

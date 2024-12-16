@@ -88,11 +88,12 @@ from __future__ import annotations
 
 import abc
 import collections
+from collections.abc import Callable, Hashable, Mapping, Sequence
 import dataclasses
 import functools
 import operator
 import typing
-from typing import Any, Callable, Hashable, Mapping, Sequence
+from typing import Any
 
 import jax
 import jax.numpy as jnp
