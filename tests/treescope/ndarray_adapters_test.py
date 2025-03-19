@@ -150,7 +150,9 @@ class NdarrayAdaptersTest(parameterized.TestCase):
         summary_info_np = np_adapter.get_array_summary(array_np, fast=True)
         summary_info = cur_adapter.get_array_summary(array, fast=True)
         summary_info_np = (
-            summary_info_np.replace("(19, 23)", "(19, 23 |)")
+            treescope.lowering.render_to_text_as_root(summary_info_np).replace(
+                "(19, 23)", "(19, 23 |)"
+            )
             + " (wrapping jax.Array)"
         )
         self.assertEqual(
