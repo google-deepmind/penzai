@@ -2208,7 +2208,7 @@ requires-dist = [
     { name = "sphinxcontrib-katex", marker = "extra == 'docs'" },
     { name = "torch", marker = "extra == 'extras'" },
     { name = "transformers", marker = "extra == 'extras'", specifier = ">=4.41.2" },
-    { name = "treescope", specifier = ">=0.1.3" },
+    { name = "treescope", specifier = ">=0.1.9" },
     { name = "typing-extensions", specifier = ">=4.2" },
 ]
 
@@ -3530,14 +3530,14 @@ wheels = [
 
 [[package]]
 name = "treescope"
-version = "0.1.7"
+version = "0.1.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/40/34/8ad5475c26837ca400c77951bcc0788b5f291d1509ae2eda5f97b042c24a/treescope-0.1.7.tar.gz", hash = "sha256:2c82ecb633f18d50e5809dd473703cf05aa074a4f3d1add74de7cf7ccdf81ae3", size = 530052 }
+sdist = { url = "https://files.pythonhosted.org/packages/26/27/80ad254da167e0055d5679aefd224ab08844a4cd55aeee7ef72c999d5fc6/treescope-0.1.9.tar.gz", hash = "sha256:ba6cdbdc9c5b52691d5f3bb4c5d5c7daa5627119acac8640b46d37e6aabe63a6", size = 544385 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/59/7d/f6da2b223749c58ec8ff95c87319196765fed05bd44dd86fb9bc4bf35f77/treescope-0.1.7-py3-none-any.whl", hash = "sha256:14e6527d4bfe6770ac9cbb8058e49b6685444d7cd0d3f85fd10c42491848b102", size = 175566 },
+    { url = "https://files.pythonhosted.org/packages/e4/09/b7e7bc5f21313d227e4fb98d2037646457ec06746327c5dd8ffed75e41e1/treescope-0.1.9-py3-none-any.whl", hash = "sha256:68677013a9f0228212fccf835f3fb037be07ae8b4c5f6f58eefab11198f83cf7", size = 182162 },
 ]
 
 [[package]]
