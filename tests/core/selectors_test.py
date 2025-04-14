@@ -32,7 +32,7 @@ import pytest
 @pytest.mark.parametrize(
   "input_indices, shift, expected_output",
   [
-    ((,), 1, (,)),
+    ((), 1, ()),
     ([0, 3, -2], len(range(6)), (0, 3, 4)),
   ]
 )
@@ -42,7 +42,7 @@ def test_shift_negative_indices(
   expected_output: tuple[int, ...],
 ):
   assert (
-    penzai.core.selectors.shift_negative_indices(input_indices, shift=shift)
+    penzai.core.selectors._shift_negative_indices(input_indices, shift=shift)
     == expected_output
   )
 
