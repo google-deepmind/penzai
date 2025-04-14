@@ -20,12 +20,31 @@ See also `partitioning_test` for tests of `Selection.partition`, and
 
 import collections
 import dataclasses
-from typing import Any
+from typing import Any, Iterable
 
 from absl.testing import absltest
 import jax
 from penzai import pz
 import penzai.core.selectors
+import pytest
+
+
+@pytest.mark.parametrize(
+  "input_indices, shift, expected_output",
+  [
+    ((,), 1, (,)),
+    ([0, 3, -2], len(range(6)), (0, 3, 4)),
+  ]
+)
+def test_shift_negative_indices(
+  input_indices: Iterable[int],
+  shift: int,
+  expected_output: tuple[int, ...],
+):
+  assert (
+    penzai.core.selectors.shift_negative_indices(input_indices, shift=shift)
+    == expected_output
+  )
 
 
 @dataclasses.dataclass
@@ -564,6 +583,26 @@ class SelectorsTest(absltest.TestCase):
             .apply(SELECTED_PART)
         ),
         [0, 1, 2, 3, SELECTED_PART(value=4), 5, 6, 7, 8, 9],
+    )
+    # Test negative indices for `pick_nth_selected`
+    self.assertEqual(
+        (
+            pz.select(list(range(10)))
+            .at_instances_of(int)
+            .pick_nth_selected(-2)
+            .apply(SELECTED_PART)
+        ),
+        [0, 1, 2, 3, 4, 5, 6, 7, SELECTED_PART(value=8), 9],
+    )
+    # Don't select anything if index is out of range
+    self.assertEqual(
+        (
+            pz.select([0, 1, 2])
+            .at_instances_of(int)
+            .pick_nth_selected(5)
+            .apply(SELECTED_PART)
+        ),
+        [0, 1, 2],
     )
 
   def test_invert__example_1(self):

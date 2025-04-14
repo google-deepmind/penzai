@@ -39,6 +39,32 @@ OtherSubtree = typing.TypeVar("OtherSubtree")
 T = typing.TypeVar("T")
 
 
+def shift_negative_indices(indices: Iterable[int], shift: int) -> tuple[int, ...]:
+  """Adds `shift` to negative indices and leaves non-negative indices unchanged
+
+  Can be used to handle negative indices. For example, if we expect indices in
+  `r = range(6)` and we get `[0, 3, -2]` as input, we can use
+
+  ```py
+  shift_negative_indices([0, 3, -2], len(r))
+  ```
+
+  to get `(0, 3, 4)`
+
+  Args:
+    indices: The integers to shift
+    shift: The offset to add to negative indices. Usually, this is the largest
+      index + 1, i.e. the length of the range of indices
+  """
+  maybe_shifted_indices = []
+  for index in indices:
+    if index < 0:
+      maybe_shifted_indices.append(index + shift)
+    else:
+      maybe_shifted_indices.append(index)
+  return tuple(maybe_shifted_indices)
+
+
 @struct.pytree_dataclass
 class SelectionHole(struct.Struct):
   """A hole in a structure, taking the place of a selected subtree.
@@ -1355,6 +1381,8 @@ class Selection(Generic[SelectedSubtree], struct.Struct):
       indices = (n,)
     else:
       indices = n
+
+    indices = shift_negative_indices(indices, len(self.selected_by_path))
 
     with _wrap_selection_errors(self):
       keep = _InProgressSelectionBoundary
