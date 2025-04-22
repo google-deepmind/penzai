@@ -80,8 +80,10 @@ def llama_from_huggingface_model(
       "architectures",
       "bos_token_id",
       "eos_token_id",
+      "pad_token_id",
       "_attn_implementation_autoset",
       "head_dim",
+      "_name_or_path",
   }
   bad_attributes = {}
   for k, v in hf_config_attributes.items():

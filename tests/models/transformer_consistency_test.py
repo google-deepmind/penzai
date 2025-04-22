@@ -69,6 +69,32 @@ class TransformerConsistencyTest(parameterized.TestCase):
             pz_out, hf_out.order_like(pz_out), atol=1e-6
         )
 
+  def test_llama_consistency_from_pretrainsed(self):
+    model_name = "hf-internal-testing/tiny-random-LlamaForCausalLM"
+    hf_model = transformers.LlamaForCausalLM.from_pretrained(model_name)
+
+    tokens = pz.nx.wrap(jnp.tile(jnp.arange(11), 3)[None, :], "batch", "seq")
+
+    hf_arg = torch.tensor(np.array(tokens.unwrap("batch", "seq")))
+    hf_out = pz.nx.wrap(hf_model(hf_arg).logits.detach().numpy()).tag(
+        "batch", "seq", "vocabulary"
+    )
+
+    for layer_stack in (False, True):
+      with self.subTest(f"layer_stack={layer_stack}"):
+        pz_model = llama.llama_from_huggingface_model(
+            hf_model, use_layer_stack=layer_stack
+        )
+
+        pz_out = pz_model(
+            tokens,
+            token_positions=pz.nx.arange("seq", tokens.named_shape["seq"]),
+        )
+
+        chex.assert_trees_all_close(
+            pz_out, hf_out.order_like(pz_out), atol=1e-6
+        )
+
   @parameterized.named_parameters(
       dict(testcase_name="full", num_attention_heads=4, num_key_value_heads=4),
       dict(testcase_name="mqa", num_attention_heads=4, num_key_value_heads=1),
@@ -108,6 +134,32 @@ class TransformerConsistencyTest(parameterized.TestCase):
             pz_out, hf_out.order_like(pz_out), atol=1e-6
         )
 
+
+  def test_mistral_consistency_from_pretrained(self):
+    model_name = "hf-internal-testing/tiny-random-MistralForCausalLM"
+    hf_model = transformers.MistralForCausalLM.from_pretrained(model_name)
+
+    tokens = pz.nx.wrap(jnp.tile(jnp.arange(11), 3)[None, :], "batch", "seq")
+
+    hf_arg = torch.tensor(np.array(tokens.unwrap("batch", "seq")))
+    hf_out = pz.nx.wrap(hf_model(hf_arg).logits.detach().numpy()).tag(
+        "batch", "seq", "vocabulary"
+    )
+
+    for layer_stack in (False, True):
+      with self.subTest(f"layer_stack={layer_stack}"):
+        pz_model = mistral.mistral_from_huggingface_model(
+            hf_model, use_layer_stack=layer_stack
+        )
+        pz_out = pz_model(
+            tokens,
+            token_positions=pz.nx.arange("seq", tokens.named_shape["seq"]),
+        )
+
+        chex.assert_trees_all_close(
+            pz_out, hf_out.order_like(pz_out), atol=6e-3
+        )
+
   def test_gpt_neox_consistency(self):
     cfg = transformers.GPTNeoXConfig(
         vocab_size=11,
@@ -144,6 +196,33 @@ class TransformerConsistencyTest(parameterized.TestCase):
             pz_out, hf_out.order_like(pz_out), rtol=3e-3
         )
 
+  def test_gpt_neox_consistency_from_pretrained(self):
+    model_name = "hf-internal-testing/tiny-random-GPTNeoXForCausalLM"
+    hf_model = transformers.GPTNeoXForCausalLM.from_pretrained(model_name)
+
+    tokens = pz.nx.wrap(jnp.tile(jnp.arange(11), 3)[None, :], "batch", "seq")
+
+    hf_arg = torch.tensor(np.array(tokens.unwrap("batch", "seq")))
+    hf_out = pz.nx.wrap(hf_model(hf_arg).logits.detach().numpy()).tag(
+        "batch", "seq", "vocabulary"
+    )
+
+    for layer_stack in (False, True):
+      with self.subTest(f"layer_stack={layer_stack}"):
+        pz_model = gpt_neox.gpt_neox_from_huggingface_model(
+            hf_model, use_layer_stack=layer_stack
+        )
+        pz_out = pz_model(
+            tokens,
+            token_positions=pz.nx.arange("seq", tokens.named_shape["seq"]),
+        )
+
+        chex.assert_trees_all_close(
+            pz_out, hf_out.order_like(pz_out), atol=4e-3
+        )
+        chex.assert_trees_all_close(
+            pz_out, hf_out.order_like(pz_out), rtol=9e-3
+        )
 
 if __name__ == "__main__":
   absltest.main()

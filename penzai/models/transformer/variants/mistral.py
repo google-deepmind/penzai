@@ -86,6 +86,13 @@ def mistral_from_huggingface_model(
       "architectures",
       "_attn_implementation_autoset",
       "head_dim",
+      "hidden_act",
+      "is_decoder",
+      "pad_token_id",
+      "attention_probs_dropout_prob",
+      "hidden_dropout_prob",
+      "type_vocab_size",
+      "_name_or_path",
   }
   bad_attributes = {}
   for k, v in hf_config_attributes.items():
