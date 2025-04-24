@@ -39,7 +39,9 @@ OtherSubtree = typing.TypeVar("OtherSubtree")
 T = typing.TypeVar("T")
 
 
-def _shift_negative_indices(indices: Iterable[int], shift: int) -> tuple[int, ...]:
+def _shift_negative_indices(
+    indices: Iterable[int], shift: int
+) -> tuple[int, ...]:
   """Adds `shift` to negative indices and leaves non-negative indices unchanged
 
   Can be used to handle negative indices. For example, if we expect indices in
