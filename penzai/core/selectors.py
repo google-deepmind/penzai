@@ -45,20 +45,16 @@ def _shift_negative_indices(
   """Adds `shift` to negative indices and leaves non-negative indices unchanged
 
   Can be used to handle negative indices. For example, if we expect indices in
-  `r = range(6)` and we get `[0, 3, -2]` as input, we can use
+  `r = range(6)` and we get `[0, 3, -2]` as input, we can use ::
 
-  ```py
-  shift_negative_indices([0, 3, -2], len(r))
-  ```
+    shift_negative_indices([0, 3, -2], len(r))
 
-  to get `(0, 3, 4)`. The same can be achieved in more generality with
+  to get `(0, 3, 4)`. The same can be achieved in more generality with ::
 
-  ```py
-  pz.select((0, 3, -2)) \
-    .at_instances_of(int) \
-    .where(lambda i: i < 0) \
-    .apply(lambda i: i + shift)
-  ```
+    pz.select((0, 3, -2))
+      .at_instances_of(int)
+      .where(lambda i: i < 0)
+      .apply(lambda i: i + shift)
 
   which is why this method is private to this module
 
