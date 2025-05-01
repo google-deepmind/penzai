@@ -69,7 +69,7 @@ class TransformerConsistencyTest(parameterized.TestCase):
             pz_out, hf_out.order_like(pz_out), atol=1e-6
         )
 
-  def test_llama_consistency_from_pretrainsed(self):
+  def test_llama_consistency_from_pretrained(self):
     model_name = "hf-internal-testing/tiny-random-LlamaForCausalLM"
     hf_model = transformers.LlamaForCausalLM.from_pretrained(model_name)
 
