@@ -134,7 +134,6 @@ class TransformerConsistencyTest(parameterized.TestCase):
             pz_out, hf_out.order_like(pz_out), atol=1e-6
         )
 
-
   def test_mistral_consistency_from_pretrained(self):
     model_name = "hf-internal-testing/tiny-random-MistralForCausalLM"
     hf_model = transformers.MistralForCausalLM.from_pretrained(model_name)
@@ -223,6 +222,7 @@ class TransformerConsistencyTest(parameterized.TestCase):
         chex.assert_trees_all_close(
             pz_out, hf_out.order_like(pz_out), rtol=9e-3
         )
+
 
 if __name__ == "__main__":
   absltest.main()
