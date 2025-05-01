@@ -66,6 +66,7 @@ def llama_from_huggingface_model(
   reference_attributes = transformers.LlamaConfig().to_dict()
   handled_or_ignored_attributes = {
       # Handled during conversion:
+      "hidden_act",
       "hidden_size",
       "intermediate_size",
       "num_attention_heads",
@@ -80,8 +81,10 @@ def llama_from_huggingface_model(
       "architectures",
       "bos_token_id",
       "eos_token_id",
+      "pad_token_id",
       "_attn_implementation_autoset",
       "head_dim",
+      "_name_or_path",
   }
   bad_attributes = {}
   for k, v in hf_config_attributes.items():
