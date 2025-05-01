@@ -156,7 +156,7 @@ class TransformerConsistencyTest(parameterized.TestCase):
         )
 
         chex.assert_trees_all_close(
-            pz_out, hf_out.order_like(pz_out), atol=6e-3
+            pz_out, hf_out.order_like(pz_out), atol=1e-6
         )
 
   def test_gpt_neox_consistency(self):

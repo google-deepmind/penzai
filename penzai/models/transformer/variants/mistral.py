@@ -71,6 +71,7 @@ def mistral_from_huggingface_model(
   reference_attributes = transformers.MistralConfig().to_dict()
   handled_or_ignored_attributes = {
       # Handled during conversion:
+      "hidden_act",
       "hidden_size",
       "intermediate_size",
       "num_attention_heads",
@@ -86,7 +87,6 @@ def mistral_from_huggingface_model(
       "architectures",
       "_attn_implementation_autoset",
       "head_dim",
-      "hidden_act",
       "is_decoder",
       "pad_token_id",
       "attention_probs_dropout_prob",

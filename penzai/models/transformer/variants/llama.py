@@ -66,6 +66,7 @@ def llama_from_huggingface_model(
   reference_attributes = transformers.LlamaConfig().to_dict()
   handled_or_ignored_attributes = {
       # Handled during conversion:
+      "hidden_act",
       "hidden_size",
       "intermediate_size",
       "num_attention_heads",
