@@ -225,11 +225,18 @@ class ApplyRoPE(layer_base.Layer):
       each token in the sequence. This side input should be provided as an
       integer array that is broadcastable with the input, and which does NOT
       include the embedding axis.
+    # NOTE: add extra arguments to support Gemma3 models.
+    scale_factor: The scale factor to use for the positional embeddings.
   """
 
   embedding_axis: str = dataclasses.field(metadata={"pytree_node": False})
   max_wavelength: float = dataclasses.field(metadata={"pytree_node": False})
   positions_input_name: str = dataclasses.field(metadata={"pytree_node": False})
+  # NOTE: add extra arguments to support Gemma3 models.
+  scale_factor: float = dataclasses.field(
+      default=1.0,
+      metadata={"pytree_node": False},
+  )
 
   def _apply_1d(self, input_slice: jax.Array, position: jax.Array) -> jax.Array:
     """Apply RoPE to a one-dimensional JAX array."""
@@ -242,6 +249,10 @@ class ApplyRoPE(layer_base.Layer):
     # Since we're assuming `timescale` is a vector and `position` is a scalar,
     # we don't need any axis alignment.
     sinusoid_inp = position / timescale
+    # NOTE: add extra arguments to support Gemma3 models.
+    if self.scale_factor < 1.0:
+      raise ValueError("scale_factor must be >= 1.0, got {scale_factor")
+    sinusoid_inp = sinusoid_inp / self.scale_factor
     sin = jnp.sin(sinusoid_inp)
     cos = jnp.cos(sinusoid_inp)
     first_half, second_half = jnp.split(input_slice, 2)
@@ -298,12 +309,19 @@ class ApplyRoPEToSubset(layer_base.Layer):
       each token in the sequence. This side input should be provided as an
       integer array that is broadcastable with the input, and which does NOT
       include the embedding axis.
+    # NOTE: add extra arguments to support Gemma3 models.
+    scale_factor: The scale factor to use for the positional embeddings.
   """
 
   embedding_axis: str = dataclasses.field(metadata={"pytree_node": False})
   max_wavelength: float = dataclasses.field(metadata={"pytree_node": False})
   rope_subset_size: int = dataclasses.field(metadata={"pytree_node": False})
   positions_input_name: str = dataclasses.field(metadata={"pytree_node": False})
+  # NOTE: add extra arguments to support Gemma3 models.
+  scale_factor: float = dataclasses.field(
+      default=1.0,
+      metadata={"pytree_node": False},
+  )
 
   def __call__(
       self, inputs: named_axes.NamedArray, **side_inputs
@@ -319,6 +337,7 @@ class ApplyRoPEToSubset(layer_base.Layer):
         embedding_axis=self.embedding_axis,
         max_wavelength=self.max_wavelength,
         positions_input_name=self.positions_input_name,
+        scale_factor=self.scale_factor,
     )
     rotated_result = rotator(rotary_input, **side_inputs)
     return named_axes.concatenate(
