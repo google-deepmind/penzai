@@ -170,15 +170,15 @@ def nmap(fun: Callable[..., Any]) -> Callable[..., Any]:
 
 
 def _nmap_with_doc(
-    fun: Callable[..., Any], fun_name: str, fun_doc: str | None = None
+  fun: Callable[..., Any], fun_name: str, fun_doc: str | None = None
 ) -> Callable[..., Any]:
   """Builds a nmap-wrapped function with a docstring."""
 
   @functools.wraps(fun)
   def wrapped_fun(*args, **kwargs):
     arg_leaves_and_paths, arg_treedef = jax.tree_util.tree_flatten_with_path(
-        (args, kwargs),
-        is_leaf=lambda node: isinstance(node, NamedArray | NamedArrayView),
+      (args, kwargs),
+      is_leaf=lambda node: isinstance(node, NamedArray | NamedArrayView),
     )
     arg_leaves = [leaf for _, leaf in arg_leaves_and_paths]
     # Extract any argument leaves that were NamedArrays or NamedArrayViews. The
@@ -201,10 +201,7 @@ def _nmap_with_doc(
         named_array_arg_leaves.append(leaf.as_namedarrayview())
 
     if bad_names:
-      msg = [
-          f"Inconsistent named axes in a call to nmap({fun}) for axes"
-          f" {bad_names}:"
-      ]
+      msg = [f"Inconsistent named axes in a call to nmap({fun}) for axes {bad_names}:"]
       for keypath, leaf in arg_leaves_and_paths:
         if isinstance(leaf, NamedArray | NamedArrayView):
           assert keypath
@@ -274,22 +271,20 @@ def _nmap_with_doc(
           # data_array will still have the extra axis. But after running `vmap`,
           # it will be valid again.
           reduced_views.append(
-              NamedArrayView(
-                  data_array=view.data_array,
-                  data_axis_for_name={
-                      name: _shift_axis(data_axis)
-                      for name, data_axis in view.data_axis_for_name.items()
-                      if name != vmap_name
-                  },
-                  data_axis_for_logical_axis=tuple(
-                      _shift_axis(data_axis)
-                      for data_axis in view.data_axis_for_logical_axis
-                  ),
-                  data_shape=(
-                      view.data_shape[:vmap_axis]
-                      + view.data_shape[vmap_axis + 1 :]
-                  ),
-              )
+            NamedArrayView(
+              data_array=view.data_array,
+              data_axis_for_name={
+                name: _shift_axis(data_axis)
+                for name, data_axis in view.data_axis_for_name.items()
+                if name != vmap_name
+              },
+              data_axis_for_logical_axis=tuple(
+                _shift_axis(data_axis) for data_axis in view.data_axis_for_logical_axis
+              ),
+              data_shape=(
+                view.data_shape[:vmap_axis] + view.data_shape[vmap_axis + 1 :]
+              ),
+            )
           )
         else:
           # This argument doesn't have this axis, so don't map over anything.
@@ -297,13 +292,13 @@ def _nmap_with_doc(
           reduced_views.append(view)
 
       return jax.vmap(
-          functools.partial(
-              recursive_vectorize_step,
-              remaining_names=remaining_names[1:],
-          ),
-          in_axes=(vmap_axes,),
-          out_axes=0,
-          axis_name=vmap_name,
+        functools.partial(
+          recursive_vectorize_step,
+          remaining_names=remaining_names[1:],
+        ),
+        in_axes=(vmap_axes,),
+        out_axes=0,
+        axis_name=vmap_name,
       )(reduced_views)
 
     # Run the function.
@@ -317,24 +312,24 @@ def _nmap_with_doc(
       leaf = jnp.array(leaf)
       if leaf.ndim == len(all_names):
         return NamedArray(
-            data_array=leaf,
-            named_axes=collections.OrderedDict(zip(all_names, leaf.shape)),
+          data_array=leaf,
+          named_axes=collections.OrderedDict(zip(all_names, leaf.shape)),
         )
       else:
         assert leaf.ndim > len(all_names)
         return NamedArrayView(
-            data_array=leaf,
-            data_shape=leaf.shape,
-            data_axis_for_name={name: i for i, name in enumerate(all_names)},
-            data_axis_for_logical_axis=tuple(range(len(all_names), leaf.ndim)),
+          data_array=leaf,
+          data_shape=leaf.shape,
+          data_axis_for_name={name: i for i, name in enumerate(all_names)},
+          data_axis_for_logical_axis=tuple(range(len(all_names), leaf.ndim)),
         )
 
     return jax.tree_util.tree_map(handle_result, result_data)
 
   docstr = (
-      f"Name-vectorized version of `{fun_name}`. Takes similar arguments as"
-      f" `{fun_name}` but accepts and returns NamedArrays (or NamedArrayViews)"
-      " in place of regular arrays."
+    f"Name-vectorized version of `{fun_name}`. Takes similar arguments as"
+    f" `{fun_name}` but accepts and returns NamedArrays (or NamedArrayViews)"
+    " in place of regular arrays."
   )
   if fun_doc:
     docstr += f"\n\nOriginal documentation:\n\n{fun_doc}"
@@ -357,8 +352,8 @@ def _wrap_scalar_conversion(scalar_conversion):
   def wrapped_scalar_conversion(self: NamedArrayBase):
     if self.named_shape or self.positional_shape:
       raise ValueError(
-          "Cannot convert a non-scalar NamedArray or NamedArrayView with"
-          f" {scalar_conversion}"
+        "Cannot convert a non-scalar NamedArray or NamedArrayView with"
+        f" {scalar_conversion}"
       )
     return scalar_conversion(self.unwrap())
 
@@ -374,17 +369,17 @@ def _wrap_array_method(name):
   array_method = getattr(jax.Array, name)
   wrapped_func = nmap(func)
   functools.update_wrapper(
-      wrapped_func,
-      array_method,
-      assigned=("__name__", "__qualname__", "__annotations__"),
-      updated=(),
+    wrapped_func,
+    array_method,
+    assigned=("__name__", "__qualname__", "__annotations__"),
+    updated=(),
   )
   wrapped_func.__module__ = __name__
   wrapped_func.__doc__ = (
-      "Name-vectorized version of array method"
-      f" `{name} <numpy.ndarray.{name}>`. Takes similar arguments as"
-      f" `{name} <numpy.ndarray.{name}>` but accepts and returns NamedArrays"
-      " (or NamedArrayViews) in place of regular arrays."
+    "Name-vectorized version of array method"
+    f" `{name} <numpy.ndarray.{name}>`. Takes similar arguments as"
+    f" `{name} <numpy.ndarray.{name}>` but accepts and returns NamedArrays"
+    " (or NamedArrayViews) in place of regular arrays."
   )
   return wrapped_func
 
@@ -416,56 +411,56 @@ class _SliceThunk(struct.Struct):
 
 
 @functools.partial(
-    jax.jit,
-    static_argnames=[
-        "indices_are_sorted",
-        "unique_indices",
-        "mode",
-        "fill_value",
-    ],
+  jax.jit,
+  static_argnames=[
+    "indices_are_sorted",
+    "unique_indices",
+    "mode",
+    "fill_value",
+  ],
 )
 @nmap
 def _jitted_nmapped_getitem(
-    array: jax.Array,
-    index_thunks: tuple[_StaticThunk | _DynamicThunk | _SliceThunk, ...],
-    *,
-    indices_are_sorted=False,
-    unique_indices=False,
-    mode=None,
-    fill_value=None,
+  array: jax.Array,
+  index_thunks: tuple[_StaticThunk | _DynamicThunk | _SliceThunk, ...],
+  *,
+  indices_are_sorted=False,
+  unique_indices=False,
+  mode=None,
+  fill_value=None,
 ):
   """JIT-compiled helper for getitem."""
   indexer = tuple(thunk.unwrap() for thunk in index_thunks)
   return array.at[indexer].get(
-      indices_are_sorted=indices_are_sorted,
-      unique_indices=unique_indices,
-      mode=mode,
-      fill_value=fill_value,
+    indices_are_sorted=indices_are_sorted,
+    unique_indices=unique_indices,
+    mode=mode,
+    fill_value=fill_value,
   )
 
 
 @functools.partial(
-    jax.jit,
-    static_argnames=["method", "indices_are_sorted", "unique_indices", "mode"],
+  jax.jit,
+  static_argnames=["method", "indices_are_sorted", "unique_indices", "mode"],
 )
 @nmap
 def _jitted_nmapped_update(
-    array: jax.Array,
-    index_thunks: tuple[_StaticThunk | _DynamicThunk | _SliceThunk, ...],
-    values: jax.Array,
-    method: str,
-    *,
-    indices_are_sorted=False,
-    unique_indices=False,
-    mode=None,
+  array: jax.Array,
+  index_thunks: tuple[_StaticThunk | _DynamicThunk | _SliceThunk, ...],
+  values: jax.Array,
+  method: str,
+  *,
+  indices_are_sorted=False,
+  unique_indices=False,
+  mode=None,
 ):
   """JIT-compiled helper for in-place updates."""
   indexer = tuple(thunk.unwrap() for thunk in index_thunks)
   return getattr(array.at[indexer], method)(
-      values,
-      indices_are_sorted=indices_are_sorted,
-      unique_indices=unique_indices,
-      mode=mode,
+    values,
+    indices_are_sorted=indices_are_sorted,
+    unique_indices=unique_indices,
+    mode=mode,
   )
 
 
@@ -519,16 +514,16 @@ class _IndexUpdateRef:
         # Sliced axis.
         sliced_axes.append(name)
       elif isinstance(index, int) or (
-          isinstance(index, jax.Array | np.ndarray | NamedArrayBase)
-          and jnp.issubdtype(index.dtype, np.integer)
+        isinstance(index, jax.Array | np.ndarray | NamedArrayBase)
+        and jnp.issubdtype(index.dtype, np.integer)
       ):
         # Indexed axis.
         indexed_axes.append(name)
       else:
         raise TypeError(
-            "Unsupported index for a named axis using dict-style index:"
-            " expected a slice, an integer, an integer array, or None, but"
-            f" got {index}"
+          "Unsupported index for a named axis using dict-style index:"
+          " expected a slice, an integer, an integer array, or None, but"
+          f" got {index}"
         )
 
     input_prefix_order = (*sliced_axes, *indexed_axes)
@@ -543,13 +538,13 @@ class _IndexUpdateRef:
       # Dict indexing => desugar it to positional indexing over the requested
       # names.
       input_prefix_order, slice_order, output_prefix_order = (
-          self._partition_dict_index()
+        self._partition_dict_index()
       )
       return (
-          self.array.untag_prefix(*input_prefix_order)
-          .at[tuple(self.indexer[name] for name in slice_order)]
-          .get(**kwargs)
-          .tag_prefix(*output_prefix_order)
+        self.array.untag_prefix(*input_prefix_order)
+        .at[tuple(self.indexer[name] for name in slice_order)]
+        .get(**kwargs)
+        .tag_prefix(*output_prefix_order)
       )
 
     else:
@@ -579,7 +574,7 @@ class _IndexUpdateRef:
       # Dict indexing => desugar it to positional indexing over the requested
       # names.
       input_prefix_order, slice_order, output_prefix_order = (
-          self._partition_dict_index()
+        self._partition_dict_index()
       )
 
       # Make sure the provided value has the necessary axes, by broadcasting it
@@ -596,36 +591,32 @@ class _IndexUpdateRef:
       result_shape = result_structure.positional_shape
       num_new_positional_axes = len(result_shape) - len(value_shape)
       if num_new_positional_axes < 0 or not all(
-          vd == 1 or vd == rd
-          for vd, rd in zip(
-              value_shape, result_shape[len(result_shape) - len(value_shape) :]
-          )
+        vd == 1 or vd == rd
+        for vd, rd in zip(
+          value_shape, result_shape[len(result_shape) - len(value_shape) :]
+        )
       ):
         raise ValueError(
-            "Cannot provide updates with positional shape"
-            f" {value_shape} for an index whose result shape is"
-            f" {result_shape}! Update shape must be a"
-            " suffix of the result shape (or broadcastable to it)."
+          "Cannot provide updates with positional shape"
+          f" {value_shape} for an index whose result shape is"
+          f" {result_shape}! Update shape must be a"
+          " suffix of the result shape (or broadcastable to it)."
         )
       if num_new_positional_axes:
         value = value[(None,) * num_new_positional_axes + (...,)]
 
       new_names = {
-          name: None
-          for name in output_prefix_order
-          if name not in value.named_shape
+        name: None for name in output_prefix_order if name not in value.named_shape
       }
       if new_names:
         value = value[new_names]
 
       # pylint: disable=protected-access
       return (
-          self.array.untag_prefix(*input_prefix_order)
-          .at[tuple(self.indexer[name] for name in slice_order)]
-          ._nmap_update_op(
-              method, value.untag_prefix(*output_prefix_order), kwargs
-          )
-          .tag_prefix(*input_prefix_order)
+        self.array.untag_prefix(*input_prefix_order)
+        .at[tuple(self.indexer[name] for name in slice_order)]
+        ._nmap_update_op(method, value.untag_prefix(*output_prefix_order), kwargs)
+        .tag_prefix(*input_prefix_order)
       )
       # pylint: enable=protected-access
 
@@ -649,7 +640,7 @@ class _IndexUpdateRef:
           index_thunks.append(_StaticThunk(c))
 
       return _jitted_nmapped_update(
-          self.array, tuple(index_thunks), value, method, **kwargs
+        self.array, tuple(index_thunks), value, method, **kwargs
       )
 
   def set(self, values, /, **kwargs):
@@ -843,8 +834,7 @@ class NamedArrayBase(abc.ABC):
     # We implement `tag_prefix` using `tag` with temporary axis
     # identifiers.
     tmp_axis_ids = [
-        TmpPosAxisMarker()
-        for _ in range(len(self.positional_shape) - len(axis_order))
+      TmpPosAxisMarker() for _ in range(len(self.positional_shape) - len(axis_order))
     ]
     return self.tag(*axis_order, *tmp_axis_ids).untag(*tmp_axis_ids)
 
@@ -876,14 +866,14 @@ class NamedArrayBase(abc.ABC):
 
     data_array = self.tag(*tmp_names).untag(*tmp_names, *axis_order).unwrap()
     return (
-        NamedArray.wrap(data_array)
-        .tag(*tmp_names, *axis_order)
-        .untag(*tmp_names)
-        .with_positional_prefix()
+      NamedArray.wrap(data_array)
+      .tag(*tmp_names, *axis_order)
+      .untag(*tmp_names)
+      .with_positional_prefix()
     )
 
   def order_like(
-      self, other: NamedArray | NamedArrayView
+    self, other: NamedArray | NamedArrayView
   ) -> NamedArray | NamedArrayView:
     """Ensures that this array's PyTree structure matches another array's.
 
@@ -918,46 +908,46 @@ class NamedArrayBase(abc.ABC):
     elif isinstance(other, NamedArrayView):
       if len(self.positional_shape) != len(other.positional_shape):
         raise ValueError(
-            "Calling `order_like` with a NamedArrayView requires the two"
-            " arrays to have the same number of positional axes, but got"
-            f" positional shapes {self.positional_shape=},"
-            f" {other.positional_shape=}"
+          "Calling `order_like` with a NamedArrayView requires the two"
+          " arrays to have the same number of positional axes, but got"
+          f" positional shapes {self.positional_shape=},"
+          f" {other.positional_shape=}"
         )
       if set(self.named_shape.keys()) != set(other.named_shape.keys()):
         raise ValueError(
-            "Calling `order_like` with a NamedArrayView requires the two"
-            " arrays to have the axis names, but got"
-            f" named shapes {self.named_shape=}, {other.named_shape=}"
+          "Calling `order_like` with a NamedArrayView requires the two"
+          " arrays to have the axis names, but got"
+          f" named shapes {self.named_shape=}, {other.named_shape=}"
         )
 
       self_view = self.as_namedarrayview()
       new_to_old_data_axis = {}
       for old_data_axis, new_data_axis in zip(
-          self_view.data_axis_for_logical_axis, other.data_axis_for_logical_axis
+        self_view.data_axis_for_logical_axis, other.data_axis_for_logical_axis
       ):
         new_to_old_data_axis[new_data_axis] = old_data_axis
       for name, new_data_axis in other.data_axis_for_name.items():
         new_to_old_data_axis[new_data_axis] = self_view.data_axis_for_name[name]
       new_data_array = jnp.transpose(
-          self_view.data_array,
-          [new_to_old_data_axis[i] for i in range(self_view.data_array.ndim)],
+        self_view.data_array,
+        [new_to_old_data_axis[i] for i in range(self_view.data_array.ndim)],
       )
       return NamedArrayView(
-          data_shape=new_data_array.shape,
-          data_axis_for_logical_axis=other.data_axis_for_logical_axis,
-          data_axis_for_name=other.data_axis_for_name,
-          data_array=new_data_array,
+        data_shape=new_data_array.shape,
+        data_axis_for_logical_axis=other.data_axis_for_logical_axis,
+        data_axis_for_name=other.data_axis_for_name,
+        data_array=new_data_array,
       )
     else:
       raise TypeError(
-          "`order_like` requires a NamedArray or NamedArrayView, but got"
-          f" {type(other).__name__}"
+        "`order_like` requires a NamedArray or NamedArrayView, but got"
+        f" {type(other).__name__}"
       )
 
   def broadcast_to(
-      self,
-      positional_shape: Sequence[int] = (),
-      named_shape: Mapping[AxisName, int] | None = None,
+    self,
+    positional_shape: Sequence[int] = (),
+    named_shape: Mapping[AxisName, int] | None = None,
   ) -> NamedArrayBase:
     """Broadcasts a named array to a possibly-larger shape.
 
@@ -977,22 +967,22 @@ class NamedArrayBase(abc.ABC):
       named_shape = {}
     named_shape = dict(named_shape)
     if (
-        self.positional_shape == tuple(positional_shape)
-        and dict(self.named_shape) == named_shape
+      self.positional_shape == tuple(positional_shape)
+      and dict(self.named_shape) == named_shape
     ):
       return self
 
     # Trick: create a size-zero array with the right shape so that we can
     # broadcast using nmap's vectorization rules.
     prototype_data = jnp.zeros(
-        tuple(named_shape.values()) + tuple(positional_shape) + (0,)
+      tuple(named_shape.values()) + tuple(positional_shape) + (0,)
     )
     assert prototype_data.size == 0
     prototype = NamedArray.wrap(prototype_data).tag_prefix(*named_shape.keys())
     return nmap(lambda a, b: jnp.broadcast_to(a, b.shape[:-1]))(self, prototype)
 
   def broadcast_like(
-      self, other: NamedArrayBase | jax.typing.ArrayLike
+    self, other: NamedArrayBase | jax.typing.ArrayLike
   ) -> NamedArrayBase:
     """Broadcasts a named array to be compatible with another.
 
@@ -1255,20 +1245,16 @@ class NamedArrayBase(abc.ABC):
   __rsub__ = _nmap_with_doc(_swapped_binop(operator.sub), "jax.Array.__rsub__")
   __rmul__ = _nmap_with_doc(_swapped_binop(operator.mul), "jax.Array.__rmul__")
   __rtruediv__ = _nmap_with_doc(
-      _swapped_binop(operator.truediv), "jax.Array.__rtruediv__"
+    _swapped_binop(operator.truediv), "jax.Array.__rtruediv__"
   )
   __rfloordiv__ = _nmap_with_doc(
-      _swapped_binop(operator.floordiv), "jax.Array.__rfloordiv__"
+    _swapped_binop(operator.floordiv), "jax.Array.__rfloordiv__"
   )
   __rmod__ = _nmap_with_doc(_swapped_binop(operator.mod), "jax.Array.__rmod__")
   __rdivmod__ = _nmap_with_doc(_swapped_binop(divmod), "jax.Array.__rdivmod__")
   __rpow__ = _nmap_with_doc(_swapped_binop(operator.pow), "jax.Array.__rpow__")
-  __rlshift__ = _nmap_with_doc(
-      _swapped_binop(operator.lshift), "jax.Array.__rlshift__"
-  )
-  __rrshift__ = _nmap_with_doc(
-      _swapped_binop(operator.rshift), "jax.Array.__rrshift__"
-  )
+  __rlshift__ = _nmap_with_doc(_swapped_binop(operator.lshift), "jax.Array.__rlshift__")
+  __rrshift__ = _nmap_with_doc(_swapped_binop(operator.rshift), "jax.Array.__rrshift__")
   __rand__ = _nmap_with_doc(_swapped_binop(operator.and_), "jax.Array.__rand__")
   __ror__ = _nmap_with_doc(_swapped_binop(operator.or_), "jax.Array.__ror__")
   __rxor__ = _nmap_with_doc(_swapped_binop(operator.xor), "jax.Array.__rxor__")
@@ -1410,7 +1396,7 @@ class NamedArray(NamedArrayBase, struct.Struct):
   """
 
   named_axes: collections.OrderedDict[AxisName, int] = dataclasses.field(
-      metadata={"pytree_node": False}
+    metadata={"pytree_node": False}
   )
   data_array: jax.Array
 
@@ -1434,7 +1420,7 @@ class NamedArray(NamedArrayBase, struct.Struct):
       shape.
     """
     wrapped = NamedArray(
-        named_axes=collections.OrderedDict(), data_array=jnp.asarray(array)
+      named_axes=collections.OrderedDict(), data_array=jnp.asarray(array)
     )
     if names:
       return wrapped.tag(*names)
@@ -1446,39 +1432,34 @@ class NamedArray(NamedArrayBase, struct.Struct):
     return self.data_array.dtype
 
   def check_valid(self) -> None:
-    if not hasattr(self.data_array, "shape") or not hasattr(
-        self.data_array, "dtype"
-    ):
+    if not hasattr(self.data_array, "shape") or not hasattr(self.data_array, "dtype"):
       raise ValueError(
-          "NamedArray.data_array must contain a jax or numpy array (or at least"
-          f" something with a shape and dtype), not {type(self.data_array)}"
+        "NamedArray.data_array must contain a jax or numpy array (or at least"
+        f" something with a shape and dtype), not {type(self.data_array)}"
       )
     if not isinstance(self.named_axes, collections.OrderedDict) or not all(
-        isinstance(size, int) for size in self.named_axes.values()
+      isinstance(size, int) for size in self.named_axes.values()
     ):
       raise ValueError(
-          "NamedArray.named_axes must be an ordered dictionary of named"
-          " axis shapes"
+        "NamedArray.named_axes must be an ordered dictionary of named axis shapes"
       )
 
     if any(isinstance(name, int) for name in self.named_axes.keys()):
       raise ValueError(
-          "Integers are not allowed as axis names, to avoid confusion with"
-          " positional axis indices."
+        "Integers are not allowed as axis names, to avoid confusion with"
+        " positional axis indices."
       )
 
     true_suffix_shape = tuple(
-        self.data_array.shape[
-            len(self.data_array.shape) - len(self.named_axes) :
-        ]
+      self.data_array.shape[len(self.data_array.shape) - len(self.named_axes) :]
     )
 
     if true_suffix_shape != tuple(self.named_axes.values()):
       raise ValueError(
-          "The axis sizes in `named_axes` must exactly match a suffix "
-          " of the data array's shape, but"
-          f" {tuple(self.named_axes.values())} was not a suffix of"
-          f" {self.data_array.shape}"
+        "The axis sizes in `named_axes` must exactly match a suffix "
+        " of the data array's shape, but"
+        f" {tuple(self.named_axes.values())} was not a suffix of"
+        f" {self.data_array.shape}"
       )
 
   @property
@@ -1495,21 +1476,21 @@ class NamedArray(NamedArrayBase, struct.Struct):
     if names:
       if self.positional_shape:
         raise ValueError(
-            "Cannot unwrap a NamedArray by providing an axis name ordering if"
-            " it already has a positional shape. For advanced axis name"
-            " manipulation, try using `untag` and `tag` directly."
+          "Cannot unwrap a NamedArray by providing an axis name ordering if"
+          " it already has a positional shape. For advanced axis name"
+          " manipulation, try using `untag` and `tag` directly."
         )
       name_bound = self.untag(*names)
       if name_bound.named_shape:
         raise ValueError(
-            "When calling `unwrap` with axis names, a position must be given"
-            f" for every axis name. Unassigned names: {name_bound.named_shape}"
+          "When calling `unwrap` with axis names, a position must be given"
+          f" for every axis name. Unassigned names: {name_bound.named_shape}"
         )
       return name_bound.unwrap()
     if self.named_axes:
       raise ValueError(
-          "To unwrap a NamedArray with nonempty named shape, an ordering for"
-          f" its named axes must be provided. Named shape: {self.named_axes}"
+        "To unwrap a NamedArray with nonempty named shape, an ordering for"
+        f" its named axes must be provided. Named shape: {self.named_axes}"
       )
     return self.data_array
 
@@ -1522,15 +1503,15 @@ class NamedArray(NamedArrayBase, struct.Struct):
     positional_axis_count = len(self.data_array.shape) - len(self.named_axes)
 
     data_axis_for_name = {
-        name: index + positional_axis_count
-        for index, name in enumerate(self.named_axes.keys())
+      name: index + positional_axis_count
+      for index, name in enumerate(self.named_axes.keys())
     }
     data_axis_for_logical_axis = tuple(range(positional_axis_count))
     return NamedArrayView(
-        data_shape=self.data_array.shape,
-        data_axis_for_logical_axis=data_axis_for_logical_axis,
-        data_axis_for_name=data_axis_for_name,
-        data_array=self.data_array,
+      data_shape=self.data_array.shape,
+      data_axis_for_logical_axis=data_axis_for_logical_axis,
+      data_axis_for_name=data_axis_for_name,
+      data_array=self.data_array,
     )
 
   def untag(self, *axis_order: AxisName) -> NamedArray | NamedArrayView:
@@ -1569,14 +1550,12 @@ class NamedArrayView(NamedArrayBase, struct.Struct):
     data_array: The underlying positional-indexed array.
   """
 
-  data_shape: tuple[int, ...] = dataclasses.field(
-      metadata={"pytree_node": False}
-  )
+  data_shape: tuple[int, ...] = dataclasses.field(metadata={"pytree_node": False})
   data_axis_for_logical_axis: tuple[int, ...] = dataclasses.field(
-      metadata={"pytree_node": False}
+    metadata={"pytree_node": False}
   )
   data_axis_for_name: dict[AxisName, int] = dataclasses.field(
-      metadata={"pytree_node": False}
+    metadata={"pytree_node": False}
   )
   data_array: jax.Array
 
@@ -1588,22 +1567,20 @@ class NamedArrayView(NamedArrayBase, struct.Struct):
 
   def check_valid(self) -> None:
     # Data array has a shape.
-    if not hasattr(self.data_array, "shape") or not hasattr(
-        self.data_array, "dtype"
-    ):
+    if not hasattr(self.data_array, "shape") or not hasattr(self.data_array, "dtype"):
       raise ValueError(
-          "NamedArrayView.data_array must contain a jax or numpy array (or at"
-          " least something with a shape and dtype), not"
-          f" {type(self.data_array)}"
+        "NamedArrayView.data_array must contain a jax or numpy array (or at"
+        " least something with a shape and dtype), not"
+        f" {type(self.data_array)}"
       )
     # Data shape is valid.
     if self.data_shape != self.data_array.shape:
       raise ValueError(
-          f"Expected data_array to have shape {self.data_shape}, but it has"
-          f" shape {self.data_array.shape}. Modifying the shape of the data"
-          " array of a NamedArrayView directly is not allowed; use `nmap`"
-          " instead, or call `with_positional_prefix` if you need to"
-          " manipulate the positional axes as prefix axes."
+        f"Expected data_array to have shape {self.data_shape}, but it has"
+        f" shape {self.data_array.shape}. Modifying the shape of the data"
+        " array of a NamedArrayView directly is not allowed; use `nmap`"
+        " instead, or call `with_positional_prefix` if you need to"
+        " manipulate the positional axes as prefix axes."
       )
     # Every axis appears exactly once.
     seen_axes = collections.Counter()
@@ -1611,28 +1588,27 @@ class NamedArrayView(NamedArrayBase, struct.Struct):
     seen_axes.update(self.data_axis_for_name.values())
     if seen_axes != collections.Counter(range(len(self.data_shape))):
       raise ValueError(
-          "Every axis index into `data_shape` must appear exactly once in"
-          " either `data_axis_for_logical_axis` or `data_axis_for_name`."
+        "Every axis index into `data_shape` must appear exactly once in"
+        " either `data_axis_for_logical_axis` or `data_axis_for_name`."
       )
     # Check for bad names.
     if any(isinstance(name, int) for name in self.data_axis_for_name.keys()):
       raise ValueError(
-          "Integers are not allowed as axis names, to avoid confusion with"
-          " positional axis indices."
+        "Integers are not allowed as axis names, to avoid confusion with"
+        " positional axis indices."
       )
 
   @property
   def named_shape(self) -> Mapping[AxisName, int]:
     return {
-        name: self.data_shape[data_axis]
-        for name, data_axis in self.data_axis_for_name.items()
+      name: self.data_shape[data_axis]
+      for name, data_axis in self.data_axis_for_name.items()
     }
 
   @property
   def positional_shape(self) -> tuple[int, ...]:
     return tuple(
-        self.data_shape[data_axis]
-        for data_axis in self.data_axis_for_logical_axis
+      self.data_shape[data_axis] for data_axis in self.data_axis_for_logical_axis
     )
 
   def unwrap(self, *names) -> jax.Array:
@@ -1640,22 +1616,22 @@ class NamedArrayView(NamedArrayBase, struct.Struct):
     if names:
       if self.positional_shape:
         raise ValueError(
-            "Cannot unwrap a NamedArrayView by providing an axis name ordering"
-            " if it already has a positional shape. For advanced axis name"
-            " manipulation, try using `untag` and `tag` directly."
+          "Cannot unwrap a NamedArrayView by providing an axis name ordering"
+          " if it already has a positional shape. For advanced axis name"
+          " manipulation, try using `untag` and `tag` directly."
         )
       name_bound = self.untag(*names)
       if name_bound.named_shape:
         raise ValueError(
-            "When calling `unwrap` with axis names, a position must be given"
-            f" for every axis name. Unassigned names: {name_bound.named_shape}"
+          "When calling `unwrap` with axis names, a position must be given"
+          f" for every axis name. Unassigned names: {name_bound.named_shape}"
         )
       return name_bound.unwrap()
     if self.named_shape:
       raise ValueError(
-          "To unwrap a NamedArrayView with nonempty named shape, an ordering"
-          " for its named axes must be provided. Named shape:"
-          f" {self.named_shape}"
+        "To unwrap a NamedArrayView with nonempty named shape, an ordering"
+        " for its named axes must be provided. Named shape:"
+        f" {self.named_shape}"
       )
     # with_positional_prefix will perform the necessary transpositions, we can
     # then simply unwrap the resulting NamedArray.
@@ -1681,7 +1657,7 @@ class NamedArrayView(NamedArrayBase, struct.Struct):
       transposition.append(data_axis)
     # Then the named axes in sorted order (to try to avoid transposition)
     data_axes_and_names = sorted(
-        (data_axis, name) for name, data_axis in self.data_axis_for_name.items()
+      (data_axis, name) for name, data_axis in self.data_axis_for_name.items()
     )
     for data_axis, name in data_axes_and_names:
       transposition.append(data_axis)
@@ -1692,8 +1668,8 @@ class NamedArrayView(NamedArrayBase, struct.Struct):
       return NamedArray(data_array=self.data_array, named_axes=named_axes)
     else:
       return NamedArray(
-          data_array=self.data_array.transpose(transposition),
-          named_axes=named_axes,
+        data_array=self.data_array.transpose(transposition),
+        named_axes=named_axes,
       )
 
   def as_namedarrayview(self) -> NamedArrayView:
@@ -1704,10 +1680,10 @@ class NamedArrayView(NamedArrayBase, struct.Struct):
     self.check_valid()
     if self.data_axis_for_logical_axis:
       raise ValueError(
-          "`untag` cannot be used to introduce positional axes for a"
-          " NamedArray (or NamedArrayView) that already has positional axes."
-          " Please assign names to the existing positional axes first using"
-          " `tag`."
+        "`untag` cannot be used to introduce positional axes for a"
+        " NamedArray (or NamedArrayView) that already has positional axes."
+        " Please assign names to the existing positional axes first using"
+        " `tag`."
       )
 
     if not axis_order:
@@ -1724,7 +1700,7 @@ class NamedArrayView(NamedArrayBase, struct.Struct):
     bad_names = requested_axis_set.difference(actual_axis_set)
     if bad_names:
       raise ValueError(
-          f"Requested axis names {bad_names} are not present in the array."
+        f"Requested axis names {bad_names} are not present in the array."
       )
 
     # Build a view.
@@ -1735,25 +1711,25 @@ class NamedArrayView(NamedArrayBase, struct.Struct):
       del data_axis_for_name[name]
 
     return NamedArrayView(
-        data_shape=self.data_shape,
-        data_axis_for_logical_axis=tuple(data_axis_for_logical_axis),
-        data_axis_for_name=data_axis_for_name,
-        data_array=self.data_array,
+      data_shape=self.data_shape,
+      data_axis_for_logical_axis=tuple(data_axis_for_logical_axis),
+      data_axis_for_name=data_axis_for_name,
+      data_array=self.data_array,
     )
 
   def tag(self, *names) -> NamedArray:
     self.check_valid()
     if len(names) != len(self.data_axis_for_logical_axis):
       raise ValueError(
-          "There must be exactly as many names given to `tag` as there"
-          f" are positional axes in the array, but got {names} for positional"
-          f" shape {self.positional_shape}"
+        "There must be exactly as many names given to `tag` as there"
+        f" are positional axes in the array, but got {names} for positional"
+        f" shape {self.positional_shape}"
       )
 
     if any(isinstance(name, int) for name in names):
       raise ValueError(
-          "Integers are not allowed as axis names, to avoid confusion with"
-          " positional axis indices."
+        "Integers are not allowed as axis names, to avoid confusion with"
+        " positional axis indices."
       )
 
     seen_axes = collections.Counter()
@@ -1762,9 +1738,9 @@ class NamedArrayView(NamedArrayBase, struct.Struct):
     repeated_names = [name for name, count in seen_axes.items() if count > 1]
     if repeated_names:
       raise ValueError(
-          "Repeated axis names are not allowed; original names were"
-          f" {tuple(self.data_axis_for_name.keys())} and new names passed to"
-          f" tag were {names}; repeated: {repeated_names}"
+        "Repeated axis names are not allowed; original names were"
+        f" {tuple(self.data_axis_for_name.keys())} and new names passed to"
+        f" tag were {names}; repeated: {repeated_names}"
       )
 
     names_by_index = {}
@@ -1775,11 +1751,10 @@ class NamedArrayView(NamedArrayBase, struct.Struct):
       names_by_index[data_axis] = names[i]
 
     return NamedArray(
-        data_array=self.data_array,
-        named_axes=collections.OrderedDict([
-            (names_by_index[i], self.data_shape[i])
-            for i in range(len(self.data_shape))
-        ]),
+      data_array=self.data_array,
+      named_axes=collections.OrderedDict(
+        [(names_by_index[i], self.data_shape[i]) for i in range(len(self.data_shape))]
+      ),
     )
 
 
@@ -1793,9 +1768,9 @@ def is_namedarray(value) -> typing.TypeGuard[NamedArrayBase]:
 
 
 def full(
-    named_shape: Mapping[AxisName, int],
-    fill_value: jax.typing.ArrayLike,
-    dtype: np.DTypeLike | None = None,
+  named_shape: Mapping[AxisName, int],
+  fill_value: jax.typing.ArrayLike,
+  dtype: np.DTypeLike | None = None,
 ) -> NamedArray:
   """Constructs a full named array with a given shape.
 
@@ -1809,14 +1784,14 @@ def full(
     NamedArray with the given named shape, filled with ``fill_value``.
   """
   return NamedArray(
-      named_axes=collections.OrderedDict(named_shape),
-      data_array=jnp.full(tuple(named_shape.values()), fill_value, dtype=dtype),
+    named_axes=collections.OrderedDict(named_shape),
+    data_array=jnp.full(tuple(named_shape.values()), fill_value, dtype=dtype),
   )
 
 
 def zeros(
-    named_shape: Mapping[AxisName, int],
-    dtype: np.DTypeLike | None = None,
+  named_shape: Mapping[AxisName, int],
+  dtype: np.DTypeLike | None = None,
 ) -> NamedArray:
   """Constructs a named array of zeros with a given shape.
 
@@ -1828,14 +1803,14 @@ def zeros(
     NamedArray with the given named shape, filled with zeros.
   """
   return NamedArray(
-      named_axes=collections.OrderedDict(named_shape),
-      data_array=jnp.zeros(tuple(named_shape.values()), dtype),
+    named_axes=collections.OrderedDict(named_shape),
+    data_array=jnp.zeros(tuple(named_shape.values()), dtype),
   )
 
 
 def ones(
-    named_shape: Mapping[AxisName, int],
-    dtype: np.DTypeLike | None = None,
+  named_shape: Mapping[AxisName, int],
+  dtype: np.DTypeLike | None = None,
 ) -> NamedArray:
   """Constructs a named array of ones with a given shape.
 
@@ -1847,17 +1822,17 @@ def ones(
     NamedArray with the given named shape, filled with ones.
   """
   return NamedArray(
-      named_axes=collections.OrderedDict(named_shape),
-      data_array=jnp.ones(tuple(named_shape.values()), dtype),
+    named_axes=collections.OrderedDict(named_shape),
+    data_array=jnp.ones(tuple(named_shape.values()), dtype),
   )
 
 
 def arange(
-    name: str,
-    start: int,
-    stop: int | None = None,
-    step: int | None = None,
-    dtype: jax.typing.DTypeLike | None = None,
+  name: str,
+  start: int,
+  stop: int | None = None,
+  step: int | None = None,
+  dtype: jax.typing.DTypeLike | None = None,
 ) -> NamedArray:
   """Convenience function to create a range along a named axis.
 
@@ -1879,8 +1854,8 @@ def arange(
 
 
 def random_split(
-    key: jax.Array | NamedArrayBase,
-    named_shape: Mapping[AxisName, int] | Sequence[tuple[AxisName, int]],
+  key: jax.Array | NamedArrayBase,
+  named_shape: Mapping[AxisName, int] | Sequence[tuple[AxisName, int]],
 ) -> NamedArray | NamedArrayView:
   """Splits a PRNG key into a `NamedArray` of PRNG keys with the given names.
 
@@ -1910,9 +1885,9 @@ def random_split(
       names = sorted(unsorted_keys)
     except Exception as exc:
       raise ValueError(
-          "Unordered mappings must have sortable axis names when using"
-          " `random_split`. If necessary, you can specify a particular ordering"
-          " using a collections.OrderedDict or a tuple of (name, size) pairs."
+        "Unordered mappings must have sortable axis names when using"
+        " `random_split`. If necessary, you can specify a particular ordering"
+        " using a collections.OrderedDict or a tuple of (name, size) pairs."
       ) from exc
     sizes = [named_shape[name] for name in names]
 
@@ -1921,12 +1896,12 @@ def random_split(
   flat_split_keys = nmap(jax.random.split)(key, total_size)
 
   return flat_split_keys.reshape(
-      tuple(sizes) + flat_split_keys.positional_shape[1:]
+    tuple(sizes) + flat_split_keys.positional_shape[1:]
   ).tag_prefix(*names)
 
 
 def concatenate(
-    arrays: Sequence[NamedArrayBase], axis_name: AxisName
+  arrays: Sequence[NamedArrayBase], axis_name: AxisName
 ) -> NamedArray | NamedArrayView:
   """Concatenates a sequence of named arrays along a named axis.
 
@@ -1942,21 +1917,20 @@ def concatenate(
   ndims = set(len(array.positional_shape) for array in arrays)
   if len(ndims) != 1:
     raise ValueError(
-        "All arrays must have the same number of positional axes, but got"
-        f" {ndims}"
+      f"All arrays must have the same number of positional axes, but got {ndims}"
     )
   (ndim,) = ndims
 
   orig_positional_axes = [TmpPosAxisMarker() for _ in range(ndim)]
   arrays_along_axis = [
-      array.tag(*orig_positional_axes).untag(axis_name) for array in arrays
+    array.tag(*orig_positional_axes).untag(axis_name) for array in arrays
   ]
   concatenated = nmap(jnp.concatenate)(arrays_along_axis)
   return concatenated.tag(axis_name).untag(*orig_positional_axes)
 
 
 def stack(
-    arrays: Sequence[NamedArrayBase], axis_name: AxisName
+  arrays: Sequence[NamedArrayBase], axis_name: AxisName
 ) -> NamedArray | NamedArrayView:
   """Stacks a sequence of named arrays along a named axis.
 
@@ -1970,8 +1944,7 @@ def stack(
   ndims = set(len(array.positional_shape) for array in arrays)
   if len(ndims) != 1:
     raise ValueError(
-        "All arrays must have the same number of positional axes, but got"
-        f" {ndims}"
+      f"All arrays must have the same number of positional axes, but got {ndims}"
     )
   (ndim,) = ndims
 
@@ -1982,7 +1955,7 @@ def stack(
 
 
 def unstack(
-    array: NamedArrayBase, axis_name: AxisName
+  array: NamedArrayBase, axis_name: AxisName
 ) -> Sequence[NamedArray | NamedArrayView]:
   """Splits a named array across a given named axis.
 
@@ -2023,13 +1996,11 @@ def order_like(value_tree: Any, reference_tree: Any):
     else:
       return val
 
-  return jax.tree_util.tree_map(
-      _fix, value_tree, reference_tree, is_leaf=is_namedarray
-  )
+  return jax.tree_util.tree_map(_fix, value_tree, reference_tree, is_leaf=is_namedarray)
 
 
 def scan(
-    f: Callable[[Any, Any], Any], axis: AxisName, init, xs=None, **scan_kwargs
+  f: Callable[[Any, Any], Any], axis: AxisName, init, xs=None, **scan_kwargs
 ) -> Any:
   """Scan a function over a named array axis while carrying along state.
 
@@ -2092,17 +2063,15 @@ def scan(
     new_carry, y = f(carry, x)
     new_carry = order_like(new_carry, carry)
     y = jax.tree_util.tree_map(
-        lambda v: v.with_positional_prefix() if is_namedarray(v) else v,
-        y,
-        is_leaf=is_namedarray,
+      lambda v: v.with_positional_prefix() if is_namedarray(v) else v,
+      y,
+      is_leaf=is_namedarray,
     )
     return new_carry, y
 
   # Run the scan, which will slice off the positional prefix from the inputs,
   # and add a positional prefix to the outputs.
-  final_carry, ys_untagged = jax.lax.scan(
-      wrapped_f, init, xs_untagged, **scan_kwargs
-  )
+  final_carry, ys_untagged = jax.lax.scan(wrapped_f, init, xs_untagged, **scan_kwargs)
 
   # Re-assign the scanned-over axis.
   def _retag(leaf):
