@@ -163,6 +163,62 @@ class LinearAndAffineTest(absltest.TestCase):
         ),
     )
 
+  def test_conv(self):
+    layer = pz.nn.Conv.from_config(
+        name="test",
+        init_base_rng=jax.random.key(1),
+        input_axes={"foo": 3},
+        output_axes={"foo": 5},
+        convolution_spatial_axes={"height": 3, "width": 3},
+        parallel_axes={"baz": 7},
+        parallel_broadcast_axes={"qux": 11},
+        rename_outputs_if_necessary=True,
+    )
+    result = layer(
+        pz.nx.ones({"batch": 1, "height": 10, "width": 15, "foo": 3, "baz": 7}),
+    )
+    pz.chk.check_structure(
+        result,
+        pz.chk.ArraySpec(
+            named_shape={
+                "batch": 1,
+                "height": 10,
+                "width": 15,
+                "foo": 5,
+                "baz": 7,
+                "qux": 11,
+            }
+        ),
+    )
+
+  def test_conv_transpose(self):
+    layer = pz.nn.ConvTranspose.from_config(
+        name="test",
+        init_base_rng=jax.random.key(1),
+        input_axes={"foo": 3},
+        output_axes={"foo": 5},
+        convolution_spatial_axes={"height": 3, "width": 3},
+        parallel_axes={"baz": 7},
+        parallel_broadcast_axes={"qux": 11},
+        rename_outputs_if_necessary=True,
+    )
+    result = layer(
+        pz.nx.ones({"batch": 1, "height": 10, "width": 15, "foo": 3, "baz": 7}),
+    )
+    pz.chk.check_structure(
+        result,
+        pz.chk.ArraySpec(
+            named_shape={
+                "batch": 1,
+                "height": 10,
+                "width": 15,
+                "foo": 5,
+                "baz": 7,
+                "qux": 11,
+            }
+        ),
+    )
+
   def test_constant_rescale(self):
     layer = pz.nn.ConstantRescale(3.0)
     result = layer(pz.nx.ones({"foo": 3}))
