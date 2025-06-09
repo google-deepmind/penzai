@@ -19,7 +19,7 @@ import collections
 import dataclasses
 import functools
 import itertools
-from typing import Any, Literal, Protocol, Sequence, cast
+from typing import Any, Literal, Protocol, Sequence
 import jax
 import jax.numpy as jnp
 from penzai.core import named_axes
@@ -29,7 +29,7 @@ from penzai.core import variables
 from penzai.nn import grouping
 from penzai.nn import layer as layer_base
 from penzai.nn import parameters
-import abc
+
 
 NamedArray = named_axes.NamedArray
 Parameter = variables.Parameter
@@ -426,13 +426,32 @@ class NamedEinsum(layer_base.Layer):
     )
 
 
-def maybe_rename_output_axes(
+def _maybe_rename_output_axes(
     input_axes: dict[str, int],
     output_axes: dict[str, int],
     parallel_axes: dict[str, int],
     parallel_broadcast_axes: dict[str, int],
     rename_outputs_if_necessary: bool,
 ):
+  """Checks for name overlap between input and output axes, and renames if
+  needed to avoid collisions.
+
+  Args:
+    input_axes: Names and lengths for axes that the linear operator should
+      contract over.
+    output_axes: Names and lengths for new axes that the linear operator should
+      produce.
+    parallel_axes: Names and lengths for axes that should be processed in
+      parallel. These axes should appear in both the input and the output, and
+      the resulting linear operator will apply a different operator to each
+      slice. (This is similar to a block-diagonal matrix.)
+    parallel_broadcast_axes: Names and lengths for axes that should be treated
+      like `parallel_axes` but will only appear in the output. The input will be
+      implicitly broadcast over these axes.
+    rename_outputs_if_necessary: If True, renames output axes that overlap with
+      input axes by appending "_out" to their names.
+  """
+
   # By default no rename & no wrapping
   output_axes_after_rename = output_axes
   primed_names, original_names = None, None
@@ -588,7 +607,7 @@ class Linear(layer_base.Layer):
       parallel_broadcast_axes = {}
 
     output_axes_after_rename, primed_names, original_names = (
-        maybe_rename_output_axes(
+        _maybe_rename_output_axes(
             input_axes,
             output_axes,
             parallel_axes,
@@ -1138,7 +1157,7 @@ class Conv(AbstractGeneralConv):
       parallel_broadcast_axes = {}
 
     output_axes_after_rename, primed_names, original_names = (
-        maybe_rename_output_axes(
+        _maybe_rename_output_axes(
             input_axes,
             output_axes,
             parallel_axes,
@@ -1356,7 +1375,7 @@ class ConvTranspose(AbstractGeneralConv):
       parallel_broadcast_axes = {}
 
     output_axes_after_rename, primed_names, original_names = (
-        maybe_rename_output_axes(
+        _maybe_rename_output_axes(
             input_axes,
             output_axes,
             parallel_axes,
