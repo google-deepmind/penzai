@@ -405,13 +405,18 @@ def gpt_neox_from_huggingface_model(
       "rotary_pct",
       "vocab_size",
       # Ignored by conversion:
-      "max_position_embeddings",
-      "torch_dtype",
+      "_attn_implementation_autoset",
+      "_name_or_path",
       "architectures",
+      "attention_probs_dropout_prob",
       "bos_token_id",
       "eos_token_id",
-      "_attn_implementation_autoset",
       "head_dim",
+      "hidden_dropout_prob",
+      "is_decoder",
+      "max_position_embeddings",
+      "torch_dtype",
+      "type_vocab_size",
   }
   bad_attributes = {}
   for k, v in hf_config_attributes.items():

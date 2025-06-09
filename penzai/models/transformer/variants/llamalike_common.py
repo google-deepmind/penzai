@@ -118,7 +118,7 @@ class LlamalikeTransformerConfig:
   mlp_hidden_dim: int
   num_decoder_blocks: int
   vocab_size: int
-  mlp_variant: Literal["geglu_approx", "swiglu"]
+  mlp_variant: Literal["geglu_exact", "geglu_approx", "swiglu"]
   tie_embedder_and_logits: bool
   rope_wavelength: float = 10_000
   rms_norm_eps: float = 1e-6
@@ -157,7 +157,9 @@ def build_llamalike_feedforward(
   Returns:
     An instance of TransformerFeedForward containing the GELU MLP blocks.
   """
-  if config.mlp_variant == "geglu_approx":
+  if config.mlp_variant == "geglu_exact":
+    act_fn = functools.partial(jax.nn.gelu, approximate=False)
+  elif config.mlp_variant == "geglu_approx":
     # Approximate is already the default in JAX, but we specify it explicitly
     # because defaults differ between JAX and PyTorch.
     act_fn = functools.partial(jax.nn.gelu, approximate=True)
@@ -641,6 +643,14 @@ def llamalike_from_huggingface_model(
   else:
     activation_dtype = param_dtype
 
+  # Map HuggingFace hidden_act to Penzai mlp_variant
+  hidden_act_to_mlp_variant = {
+      "silu": "swiglu",
+      "gelu": "geglu_exact",
+      "gelu_new": "geglu_approx",
+  }
+  mlp_variant = hidden_act_to_mlp_variant[hf_config.hidden_act]
+
   pz_config = LlamalikeTransformerConfig(
       num_kv_heads=num_kv_heads,
       query_head_multiplier=query_head_multiplier,
@@ -649,7 +659,7 @@ def llamalike_from_huggingface_model(
       mlp_hidden_dim=hf_config.intermediate_size,
       num_decoder_blocks=hf_config.num_hidden_layers,
       vocab_size=hf_config.vocab_size,
-      mlp_variant="swiglu",
+      mlp_variant=mlp_variant,
       rope_wavelength=hf_config.rope_theta,
       tie_embedder_and_logits=False,
       attention_type=attention_type,

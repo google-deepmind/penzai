@@ -36,12 +36,24 @@ class TransformerConsistencyTest(parameterized.TestCase):
   )
   def test_llama_consistency(self, num_attention_heads, num_key_value_heads):
     cfg = transformers.LlamaConfig(
+        # Adjusted architecture parameters for a smaller version of Llama.
         vocab_size=11,
         hidden_size=64,
         intermediate_size=256,
         num_hidden_layers=3,
         num_attention_heads=num_attention_heads,
         num_key_value_heads=num_key_value_heads,
+        # Extra parameters that are set when loading official models from
+        # HuggingFace but aren't set by default in LlamaConfig.
+        max_position_embeddings=8192,
+        rms_norm_eps=1e-05,
+        rope_theta=500000.0,
+        torch_dtype="bfloat16",
+        architectures=["LlamaForCausalLM"],
+        bos_token_id=128000,
+        eos_token_id=128001,
+        _name_or_path="meta-llama/Meta-Llama-3-8B",
+        _attn_implementation_autoset=True,
     )
 
     torch.manual_seed(0)
@@ -73,15 +85,35 @@ class TransformerConsistencyTest(parameterized.TestCase):
       dict(testcase_name="full", num_attention_heads=4, num_key_value_heads=4),
       dict(testcase_name="mqa", num_attention_heads=4, num_key_value_heads=1),
       dict(testcase_name="gqa", num_attention_heads=4, num_key_value_heads=2),
+      dict(
+          testcase_name="act_gelu",
+          num_attention_heads=4,
+          num_key_value_heads=4,
+          hidden_act="gelu",
+      ),
   )
-  def test_mistral_consistency(self, num_attention_heads, num_key_value_heads):
+  def test_mistral_consistency(
+      self, num_attention_heads, num_key_value_heads, hidden_act="silu"
+  ):
     cfg = transformers.MistralConfig(
+        # Adjusted architecture parameters for a smaller version of Mistral.
         vocab_size=11,
         hidden_size=64,
         intermediate_size=256,
         num_hidden_layers=3,
         num_attention_heads=num_attention_heads,
         num_key_value_heads=num_key_value_heads,
+        hidden_act=hidden_act,
+        # Extra parameters that are set when loading official models from
+        # HuggingFace but aren't set by default in MistralConfig.
+        max_position_embeddings=32768,
+        sliding_window=None,
+        rms_norm_eps=1e-05,
+        rope_theta=1000000.0,
+        torch_dtype="bfloat16",
+        architectures=["MistralForCausalLM"],
+        _name_or_path="fake_org/fake-Mistral-version",
+        _attn_implementation_autoset=True,
     )
 
     torch.manual_seed(0)
@@ -110,11 +142,19 @@ class TransformerConsistencyTest(parameterized.TestCase):
 
   def test_gpt_neox_consistency(self):
     cfg = transformers.GPTNeoXConfig(
+        # Adjusted architecture parameters for a smaller version of GPT-NeoX.
         vocab_size=11,
         hidden_size=64,
         intermediate_size=256,
         num_hidden_layers=3,
         num_attention_heads=4,
+        # Extra parameters that are set when loading official models from
+        # HuggingFace but aren't set by default in GPTNeoXConfig.
+        torch_dtype="float16",
+        architectures=["GPTNeoXForCausalLM"],
+        eos_token_id=0,
+        _name_or_path="fake_org/fake-GPTNeoX-version",
+        _attn_implementation_autoset=True,
     )
 
     torch.manual_seed(0)
