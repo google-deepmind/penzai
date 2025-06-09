@@ -160,24 +160,19 @@ def variance_scaling_initializer(
   return named_axes.wrap(array).tag(*names)
 
 
-xavier_uniform_initializer = cast(
-    LinearOperatorWeightInitializer,
-    functools.partial(
-        variance_scaling_initializer,
-        scale=1.0,
-        mode="fan_avg",
-        distribution="uniform",
-    ),
+xavier_uniform_initializer = functools.partial(
+    variance_scaling_initializer,
+    scale=1.0,
+    mode="fan_avg",
+    distribution="uniform",
 )
 
-xavier_normal_initializer = cast(
-    LinearOperatorWeightInitializer,
-    functools.partial(
-        variance_scaling_initializer,
-        scale=1.0,
-        mode="fan_avg",
-        distribution="normal",
-    ),
+
+xavier_normal_initializer = functools.partial(
+    variance_scaling_initializer,
+    scale=1.0,
+    mode="fan_avg",
+    distribution="normal",
 )
 
 
