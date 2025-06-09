@@ -839,14 +839,34 @@ class ConstantRescale(layer_base.Layer):
     return jax.tree_util.tree_map(lambda x: x * self.by, value)
 
 
-def prepare_for_conv(
+def _prepare_for_conv(
     inputs: NamedArray,
     kernel: NamedArray,
     spatial_axis_names: Sequence[str],
     in_axis_names: Sequence[str],
     out_axis_names: Sequence[str],
-):
-  """Preprocess lhs and rhs for jax convolution operator"""
+) -> tuple[NamedArray, NamedArray]:
+  """Preprocess lhs and rhs for jax convolution operator.
+
+  Merges the in axes of the inputs into a single in channel axis, and merges the
+  out axes of the kernel into a single out channel axis. This is necessary to
+  use the jax convolution operator, which expects the inputs to have a single
+  in channel axis and the kernel to have a single out channel axis.
+
+  Args:
+    inputs: The input named array.
+    kernel: The kernel named array.
+    spatial_axis_names: Names of the spatial axes in the input and kernel.
+    in_axis_names: Names of the input axes that will be contracted with the
+      kernel.
+    out_axis_names: Names of the output axes that will be produced by the
+      convolution.
+  Returns:
+    A tuple of two named arrays, the first one is the input with the in axes
+    merged into a single in channel axis, and the second one is the kernel with
+    the in axes merged into a single in channel axis and the out axes merged
+    into a single out channel axis.
+  """
 
   lhs = inputs
   rhs = kernel
@@ -867,14 +887,32 @@ def prepare_for_conv(
   return lhs, rhs
 
 
-def get_named_axis_back_after_conv(
+def _get_named_axis_back_after_conv(
     result: NamedArray,
     spatial_axis_names: Sequence[str],
     out_axis_names: Sequence[str],
     out_axis_shape: Sequence[int],
-):
-  """Postprocess result from jax convolution operator"""
-  # Get named axes back
+) -> NamedArray:
+  """Postprocess result from jax convolution operator
+
+  Restores the spatial axes and output axes to the result of the jax convolution
+  operator. The spatial axes are tagged back, and the output axes are reshaped
+  to the original shape and tagged back.
+  This is necessary to restore the original shape of the output after the
+  convolution operator has been applied, since we flattened the output axes into
+  a single axis before applying the convolution.
+
+  Args:
+    result: The result of the jax convolution operator.
+    spatial_axis_names: Names of the spatial axes in the input and kernel.
+    out_axis_names: Names of the output axes that will be produced by the
+      convolution.
+    out_axis_shape: The shape of the output axes, which will be used to reshape
+      the result back to the original shape.
+  Returns:
+    A named array with the spatial axes and output axes tagged back, and the
+    output axes reshaped to the original shape.
+  """
   return (
       result.tag_prefix(*spatial_axis_names)
       .reshape(out_axis_shape)
@@ -882,11 +920,31 @@ def get_named_axis_back_after_conv(
   )
 
 
-def maybe_broadcast(value: int | Sequence[int], count: int):
+def _maybe_broadcast(value: int | Sequence[int], count: int) -> Sequence[int]:
+  """Broadcasts a value to a sequence of the given count.
+
+  If the value is an integer, it will be repeated `count` times.
+  If the value is already a sequence, it will be returned as is.
+
+  Args:
+    value: The value to broadcast, either an integer or a sequence of integers.
+    count: The number of times to repeat the value if it is an integer.
+  Returns:
+    A sequence of integers with the value repeated `count` times if it was an
+    integer, or the original sequence if it was already a sequence.
+  """
   return [value] * count if isinstance(value, int) else value
 
 
-def get_dimension_numbers(ndim):
+def _get_dimension_numbers(ndim) -> jax.lax.ConvDimensionNumbers:
+  """Returns the dimension numbers for a convolution operator.
+  Args:
+    ndim: The number of spatial dimensions of the convolution operator.
+  Returns:
+    A `jax.lax.ConvDimensionNumbers` object that specifies the dimension numbers
+    for the convolution operator.
+  """
+
   return jax.lax.ConvDimensionNumbers(
       lhs_spec=(0, ndim + 1)
       + tuple(range(1, ndim + 1)),  # BHSpatial -> BCSpatial
@@ -1034,7 +1092,7 @@ class Conv(AbstractGeneralConv):
     )
 
     print(in_array)
-    lhs, rhs = prepare_for_conv(
+    lhs, rhs = _prepare_for_conv(
         in_array,
         self.kernel.value,
         self.spatial_axis_names,
@@ -1051,13 +1109,13 @@ class Conv(AbstractGeneralConv):
             padding=self.padding,
             lhs_dilation=self.inputs_dilation,
             rhs_dilation=self.kernel_dilation,
-            dimension_numbers=get_dimension_numbers(
+            dimension_numbers=_get_dimension_numbers(
                 ndim=len(self.spatial_axis_names)
             ),
         )[0]
     )(lhs, rhs)
 
-    result = get_named_axis_back_after_conv(
+    result = _get_named_axis_back_after_conv(
         result,
         self.spatial_axis_names,
         self.out_axis_names,
@@ -1147,9 +1205,9 @@ class Conv(AbstractGeneralConv):
     """
     spatial_dim_count = len(convolution_spatial_axes)
 
-    strides = maybe_broadcast(strides, spatial_dim_count)
-    inputs_dilation = maybe_broadcast(inputs_dilation, spatial_dim_count)
-    kernel_dilation = maybe_broadcast(kernel_dilation, spatial_dim_count)
+    strides = _maybe_broadcast(strides, spatial_dim_count)
+    inputs_dilation = _maybe_broadcast(inputs_dilation, spatial_dim_count)
+    kernel_dilation = _maybe_broadcast(kernel_dilation, spatial_dim_count)
 
     if parallel_axes is None:
       parallel_axes = {}
@@ -1257,7 +1315,7 @@ class ConvTranspose(AbstractGeneralConv):
         in_array, in_struct, error_prefix=error_prefix
     )
 
-    lhs, rhs = prepare_for_conv(
+    lhs, rhs = _prepare_for_conv(
         in_array,
         self.kernel.value,
         self.spatial_axis_names,
@@ -1273,13 +1331,13 @@ class ConvTranspose(AbstractGeneralConv):
             strides=self.strides,
             padding=self.padding,
             rhs_dilation=self.kernel_dilation,
-            dimension_numbers=get_dimension_numbers(
+            dimension_numbers=_get_dimension_numbers(
                 ndim=len(self.spatial_axis_names)
             ),
         )[0]
     )(lhs, rhs)
 
-    result = get_named_axis_back_after_conv(
+    result = _get_named_axis_back_after_conv(
         result,
         self.spatial_axis_names,
         self.out_axis_names,
@@ -1366,8 +1424,8 @@ class ConvTranspose(AbstractGeneralConv):
     """
     spatial_dim_count = len(convolution_spatial_axes)
 
-    strides = maybe_broadcast(strides, spatial_dim_count)
-    kernel_dilation = maybe_broadcast(kernel_dilation, spatial_dim_count)
+    strides = _maybe_broadcast(strides, spatial_dim_count)
+    kernel_dilation = _maybe_broadcast(kernel_dilation, spatial_dim_count)
 
     if parallel_axes is None:
       parallel_axes = {}
