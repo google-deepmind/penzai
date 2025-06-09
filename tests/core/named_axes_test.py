@@ -15,6 +15,7 @@
 """Tests for penzai.named_axes."""
 
 import collections
+import dataclasses
 import re
 
 from absl.testing import absltest
@@ -1169,6 +1170,31 @@ class NamedAxesTest(parameterized.TestCase):
     self.assertIsInstance(stacked_out["out_narr"], pz.nx.NamedArrayBase)
     self.assertEqual(stacked_out["out_narr"].named_shape, {"seq": 7, "c": 4})
     self.assertEqual(stacked_out["out_narr"].positional_shape, (5,))
+
+  def test_jax_compilation_with_captured_slice_index(self):
+    # https://github.com/google-deepmind/penzai/issues/117
+
+    @pz.pytree_dataclass
+    class Indexer(pz.Struct):
+      index: int = dataclasses.field(metadata={"pytree_node": False})
+
+    def outer_fn():
+      indexer = Indexer(jnp.array(3))
+
+      def inner_fn(x: pz.nx.NamedArray):
+        return x[{"foo": pz.slice[: indexer.index]}]
+
+      return jax.jit(inner_fn)
+
+    # Test that both calls succeed and produce the expected result, instead of
+    # causing an infinite hang.
+    test_fn = outer_fn()
+    result1 = test_fn(pz.nx.ones({"foo": 10}))
+    expected = pz.nx.ones({"foo": 3})
+    chex.assert_trees_all_equal(result1, expected)
+    test_fn = outer_fn()
+    result2 = test_fn(pz.nx.ones({"foo": 10}))
+    chex.assert_trees_all_equal(result2, expected)
 
 
 if __name__ == "__main__":

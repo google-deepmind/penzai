@@ -407,9 +407,9 @@ class _DynamicThunk(struct.Struct):
 
 @struct.pytree_dataclass
 class _SliceThunk(struct.Struct):
-  start: Any = dataclasses.field(metadata={"pytree_node": False})
-  stop: Any = dataclasses.field(metadata={"pytree_node": False})
-  step: Any = dataclasses.field(metadata={"pytree_node": False})
+  start: int | None = dataclasses.field(metadata={"pytree_node": False})
+  stop: int | None = dataclasses.field(metadata={"pytree_node": False})
+  step: int | None = dataclasses.field(metadata={"pytree_node": False})
 
   def unwrap(self):
     return slice(self.start, self.stop, self.step)
@@ -567,7 +567,14 @@ class _IndexUpdateRef:
         if isinstance(c, jax.Array | np.ndarray | NamedArrayBase | int):
           index_thunks.append(_DynamicThunk(c))
         elif isinstance(c, slice):
-          index_thunks.append(_SliceThunk(c.start, c.stop, c.step))
+          # Slices must be either integers or None.
+          # We cast to integers immediately here to avoid accidentally passing
+          # JAX arrays through as static metadata.
+          # See https://github.com/jax-ml/jax/issues/28311.
+          start = None if c.start is None else int(c.start)
+          stop = None if c.stop is None else int(c.stop)
+          step = None if c.step is None else int(c.step)
+          index_thunks.append(_SliceThunk(start, stop, step))
         else:
           index_thunks.append(_StaticThunk(c))
 
