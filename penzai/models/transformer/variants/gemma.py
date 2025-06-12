@@ -34,6 +34,20 @@ from penzai.models.transformer import model_parts
 from penzai.models.transformer.variants import llamalike_common
 
 
+def make_attention_layers_types(
+    pattern: tuple[llamalike_common.AttentionType, ...],
+    *,
+    num_layers: int,
+) -> tuple[llamalike_common.AttentionType, ...]:
+  """Returns the list of attention types for every layers."""
+
+  pattern_size = len(pattern)
+  out = pattern * (num_layers // pattern_size)
+  if num_layers % pattern_size != 0:
+    out += pattern[: num_layers % pattern_size]
+  return tuple(out)
+
+
 _GEMMA_PRESETS = {
     "gemma_2b": dict(
         num_decoder_blocks=18,
@@ -113,14 +127,11 @@ _GEMMA_PRESETS = {
         query_head_multiplier=4,
         embedding_dim=1152,
         projection_dim=256,
-        mlp_hidden_dim=6*1152,
-        attention_type=(
-            llamalike_common.AttentionTypeSlidingWindowCausal(512),
-            llamalike_common.AttentionTypeSlidingWindowCausal(512),
-            llamalike_common.AttentionTypeSlidingWindowCausal(512),
-            llamalike_common.AttentionTypeSlidingWindowCausal(512),
-            llamalike_common.AttentionTypeSlidingWindowCausal(512),
-            llamalike_common.AttentionTypeGlobalCausal(),
+        mlp_hidden_dim=6 * 1152,
+        attention_type=make_attention_layers_types(
+            pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(512),)
+            * 5 + (llamalike_common.AttentionTypeGlobalCausal(),),
+            num_layers=26,
         ),
         use_qk_norm=True,
         use_post_attn_norm=True,
@@ -136,13 +147,10 @@ _GEMMA_PRESETS = {
         embedding_dim=2560,
         projection_dim=256,
         mlp_hidden_dim=2560 * 8 // 2,
-        attention_type=(
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeGlobalCausal(),
+        attention_type=make_attention_layers_types(
+            pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(1024),)
+            * 5 + (llamalike_common.AttentionTypeGlobalCausal(),),
+            num_layers=34,
         ),
         use_qk_norm=True,
         use_post_attn_norm=True,
@@ -160,13 +168,10 @@ _GEMMA_PRESETS = {
         embedding_dim=30 * 128,
         projection_dim=256,
         mlp_hidden_dim=8 * 30 * 128 // 2,
-        attention_type=(
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeGlobalCausal(),
+        attention_type=make_attention_layers_types(
+            pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(1024),)
+            * 5 + (llamalike_common.AttentionTypeGlobalCausal(),),
+            num_layers=48,
         ),
         use_qk_norm=True,
         use_post_attn_norm=True,
@@ -186,13 +191,10 @@ _GEMMA_PRESETS = {
         mlp_hidden_dim=5376 * 8 // 2,
         # query scaling factor: 1/sqrt(embedding_dim / num_query_heads)
         query_scaling_factor=(5376 // 32) ** -0.5,
-        attention_type=(
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeSlidingWindowCausal(1024),
-            llamalike_common.AttentionTypeGlobalCausal(),
+        attention_type=make_attention_layers_types(
+            pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(1024),)
+            * 5 + (llamalike_common.AttentionTypeGlobalCausal(),),
+            num_layers=34,
         ),
         use_qk_norm=True,
         use_post_attn_norm=True,
@@ -218,12 +220,12 @@ _NEEDS_GATING_TRANSPOSE = {
 
 def gemma_from_pretrained_checkpoint(
     ckpt_params: dict[str, Any],
-    preset_name: Literal[
-        "gemma_2b", "gemma_7b", "gemma2_2b", "gemma2_9b", "gemma2_27b",
-        "gemma3_1b", "gemma3_4b", "gemma3_12b", "gemma3_27b",
-    ],
     upcast_activations_to_float32: bool = False,
     use_layer_stack: bool = False,
+    preset_name: Literal[
+        "gemma_2b", "gemma_7b", "gemma2_2b", "gemma2_9b", "gemma2_27b",
+        "gemma3_1b", "gemma3_4b", "gemma3_12b", "gemma3_27b", "auto"
+    ] = "auto",
 ) -> model_parts.TransformerLM:
   """Builds a Gemma model from a pretrained checkpoint.
 
@@ -241,16 +243,46 @@ def gemma_from_pretrained_checkpoint(
 
   Args:
     ckpt_params: Nested dictionary of weights from the Gemma checkpoint.
-    preset_name: The name of the Gemma preset to use.
     upcast_activations_to_float32: Whether to cast activations to float32 when
       the model runs. This allows analyzing activations at higher precision
       without consuming additional memory for parameters.
     use_layer_stack: Whether to use a layer stack for the decoder blocks.
+    preset_name: Preset name, used to determine model config. If "auto", uses
+      the number of layers and whether the model needs qk norm in the checkpoint
+      to determine the configuration.
 
   Returns:
     A Transformer model containing the loaded parameters.
   """
   params = {k.removeprefix("transformer/"): v for k, v in ckpt_params.items()}
+
+  if preset_name == "auto":
+    num_layers = 0
+    while f"layer_{num_layers}/mlp/linear" in params:
+      num_layers += 1
+    if (
+        "layer_0/attn/_query_norm" in params
+        and "layer_0/attn/_key_norm" in params
+    ):
+      qk_norm = True
+    else:
+      qk_norm = False
+    is_match = False
+    for gemma_preset_name, kwargs in _GEMMA_PRESETS.items():
+      if kwargs["num_decoder_blocks"] == num_layers:
+        if qk_norm and "use_qk_norm" in kwargs:
+          is_match = True
+          preset_name = gemma_preset_name
+          break
+        if (not qk_norm) and ("use_qk_norm" not in kwargs):
+          is_match = True
+          preset_name = gemma_preset_name
+          break
+    if not is_match:
+      raise ValueError(
+          f"Could not determine preset for model with {num_layers} layers and"
+          f" qk norm {qk_norm}."
+      )
 
   preset_kwargs = _GEMMA_PRESETS[preset_name]
   preset_needs_gating_transpose = _NEEDS_GATING_TRANSPOSE[preset_name]
@@ -296,12 +328,12 @@ def gemma_from_pretrained_checkpoint(
     )
     # Add qk norm if needed
     if config.use_qk_norm:
-      cur_block_params["attention/_query_norm/scale.weights"] = (
+      cur_block_params["attention/query_norm/scale.weights"] = (
           pz.nx.NamedArray.wrap(
               1 + params[f"layer_{i}/attn/_query_norm"]["scale"]
           ).tag("projection")
       )
-      cur_block_params["attention/_key_norm/scale.weights"] = (
+      cur_block_params["attention/key_norm/scale.weights"] = (
           pz.nx.NamedArray.wrap(
               1 + params[f"layer_{i}/attn/_key_norm"]["scale"]
           ).tag("projection")
