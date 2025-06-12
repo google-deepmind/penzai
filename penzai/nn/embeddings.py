@@ -225,14 +225,13 @@ class ApplyRoPE(layer_base.Layer):
       each token in the sequence. This side input should be provided as an
       integer array that is broadcastable with the input, and which does NOT
       include the embedding axis.
-    # NOTE: add extra arguments to support Gemma3 models.
-    scale_factor: The scale factor to use for the positional embeddings.
+    scale_factor: The scale factor to use for the positional embeddings (used by
+      Gemma3 models).
   """
 
   embedding_axis: str = dataclasses.field(metadata={"pytree_node": False})
   max_wavelength: float = dataclasses.field(metadata={"pytree_node": False})
   positions_input_name: str = dataclasses.field(metadata={"pytree_node": False})
-  # NOTE: add extra arguments to support Gemma3 models.
   scale_factor: float = dataclasses.field(
       default=1.0,
       metadata={"pytree_node": False},
@@ -249,9 +248,8 @@ class ApplyRoPE(layer_base.Layer):
     # Since we're assuming `timescale` is a vector and `position` is a scalar,
     # we don't need any axis alignment.
     sinusoid_inp = position / timescale
-    # NOTE: add extra arguments to support Gemma3 models.
     if self.scale_factor < 1.0:
-      raise ValueError("scale_factor must be >= 1.0, got {scale_factor")
+      raise ValueError("scale_factor must be >= 1.0, got {scale_factor}")
     sinusoid_inp = sinusoid_inp / self.scale_factor
     sin = jnp.sin(sinusoid_inp)
     cos = jnp.cos(sinusoid_inp)
@@ -309,15 +307,14 @@ class ApplyRoPEToSubset(layer_base.Layer):
       each token in the sequence. This side input should be provided as an
       integer array that is broadcastable with the input, and which does NOT
       include the embedding axis.
-    # NOTE: add extra arguments to support Gemma3 models.
-    scale_factor: The scale factor to use for the positional embeddings.
+    scale_factor: The scale factor to use for the positional embeddings (used by
+      Gemma 3 models).
   """
 
   embedding_axis: str = dataclasses.field(metadata={"pytree_node": False})
   max_wavelength: float = dataclasses.field(metadata={"pytree_node": False})
   rope_subset_size: int = dataclasses.field(metadata={"pytree_node": False})
   positions_input_name: str = dataclasses.field(metadata={"pytree_node": False})
-  # NOTE: add extra arguments to support Gemma3 models.
   scale_factor: float = dataclasses.field(
       default=1.0,
       metadata={"pytree_node": False},
