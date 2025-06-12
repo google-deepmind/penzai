@@ -34,7 +34,6 @@ from collections.abc import Sequence
 import dataclasses
 import functools
 from typing import Any, Literal
-from absl import logging
 import jax
 import jax.numpy as jnp
 from penzai import pz
@@ -102,12 +101,11 @@ class LlamalikeTransformerConfig:
     parameter_dtype: Floating dtype to use for all parameters.
     activation_dtype: Floating dtype to use for activations and KV cache tables.
     use_layer_stack: Whether to stack the blocks together using a LayerStack.
-    # NOTE: Gemma3 specific parameters
     use_qk_norm: Whether to use QK normalization.
-    local_scale_factor: Scale factor for the localRoPE layers.
+    local_scale_factor: Scale factor for the local RoPE layers.
     global_scale_factor: Scale factor for the gloabl RoPE layers.
     local_rope_wavelength: Wavelength for the local RoPE layers.
-    global_rope_wavelength: Wavelength for the globalRoPE layers.
+    global_rope_wavelength: Wavelength for the global RoPE layers.
   """
 
   num_kv_heads: int
@@ -132,7 +130,6 @@ class LlamalikeTransformerConfig:
   parameter_dtype: jax.typing.DTypeLike = jnp.float32
   activation_dtype: jax.typing.DTypeLike = jnp.float32
   use_layer_stack: bool = False
-  # NOTE: Gemma3 specific parameters
   use_qk_norm: bool = False
   local_scale_factor: float | None = None
   global_scale_factor: float | None = None
@@ -339,7 +336,7 @@ def build_llamalike_attention(
   if config.use_qk_norm:
     input_to_query_sublayers.append(
         pz.nn.RMSLayerNorm.from_config(
-            name=f"{name}/_query_norm",
+            name=f"{name}/query_norm",
             init_base_rng=init_base_rng,
             across_axes={"projection": config.projection_dim},
             dtype=config.parameter_dtype,
@@ -371,7 +368,7 @@ def build_llamalike_attention(
   if config.use_qk_norm:
     input_to_key_sublayers.append(
         pz.nn.RMSLayerNorm.from_config(
-            name=f"{name}/_key_norm",
+            name=f"{name}/key_norm",
             init_base_rng=init_base_rng,
             across_axes={"projection": config.projection_dim},
             dtype=config.parameter_dtype,
@@ -547,10 +544,9 @@ def build_llamalike_transformer(
   else:
     if not isinstance(config.attention_type, AttentionType):
       if config.num_decoder_blocks % len(config.attention_type) != 0:
-        logging.warning(
-            "Please ensure that you are using Gemma3 models."
-            "For other models, per-layer attention types must have a length "
-            "that divides the number of blocks."
+        raise ValueError(
+            "Per-layer attention types must have a length that divides the"
+            " number of blocks."
         )
     for block_index in range(config.num_decoder_blocks):
       sublayers.append(
