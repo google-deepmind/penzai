@@ -217,9 +217,9 @@ You can read more about Penzai's conventions for layers in ["How to Think in Pen
 
 ## Loading Pretrained Models
 
-### Loading Gemma or Gemma 2
+### Loading Gemma or Gemma 2 or Gemma 3
 
-Penzai's Gemma implementation includes a conversion utility that converts the "Flax" model weights from Kaggle ([Gemma 1](https://www.kaggle.com/models/google/gemma), [Gemma 2](https://www.kaggle.com/models/google/gemma-2)) into the correct form. You can load it using:
+Penzai's Gemma implementation includes a conversion utility that converts the "Flax" model weights from Kaggle ([Gemma 1](https://www.kaggle.com/models/google/gemma), [Gemma 2](https://www.kaggle.com/models/google/gemma-2), [Gemma 3](https://www.kaggle.com/models/google/gemma-3)) into the correct form. You can load it using:
 
 ```python
 import kagglehub
@@ -236,11 +236,18 @@ flax_params_dict = checkpointer.restore(ckpt_path)
 model = variants.gemma.gemma_from_pretrained_checkpoint(flax_params_dict)
 ```
 
-To load Gemma 2, you can substitute the corresponding Kaggle model name and checkpoint path. For instance, to load the Gemma 2 9B model, you can use:
+To load Gemma 2/3, you can substitute the corresponding Kaggle model name and checkpoint path. For instance, to load the Gemma 2 9B model, you can use:
 
 ```python
 weights_dir = kagglehub.model_download('google/gemma-2/flax/gemma2-9b')
 ckpt_path = os.path.join(weights_dir, 'gemma2_9b_pt')
+```
+
+For instance, to load the Gemma 3 4B model, you can use:
+
+```python
+weights_dir = kagglehub.model_download('google/gemma-3/flax/gemma3-4b')
+ckpt_path = os.path.join(weights_dir, 'gemma3_4b_pt')
 ```
 
 See the "Model Variations" section on the Kaggle model pages for details about the names and paths for each checkpoint. (You may also need to create a Kaggle account and request access to each model before you can download the checkpoints.)
