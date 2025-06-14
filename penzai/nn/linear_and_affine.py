@@ -959,7 +959,6 @@ class AbstractGeneralConv(layer_base.Layer):
   kernel: parameters.ParameterLike[NamedArray]
   strides: Sequence[int]
   padding: str | Sequence[tuple[int, int]]
-  kernel_dilation: Sequence[int]
 
   spatial_axis_names: tuple[str, ...] = dataclasses.field(
       metadata={"pytree_node": False}
@@ -970,6 +969,160 @@ class AbstractGeneralConv(layer_base.Layer):
   out_axis_names: tuple[str, ...] = dataclasses.field(
       metadata={"pytree_node": False}
   )
+
+  kernel_dilation: Sequence[int]
+  inputs_dilation: Sequence[int]
+
+  def __call__(self, in_array: NamedArray, **_side_inputs) -> NamedArray:
+    """Runs the Convolution operator."""
+    in_struct = self._input_structure()
+
+    # pytype: disable=attribute-error
+    if isinstance(
+        self.kernel,
+        Parameter | ParameterValue,
+    ) and self.kernel.label.endswith(".kernel"):
+      error_prefix = f"({self.kernel.label[: 7]}) "
+    else:
+      error_prefix = ""
+    # pytype: enable=attribute-error
+
+    dimvars = shapecheck.check_structure(
+        in_array, in_struct, error_prefix=error_prefix
+    )
+
+    lhs, rhs = _prepare_for_conv(
+        in_array,
+        self.kernel.value,
+        self.spatial_axis_names,
+        self.in_axis_names,
+        self.out_axis_names,
+    )
+
+    if self._is_transposed():
+      # Perform actual transposed convolution
+      result = named_axes.nmap(
+          lambda lhs, rhs: jax.lax.conv_transpose(
+              lhs=lhs[None, ...],
+              rhs=rhs,
+              strides=self.strides,
+              padding=self.padding,
+              rhs_dilation=self.kernel_dilation,
+              dimension_numbers=_get_dimension_numbers(
+                  ndim=len(self.spatial_axis_names)
+              ),
+          )[0]
+      )(lhs, rhs)
+    else:
+      # Perform actual convolution
+      result = named_axes.nmap(
+          lambda lhs, rhs: jax.lax.conv_general_dilated(
+              lhs=lhs[None, ...],
+              rhs=rhs,
+              window_strides=self.strides,
+              padding=self.padding,
+              lhs_dilation=self.inputs_dilation,
+              rhs_dilation=self.kernel_dilation,
+              dimension_numbers=_get_dimension_numbers(
+                  ndim=len(self.spatial_axis_names)
+              ),
+          )[0]
+      )(lhs, rhs)
+
+    result = _get_named_axis_back_after_conv(
+        result,
+        self.spatial_axis_names,
+        self.out_axis_names,
+        [self.output_axes[name] for name in self.out_axis_names],
+    )
+
+    out_struct = self._output_structure()
+    shapecheck.check_structure(
+        result, out_struct, known_vars=dimvars, error_prefix=error_prefix
+    )
+    return result
+
+  @classmethod
+  def from_config(
+      cls,
+      name: str,
+      init_base_rng: jax.Array | None,
+      input_axes: dict[str, int],
+      output_axes: dict[str, int],
+      convolution_spatial_axes: dict[str, int],
+      strides: int | Sequence[int] = 1,
+      padding: str | Sequence[tuple[int, int]] = "SAME",
+      inputs_dilation: int | Sequence[int] = 1,
+      kernel_dilation: int | Sequence[int] = 1,
+      parallel_axes: dict[str, int] | None = None,
+      parallel_broadcast_axes: dict[str, int] | None = None,
+      initializer: LinearOperatorWeightInitializer = xavier_uniform_initializer,
+      dtype: jax.typing.DTypeLike = jnp.float32,
+      rename_outputs_if_necessary: bool = True,
+  ) -> Conv | ConvInPlace:
+    """Constructs a ``AbstractGeneralConv`` layer from a configuration.
+
+    This can be used when building a new convolution or transposed convolution
+    operator at the start of training. For more details see Conv or
+    ConvTranspose.
+    """
+
+    spatial_dim_count = len(convolution_spatial_axes)
+
+    strides = _maybe_broadcast(strides, spatial_dim_count)
+    inputs_dilation = _maybe_broadcast(inputs_dilation, spatial_dim_count)
+    kernel_dilation = _maybe_broadcast(kernel_dilation, spatial_dim_count)
+
+    if parallel_axes is None:
+      parallel_axes = {}
+    if parallel_broadcast_axes is None:
+      parallel_broadcast_axes = {}
+
+    output_axes_after_rename, primed_names, original_names = (
+        _maybe_rename_output_axes(
+            input_axes,
+            output_axes,
+            parallel_axes,
+            parallel_broadcast_axes,
+            rename_outputs_if_necessary,
+        )
+    )
+
+    core_layer = cls(
+        kernel=parameters.make_parameter(
+            f"{name}.kernel",
+            init_base_rng,
+            initializer,
+            input_axes=input_axes,
+            output_axes=output_axes_after_rename,
+            parallel_axes={**parallel_axes, **parallel_broadcast_axes},
+            convolution_spatial_axes=convolution_spatial_axes,
+            dtype=dtype,
+        ),
+        strides=strides,
+        padding=padding,
+        inputs_dilation=inputs_dilation,
+        kernel_dilation=kernel_dilation,
+        spatial_axis_names=tuple(convolution_spatial_axes.keys()),
+        in_axis_names=tuple(input_axes.keys()),
+        out_axis_names=(
+            tuple(output_axes_after_rename.keys())
+            + tuple(parallel_broadcast_axes.keys())
+        ),
+    )
+
+    # if name overlap wrap layer
+    if primed_names is not None and original_names is not None:
+      return ConvInPlace(
+          sublayers=[
+              core_layer,
+              RenameAxes(old=tuple(primed_names), new=tuple(original_names)),
+          ],
+      )
+    return core_layer
+
+  def _is_transposed(self) -> bool:
+    ...
 
   def _input_structure(self):
     known_in_axes = {
@@ -1041,7 +1194,8 @@ class Conv(AbstractGeneralConv):
   """A general convolution operator, for named arrays.
 
   Applies an arbitrary contraction to the input `NamedArray` and a weight
-  parameter. This can be used to express an arbitrary linear convolution operator.
+  parameter. This can be used to express an arbitrary linear convolution
+  operator.
 
   Attributes:
     kernel: The named array holding the kernel for the convlution operator.
@@ -1060,7 +1214,6 @@ class Conv(AbstractGeneralConv):
   kernel: parameters.ParameterLike[NamedArray]
   strides: Sequence[int]
   padding: str | Sequence[tuple[int, int]]
-  kernel_dilation: Sequence[int]
 
   spatial_axis_names: tuple[str, ...] = dataclasses.field(
       metadata={"pytree_node": False}
@@ -1071,62 +1224,9 @@ class Conv(AbstractGeneralConv):
   out_axis_names: tuple[str, ...] = dataclasses.field(
       metadata={"pytree_node": False}
   )
+
+  kernel_dilation: Sequence[int]
   inputs_dilation: Sequence[int]
-
-  def __call__(self, in_array: NamedArray, **_side_inputs) -> NamedArray:
-    """Runs the Convolution operator."""
-    in_struct = self._input_structure()
-
-    # pytype: disable=attribute-error
-    if isinstance(
-        self.kernel,
-        Parameter | ParameterValue,
-    ) and self.kernel.label.endswith(".kernel"):
-      error_prefix = f"({self.kernel.label[: 7]}) "
-    else:
-      error_prefix = ""
-    # pytype: enable=attribute-error
-
-    dimvars = shapecheck.check_structure(
-        in_array, in_struct, error_prefix=error_prefix
-    )
-
-    print(in_array)
-    lhs, rhs = _prepare_for_conv(
-        in_array,
-        self.kernel.value,
-        self.spatial_axis_names,
-        self.in_axis_names,
-        self.out_axis_names,
-    )
-
-    # Perform actual convolution
-    result = named_axes.nmap(
-        lambda lhs, rhs: jax.lax.conv_general_dilated(
-            lhs=lhs[None, ...],
-            rhs=rhs,
-            window_strides=self.strides,
-            padding=self.padding,
-            lhs_dilation=self.inputs_dilation,
-            rhs_dilation=self.kernel_dilation,
-            dimension_numbers=_get_dimension_numbers(
-                ndim=len(self.spatial_axis_names)
-            ),
-        )[0]
-    )(lhs, rhs)
-
-    result = _get_named_axis_back_after_conv(
-        result,
-        self.spatial_axis_names,
-        self.out_axis_names,
-        [self.output_axes[name] for name in self.out_axis_names],
-    )
-
-    out_struct = self._output_structure()
-    shapecheck.check_structure(
-        result, out_struct, known_vars=dimvars, error_prefix=error_prefix
-    )
-    return result
 
   @classmethod
   def from_config(
@@ -1203,59 +1303,26 @@ class Conv(AbstractGeneralConv):
       `ConvInPlace` layer if ``rename_outputs_if_necessary`` is True and
       ``input_axes`` overlaps with ``output_axes``.
     """
-    spatial_dim_count = len(convolution_spatial_axes)
 
-    strides = _maybe_broadcast(strides, spatial_dim_count)
-    inputs_dilation = _maybe_broadcast(inputs_dilation, spatial_dim_count)
-    kernel_dilation = _maybe_broadcast(kernel_dilation, spatial_dim_count)
-
-    if parallel_axes is None:
-      parallel_axes = {}
-    if parallel_broadcast_axes is None:
-      parallel_broadcast_axes = {}
-
-    output_axes_after_rename, primed_names, original_names = (
-        _maybe_rename_output_axes(
-            input_axes,
-            output_axes,
-            parallel_axes,
-            parallel_broadcast_axes,
-            rename_outputs_if_necessary,
-        )
-    )
-
-    core_layer = cls(
-        kernel=parameters.make_parameter(
-            f"{name}.kernel",
-            init_base_rng,
-            initializer,
-            input_axes=input_axes,
-            output_axes=output_axes_after_rename,
-            parallel_axes={**parallel_axes, **parallel_broadcast_axes},
-            convolution_spatial_axes=convolution_spatial_axes,
-            dtype=dtype,
-        ),
+    return super().from_config(
+        name=name,
+        init_base_rng=init_base_rng,
+        input_axes=input_axes,
+        output_axes=output_axes,
+        convolution_spatial_axes=convolution_spatial_axes,
         strides=strides,
         padding=padding,
         inputs_dilation=inputs_dilation,
         kernel_dilation=kernel_dilation,
-        spatial_axis_names=tuple(convolution_spatial_axes.keys()),
-        in_axis_names=tuple(input_axes.keys()),
-        out_axis_names=(
-            tuple(output_axes_after_rename.keys())
-            + tuple(parallel_broadcast_axes.keys())
-        ),
+        parallel_axes=parallel_axes,
+        parallel_broadcast_axes=parallel_broadcast_axes,
+        initializer=initializer,
+        dtype=dtype,
+        rename_outputs_if_necessary=rename_outputs_if_necessary,
     )
 
-    # if name overlap wrap layer
-    if primed_names is not None and original_names is not None:
-      return ConvInPlace(
-          sublayers=[
-              core_layer,
-              RenameAxes(old=tuple(primed_names), new=tuple(original_names)),
-          ],
-      )
-    return core_layer
+  def _is_transposed(self):
+    return False
 
   def treescope_color(self) -> str:
     return "#79eb75"
@@ -1285,7 +1352,6 @@ class ConvTranspose(AbstractGeneralConv):
   kernel: parameters.ParameterLike[NamedArray]
   strides: Sequence[int]
   padding: str | Sequence[tuple[int, int]]
-  kernel_dilation: Sequence[int]
 
   spatial_axis_names: tuple[str, ...] = dataclasses.field(
       metadata={"pytree_node": False}
@@ -1297,58 +1363,8 @@ class ConvTranspose(AbstractGeneralConv):
       metadata={"pytree_node": False}
   )
 
-  def __call__(self, in_array: NamedArray, **_side_inputs) -> NamedArray:
-    """Runs the Convolution operator."""
-    in_struct = self._input_structure()
-
-    # pytype: disable=attribute-error
-    if isinstance(
-        self.kernel,
-        Parameter | ParameterValue,
-    ) and self.kernel.label.endswith(".kernel"):
-      error_prefix = f"({self.kernel.label[: 7]}) "
-    else:
-      error_prefix = ""
-    # pytype: enable=attribute-error
-
-    dimvars = shapecheck.check_structure(
-        in_array, in_struct, error_prefix=error_prefix
-    )
-
-    lhs, rhs = _prepare_for_conv(
-        in_array,
-        self.kernel.value,
-        self.spatial_axis_names,
-        self.in_axis_names,
-        self.out_axis_names,
-    )
-
-    # Perform actual transposed convolution
-    result = named_axes.nmap(
-        lambda lhs, rhs: jax.lax.conv_transpose(
-            lhs=lhs[None, ...],
-            rhs=rhs,
-            strides=self.strides,
-            padding=self.padding,
-            rhs_dilation=self.kernel_dilation,
-            dimension_numbers=_get_dimension_numbers(
-                ndim=len(self.spatial_axis_names)
-            ),
-        )[0]
-    )(lhs, rhs)
-
-    result = _get_named_axis_back_after_conv(
-        result,
-        self.spatial_axis_names,
-        self.out_axis_names,
-        [self.output_axes[name] for name in self.out_axis_names],
-    )
-
-    out_struct = self._output_structure()
-    shapecheck.check_structure(
-        result, out_struct, known_vars=dimvars, error_prefix=error_prefix
-    )
-    return result
+  kernel_dilation: Sequence[int]
+  inputs_dilation: Sequence[int]
 
   @classmethod
   def from_config(
@@ -1422,57 +1438,25 @@ class ConvTranspose(AbstractGeneralConv):
       `ConvTransposeInPlace` layer if ``rename_outputs_if_necessary`` is True
       and ``input_axes`` overlaps with ``output_axes``.
     """
-    spatial_dim_count = len(convolution_spatial_axes)
-
-    strides = _maybe_broadcast(strides, spatial_dim_count)
-    kernel_dilation = _maybe_broadcast(kernel_dilation, spatial_dim_count)
-
-    if parallel_axes is None:
-      parallel_axes = {}
-    if parallel_broadcast_axes is None:
-      parallel_broadcast_axes = {}
-
-    output_axes_after_rename, primed_names, original_names = (
-        _maybe_rename_output_axes(
-            input_axes,
-            output_axes,
-            parallel_axes,
-            parallel_broadcast_axes,
-            rename_outputs_if_necessary,
-        )
-    )
-
-    core_layer = cls(
-        kernel=parameters.make_parameter(
-            f"{name}.kernel",
-            init_base_rng,
-            initializer,
-            input_axes=input_axes,
-            output_axes=output_axes_after_rename,
-            parallel_axes={**parallel_axes, **parallel_broadcast_axes},
-            convolution_spatial_axes=convolution_spatial_axes,
-            dtype=dtype,
-        ),
+    return super().from_config(
+        name=name,
+        init_base_rng=init_base_rng,
+        input_axes=input_axes,
+        output_axes=output_axes,
+        convolution_spatial_axes=convolution_spatial_axes,
         strides=strides,
         padding=padding,
         kernel_dilation=kernel_dilation,
-        spatial_axis_names=tuple(convolution_spatial_axes.keys()),
-        in_axis_names=tuple(input_axes.keys()),
-        out_axis_names=(
-            tuple(output_axes_after_rename.keys())
-            + tuple(parallel_broadcast_axes.keys())
-        ),
+        inputs_dilation=[],  # not used for transposed convolutions
+        parallel_axes=parallel_axes,
+        parallel_broadcast_axes=parallel_broadcast_axes,
+        initializer=initializer,
+        dtype=dtype,
+        rename_outputs_if_necessary=rename_outputs_if_necessary,
     )
 
-    # if name overlap wrap layer
-    if primed_names is not None and original_names is not None:
-      return ConvTransposeInPlace(
-          sublayers=[
-              core_layer,
-              RenameAxes(old=tuple(primed_names), new=tuple(original_names)),
-          ],
-      )
-    return core_layer
+  def _is_transposed(self):
+    return True
 
   def treescope_color(self) -> str:
     return "#c7eb75"
