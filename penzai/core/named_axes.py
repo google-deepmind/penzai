@@ -1457,8 +1457,8 @@ class NamedArray(NamedArrayBase, struct.Struct):
         isinstance(size, int) for size in self.named_axes.values()
     ):
       raise ValueError(
-          "NamedArray.named_axes must be an ordered dictionary of named"
-          " axis shapes"
+          "NamedArray.named_axes must be an ordered dictionary of named axis"
+          " shapes"
       )
 
     if any(isinstance(name, int) for name in self.named_axes.keys()):
