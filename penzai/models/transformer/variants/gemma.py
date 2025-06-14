@@ -271,9 +271,10 @@ def gemma_from_pretrained_checkpoint(
     for gemma_preset_name, kwargs in _GEMMA_PRESETS.items():
       if kwargs["num_decoder_blocks"] == num_layers:
         if qk_norm and "use_qk_norm" in kwargs:
-          is_match = True
-          preset_name = gemma_preset_name
-          break
+          if kwargs["use_qk_norm"]:
+            is_match = True
+            preset_name = gemma_preset_name
+            break
         if (not qk_norm) and ("use_qk_norm" not in kwargs):
           is_match = True
           preset_name = gemma_preset_name
