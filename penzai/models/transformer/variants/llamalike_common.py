@@ -103,8 +103,8 @@ class LlamalikeTransformerConfig:
     activation_dtype: Floating dtype to use for activations and KV cache tables.
     use_layer_stack: Whether to stack the blocks together using a LayerStack.
     use_qk_norm: Whether to use QK normalization.
-    global_scale_factor: Scale factor for the gloabl RoPE layers (scale factor
-      for the local RoPE layers is set as 1.0 by default).
+    global_scale_factor: Scale factor for the global RoPE layers (scale factor
+      for the local RoPE layers is set as 1.0 by default).      
     local_rope_wavelength: Wavelength for the local RoPE layers. If None, local
       RoPE layers will use the same wavelength as global RoPE layers
       (config.rope_wavelength).
