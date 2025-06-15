@@ -34,7 +34,7 @@ from penzai.models.transformer import model_parts
 from penzai.models.transformer.variants import llamalike_common
 
 
-def make_attention_layers_types(
+def _make_attention_layers_types(
     pattern: tuple[llamalike_common.AttentionType, ...],
     *,
     num_layers: int,
@@ -128,7 +128,7 @@ _GEMMA_PRESETS = {
         embedding_dim=1152,
         projection_dim=256,
         mlp_hidden_dim=6 * 1152,
-        attention_type=make_attention_layers_types(
+        attention_type=_make_attention_layers_types(
             pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(512),)
             * 5 + (llamalike_common.AttentionTypeGlobalCausal(),),
             num_layers=26,
@@ -136,8 +136,8 @@ _GEMMA_PRESETS = {
         use_qk_norm=True,
         use_post_attn_norm=True,
         use_post_ffw_norm=True,
+        rope_wavelength=1_000_000,
         local_rope_wavelength=10_000,
-        global_rope_wavelength=1_000_000,
     ),
     "gemma3_4b": dict(
         num_decoder_blocks=34,
@@ -147,7 +147,7 @@ _GEMMA_PRESETS = {
         embedding_dim=2560,
         projection_dim=256,
         mlp_hidden_dim=2560 * 8 // 2,
-        attention_type=make_attention_layers_types(
+        attention_type=_make_attention_layers_types(
             pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(1024),)
             * 5 + (llamalike_common.AttentionTypeGlobalCausal(),),
             num_layers=34,
@@ -155,10 +155,9 @@ _GEMMA_PRESETS = {
         use_qk_norm=True,
         use_post_attn_norm=True,
         use_post_ffw_norm=True,
-        local_scale_factor=1.0,
         global_scale_factor=8.0,
+        rope_wavelength=1_000_000,
         local_rope_wavelength=10_000,
-        global_rope_wavelength=1_000_000,
     ),
     "gemma3_12b": dict(
         num_decoder_blocks=48,
@@ -168,7 +167,7 @@ _GEMMA_PRESETS = {
         embedding_dim=30 * 128,
         projection_dim=256,
         mlp_hidden_dim=8 * 30 * 128 // 2,
-        attention_type=make_attention_layers_types(
+        attention_type=_make_attention_layers_types(
             pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(1024),)
             * 5 + (llamalike_common.AttentionTypeGlobalCausal(),),
             num_layers=48,
@@ -176,10 +175,9 @@ _GEMMA_PRESETS = {
         use_qk_norm=True,
         use_post_attn_norm=True,
         use_post_ffw_norm=True,
-        local_scale_factor=1.0,
         global_scale_factor=8.0,
+        rope_wavelength=1_000_000,
         local_rope_wavelength=10_000,
-        global_rope_wavelength=1_000_000,
     ),
     "gemma3_27b": dict(
         num_decoder_blocks=62,
@@ -191,18 +189,17 @@ _GEMMA_PRESETS = {
         mlp_hidden_dim=5376 * 8 // 2,
         # query scaling factor: 1/sqrt(embedding_dim / num_query_heads)
         query_scaling_factor=(5376 // 32) ** -0.5,
-        attention_type=make_attention_layers_types(
+        attention_type=_make_attention_layers_types(
             pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(1024),)
             * 5 + (llamalike_common.AttentionTypeGlobalCausal(),),
-            num_layers=34,
+            num_layers=62,
         ),
         use_qk_norm=True,
         use_post_attn_norm=True,
         use_post_ffw_norm=True,
-        local_scale_factor=1.0,
         global_scale_factor=8.0,
+        rope_wavelength=1_000_000,
         local_rope_wavelength=10_000,
-        global_rope_wavelength=1_000_000,
     ),
 }
 _NEEDS_GATING_TRANSPOSE = {
@@ -299,7 +296,6 @@ def gemma_from_pretrained_checkpoint(
       **preset_kwargs,
       parameter_dtype=parameter_dtype,
       mlp_variant="geglu_approx",
-      rope_wavelength=10_000,
       tie_embedder_and_logits=True,
       activation_dtype=activation_dtype,
       use_layer_stack=use_layer_stack,
