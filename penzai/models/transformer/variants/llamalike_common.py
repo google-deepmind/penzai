@@ -83,7 +83,8 @@ class LlamalikeTransformerConfig:
     tie_embedder_and_logits: Whether to tie the weights of the input token
       embedding and output logit layers. If True, also scales down input token
       embeddings by sqrt(embedding_dim). (This is used by Gemma.)
-    rope_wavelength: Wavelength for RoPE layers.
+    rope_wavelength: Wavelength for global RoPE layers (and for local RoPE
+      layers if local_rope_wavelength is not set).
     rms_norm_eps: Epsilon for RMSNorm layers.
     attention_type: A single attention type or sequence of per-layer attention
       types. If a sequence, its length should evenly divide the number of
@@ -102,10 +103,11 @@ class LlamalikeTransformerConfig:
     activation_dtype: Floating dtype to use for activations and KV cache tables.
     use_layer_stack: Whether to stack the blocks together using a LayerStack.
     use_qk_norm: Whether to use QK normalization.
-    local_scale_factor: Scale factor for the local RoPE layers.
-    global_scale_factor: Scale factor for the gloabl RoPE layers.
-    local_rope_wavelength: Wavelength for the local RoPE layers.
-    global_rope_wavelength: Wavelength for the global RoPE layers.
+    global_scale_factor: Scale factor for the gloabl RoPE layers (scale factor
+      for the local RoPE layers is set as 1.0 by default).
+    local_rope_wavelength: Wavelength for the local RoPE layers. If None, local
+      RoPE layers will use the same wavelength as global RoPE layers
+      (config.rope_wavelength).
   """
 
   num_kv_heads: int
@@ -131,10 +133,8 @@ class LlamalikeTransformerConfig:
   activation_dtype: jax.typing.DTypeLike = jnp.float32
   use_layer_stack: bool = False
   use_qk_norm: bool = False
-  local_scale_factor: float | None = None
   global_scale_factor: float | None = None
   local_rope_wavelength: float | None = None
-  global_rope_wavelength: float | None = None
 
 
 def build_llamalike_feedforward(
@@ -275,20 +275,12 @@ def build_llamalike_attention(
       wavelength = config.local_rope_wavelength
     else:
       wavelength = config.rope_wavelength
-    # Decide which scale factor to use for local RoPE.
-    if config.local_scale_factor is not None:
-      scale_factor = config.local_scale_factor
-    else:
-      scale_factor = 1.0
+    scale_factor = 1.0
   elif isinstance(attention_type, AttentionTypeGlobalCausal):
     attn_masker = pz.nn.ApplyCausalAttentionMask(
         masked_out_value=masked_out_value,
     )
-    # Decide which wavelength to use for global RoPE.
-    if config.global_rope_wavelength is not None:
-      wavelength = config.global_rope_wavelength
-    else:
-      wavelength = config.rope_wavelength
+    wavelength = config.rope_wavelength
     # Decide which scale factor to use for global RoPE.
     if config.global_scale_factor is not None:
       scale_factor = config.global_scale_factor
