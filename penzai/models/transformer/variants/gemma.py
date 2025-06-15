@@ -130,8 +130,12 @@ _GEMMA_PRESETS = {
         mlp_hidden_dim=6 * 1152,
         attention_type=_make_attention_layers_types(
             pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(512),)
-            * 5 + (llamalike_common.AttentionTypeGlobalCausal(),),
+            * 5
+            + (
+                llamalike_common.AttentionTypeGlobalCausal(),
+            ),
             num_layers=26,
+
         ),
         use_qk_norm=True,
         use_post_attn_norm=True,
@@ -149,8 +153,12 @@ _GEMMA_PRESETS = {
         mlp_hidden_dim=2560 * 8 // 2,
         attention_type=_make_attention_layers_types(
             pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(1024),)
-            * 5 + (llamalike_common.AttentionTypeGlobalCausal(),),
+            * 5
+            + (
+                llamalike_common.AttentionTypeGlobalCausal(),
+            ),
             num_layers=34,
+
         ),
         use_qk_norm=True,
         use_post_attn_norm=True,
@@ -169,8 +177,12 @@ _GEMMA_PRESETS = {
         mlp_hidden_dim=8 * 30 * 128 // 2,
         attention_type=_make_attention_layers_types(
             pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(1024),)
-            * 5 + (llamalike_common.AttentionTypeGlobalCausal(),),
+            * 5
+            + (
+                llamalike_common.AttentionTypeGlobalCausal(),
+            ),
             num_layers=48,
+
         ),
         use_qk_norm=True,
         use_post_attn_norm=True,
@@ -191,8 +203,12 @@ _GEMMA_PRESETS = {
         query_scaling_factor=(5376 // 32) ** -0.5,
         attention_type=_make_attention_layers_types(
             pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(1024),)
-            * 5 + (llamalike_common.AttentionTypeGlobalCausal(),),
+            * 5
+            + (
+                llamalike_common.AttentionTypeGlobalCausal(),
+            ),
             num_layers=62,
+
         ),
         use_qk_norm=True,
         use_post_attn_norm=True,
@@ -220,8 +236,16 @@ def gemma_from_pretrained_checkpoint(
     upcast_activations_to_float32: bool = False,
     use_layer_stack: bool = False,
     preset_name: Literal[
-        "gemma_2b", "gemma_7b", "gemma2_2b", "gemma2_9b", "gemma2_27b",
-        "gemma3_1b", "gemma3_4b", "gemma3_12b", "gemma3_27b", "auto"
+        "gemma_2b",
+        "gemma_7b",
+        "gemma2_2b",
+        "gemma2_9b",
+        "gemma2_27b",
+        "gemma3_1b",
+        "gemma3_4b",
+        "gemma3_12b",
+        "gemma3_27b",
+        "auto",
     ] = "auto",
 ) -> model_parts.TransformerLM:
   """Builds a Gemma model from a pretrained checkpoint.
