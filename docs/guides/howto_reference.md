@@ -217,7 +217,7 @@ You can read more about Penzai's conventions for layers in ["How to Think in Pen
 
 ## Loading Pretrained Models
 
-### Loading Gemma or Gemma 2 or Gemma 3
+### Loading Gemma (1, 2, or 3)
 
 Penzai's Gemma implementation includes a conversion utility that converts the "Flax" model weights from Kaggle ([Gemma 1](https://www.kaggle.com/models/google/gemma), [Gemma 2](https://www.kaggle.com/models/google/gemma-2), [Gemma 3](https://www.kaggle.com/models/google/gemma-3)) into the correct form. You can load it using:
 
@@ -243,7 +243,7 @@ weights_dir = kagglehub.model_download('google/gemma-2/flax/gemma2-9b')
 ckpt_path = os.path.join(weights_dir, 'gemma2_9b_pt')
 ```
 
-For instance, to load the Gemma 3 4B model, you can use:
+To load the Gemma 3 4B model, you can use:
 
 ```python
 weights_dir = kagglehub.model_download('google/gemma-3/flax/gemma3-4b')
