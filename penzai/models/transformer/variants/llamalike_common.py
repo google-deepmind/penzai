@@ -34,6 +34,7 @@ from collections.abc import Sequence
 import dataclasses
 import functools
 from typing import Any, Literal
+
 import jax
 import jax.numpy as jnp
 from penzai import pz
@@ -104,7 +105,7 @@ class LlamalikeTransformerConfig:
     use_layer_stack: Whether to stack the blocks together using a LayerStack.
     use_qk_norm: Whether to use QK normalization.
     global_scale_factor: Scale factor for the global RoPE layers (scale factor
-      for the local RoPE layers is set as 1.0 by default).      
+      for the local RoPE layers is set as 1.0 by default).
     local_rope_wavelength: Wavelength for the local RoPE layers. If None, local
       RoPE layers will use the same wavelength as global RoPE layers
       (config.rope_wavelength).
@@ -665,14 +666,18 @@ def llamalike_from_huggingface_model(
   converted = {k: jax.dlpack.from_dlpack(v) for k, v in state_dict.items()}
 
   parameter_mapping = {
-      "embedder.embeddings": pz.nx.NamedArray.wrap(
-          converted["model.embed_tokens.weight"]
-      ).tag("vocabulary", "embedding"),
-      "final_norm/scale.weights": pz.nx.NamedArray.wrap(
-          converted["model.norm.weight"]
-      ).tag("embedding"),
-      "lm_head.weights": pz.nx.NamedArray.wrap(converted["lm_head.weight"]).tag(
-          "vocabulary", "embedding"
+      "embedder.embeddings": (
+          pz.nx.NamedArray.wrap(converted["model.embed_tokens.weight"]).tag(
+              "vocabulary", "embedding"
+          )
+      ),
+      "final_norm/scale.weights": (
+          pz.nx.NamedArray.wrap(converted["model.norm.weight"]).tag("embedding")
+      ),
+      "lm_head.weights": (
+          pz.nx.NamedArray.wrap(converted["lm_head.weight"]).tag(
+              "vocabulary", "embedding"
+          )
       ),
   }
 
