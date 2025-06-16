@@ -269,13 +269,10 @@ def gemma_from_pretrained_checkpoint(
     num_layers = 0
     while f"layer_{num_layers}/mlp/linear" in params:
       num_layers += 1
-    if (
+    qk_norm = (
         "layer_0/attn/_query_norm" in params
         and "layer_0/attn/_key_norm" in params
-    ):
-      qk_norm = True
-    else:
-      qk_norm = False
+    )
     is_match = False
     for gemma_preset_name, kwargs in _GEMMA_PRESETS.items():
       if kwargs["num_decoder_blocks"] == num_layers:
