@@ -316,16 +316,12 @@ def gemma_from_pretrained_checkpoint(
       config, init_base_rng=None, name="transformer"
   )
   parameter_mapping = {
-      "embedder.embeddings": (
-          pz.nx.NamedArray.wrap(params["embedder"]["input_embedding"]).tag(
-              "vocabulary", "embedding"
-          )
-      ),
-      "final_norm/scale.weights": (
-          pz.nx.NamedArray.wrap(1 + params["final_norm"]["scale"]).tag(
-              "embedding"
-          )
-      ),
+      "embedder.embeddings": pz.nx.NamedArray.wrap(
+          params["embedder"]["input_embedding"]
+      ).tag("vocabulary", "embedding"),
+      "final_norm/scale.weights": pz.nx.NamedArray.wrap(
+          1 + params["final_norm"]["scale"]
+      ).tag("embedding"),
   }
 
   all_block_params = []

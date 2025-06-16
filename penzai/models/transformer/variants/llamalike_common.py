@@ -666,18 +666,14 @@ def llamalike_from_huggingface_model(
   converted = {k: jax.dlpack.from_dlpack(v) for k, v in state_dict.items()}
 
   parameter_mapping = {
-      "embedder.embeddings": (
-          pz.nx.NamedArray.wrap(converted["model.embed_tokens.weight"]).tag(
-              "vocabulary", "embedding"
-          )
-      ),
-      "final_norm/scale.weights": (
-          pz.nx.NamedArray.wrap(converted["model.norm.weight"]).tag("embedding")
-      ),
-      "lm_head.weights": (
-          pz.nx.NamedArray.wrap(converted["lm_head.weight"]).tag(
-              "vocabulary", "embedding"
-          )
+      "embedder.embeddings": pz.nx.NamedArray.wrap(
+          converted["model.embed_tokens.weight"]
+      ).tag("vocabulary", "embedding"),
+      "final_norm/scale.weights": pz.nx.NamedArray.wrap(
+          converted["model.norm.weight"]
+      ).tag("embedding"),
+      "lm_head.weights": pz.nx.NamedArray.wrap(converted["lm_head.weight"]).tag(
+          "vocabulary", "embedding"
       ),
   }
 
