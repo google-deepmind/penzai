@@ -131,11 +131,8 @@ _GEMMA_PRESETS = {
         attention_type=_make_attention_layers_types(
             pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(512),)
             * 5
-            + (
-                llamalike_common.AttentionTypeGlobalCausal(),
-            ),
+            + (llamalike_common.AttentionTypeGlobalCausal(),),
             num_layers=26,
-
         ),
         use_qk_norm=True,
         use_post_attn_norm=True,
@@ -154,11 +151,8 @@ _GEMMA_PRESETS = {
         attention_type=_make_attention_layers_types(
             pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(1024),)
             * 5
-            + (
-                llamalike_common.AttentionTypeGlobalCausal(),
-            ),
+            + (llamalike_common.AttentionTypeGlobalCausal(),),
             num_layers=34,
-
         ),
         use_qk_norm=True,
         use_post_attn_norm=True,
@@ -178,11 +172,8 @@ _GEMMA_PRESETS = {
         attention_type=_make_attention_layers_types(
             pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(1024),)
             * 5
-            + (
-                llamalike_common.AttentionTypeGlobalCausal(),
-            ),
+            + (llamalike_common.AttentionTypeGlobalCausal(),),
             num_layers=48,
-
         ),
         use_qk_norm=True,
         use_post_attn_norm=True,
@@ -204,11 +195,8 @@ _GEMMA_PRESETS = {
         attention_type=_make_attention_layers_types(
             pattern=(llamalike_common.AttentionTypeSlidingWindowCausal(1024),)
             * 5
-            + (
-                llamalike_common.AttentionTypeGlobalCausal(),
-            ),
+            + (llamalike_common.AttentionTypeGlobalCausal(),),
             num_layers=62,
-
         ),
         use_qk_norm=True,
         use_post_attn_norm=True,
@@ -328,12 +316,16 @@ def gemma_from_pretrained_checkpoint(
       config, init_base_rng=None, name="transformer"
   )
   parameter_mapping = {
-      "embedder.embeddings": pz.nx.NamedArray.wrap(
-          params["embedder"]["input_embedding"]
-      ).tag("vocabulary", "embedding"),
-      "final_norm/scale.weights": pz.nx.NamedArray.wrap(
-          1 + params["final_norm"]["scale"]
-      ).tag("embedding"),
+      "embedder.embeddings": (
+          pz.nx.NamedArray.wrap(params["embedder"]["input_embedding"]).tag(
+              "vocabulary", "embedding"
+          )
+      ),
+      "final_norm/scale.weights": (
+          pz.nx.NamedArray.wrap(1 + params["final_norm"]["scale"]).tag(
+              "embedding"
+          )
+      ),
   }
 
   all_block_params = []
