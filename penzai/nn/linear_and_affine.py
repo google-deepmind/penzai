@@ -937,7 +937,14 @@ def _maybe_broadcast(value: int | Sequence[int], count: int) -> Sequence[int]:
     A sequence of integers with the value repeated `count` times if it was an
     integer, or the original sequence if it was already a sequence.
   """
-  return [value] * count if isinstance(value, int) else value
+
+  if isinstance(value, int):
+    return [value] * count
+  else:
+    assert (
+        len(value) == count
+    ), "If value is a sequence, it must match the count."
+    return value
 
 
 def _get_dimension_numbers(ndim) -> jax.lax.ConvDimensionNumbers:
@@ -1451,7 +1458,7 @@ class ConvTranspose(AbstractGeneralConv):
         strides=strides,
         padding=padding,
         kernel_dilation=kernel_dilation,
-        inputs_dilation=[],  # not used for transposed convolutions
+        inputs_dilation=1,  # not used for transposed convolutions
         parallel_axes=parallel_axes,
         parallel_broadcast_axes=parallel_broadcast_axes,
         initializer=initializer,
