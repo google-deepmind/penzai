@@ -953,12 +953,16 @@ def _get_dimension_numbers(ndim) -> jax.lax.ConvDimensionNumbers:
     ndim: The number of spatial dimensions of the convolution operator.
   Returns:
     A `jax.lax.ConvDimensionNumbers` object that specifies the dimension numbers
-    for the convolution operator.
+    for the convolution operator. It assumes that the input and output have the
+    following positional axis layout: [B, Spatial..., C] and the kernel has the
+    following positional axis layout: [Spatial..., I, O], where B is the batch
+    axis, C is the channel axis, I is the input channel axis, and O is the
+    output channel axis. It matches the result of _prepare_for_conv.
   """
 
   return jax.lax.ConvDimensionNumbers(
       lhs_spec=(0, ndim + 1)
-      + tuple(range(1, ndim + 1)),  # BHSpatial -> BCSpatial
+      + tuple(range(1, ndim + 1)),  # BCSpatial -> BCSpatial
       rhs_spec=(ndim + 1, ndim) + tuple(range(ndim)),  # SpatialIO -> OISpatial
       out_spec=(0, ndim + 1)
       + tuple(range(1, ndim + 1)),  # BSpatialC -> BCSpatial
