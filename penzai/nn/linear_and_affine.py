@@ -1058,8 +1058,9 @@ class AbstractGeneralConv(layer_base.Layer):
     return result
 
   @classmethod
-  def from_config(
+  def _from_config(
       cls,
+      inplace_class: type[Conv | ConvTranspose],
       name: str,
       init_base_rng: jax.Array | None,
       input_axes: dict[str, int],
@@ -1074,7 +1075,7 @@ class AbstractGeneralConv(layer_base.Layer):
       initializer: LinearOperatorWeightInitializer = xavier_uniform_initializer,
       dtype: jax.typing.DTypeLike = jnp.float32,
       rename_outputs_if_necessary: bool = True,
-  ) -> Conv | ConvInPlace:
+  ) -> Conv | ConvInPlace | ConvTranspose | ConvTransposeInPlace:
     """Constructs a ``AbstractGeneralConv`` layer from a configuration.
 
     This can be used when building a new convolution or transposed convolution
@@ -1128,12 +1129,13 @@ class AbstractGeneralConv(layer_base.Layer):
 
     # if name overlap wrap layer
     if primed_names is not None and original_names is not None:
-      return ConvInPlace(
+      return inplace_class(
           sublayers=[
               core_layer,
               RenameAxes(old=tuple(primed_names), new=tuple(original_names)),
           ],
       )
+
     return core_layer
 
   def _is_transposed(self) -> bool:
@@ -1319,7 +1321,8 @@ class Conv(AbstractGeneralConv):
       ``input_axes`` overlaps with ``output_axes``.
     """
 
-    return super().from_config(
+    return super()._from_config(
+        inplace_class=ConvInPlace,
         name=name,
         init_base_rng=init_base_rng,
         input_axes=input_axes,
@@ -1453,7 +1456,8 @@ class ConvTranspose(AbstractGeneralConv):
       `ConvTransposeInPlace` layer if ``rename_outputs_if_necessary`` is True
       and ``input_axes`` overlaps with ``output_axes``.
     """
-    return super().from_config(
+    return super()._from_config(
+        inplace_class=ConvTransposeInPlace,
         name=name,
         init_base_rng=init_base_rng,
         input_axes=input_axes,
