@@ -862,10 +862,12 @@ def _prepare_for_conv(
     out_axis_names: Names of the output axes that will be produced by the
       convolution.
   Returns:
-    A tuple of two named arrays, the first one is the input with the in axes
-    merged into a single in channel axis, and the second one is the kernel with
-    the in axes merged into a single in channel axis and the out axes merged
-    into a single out channel axis.
+    A tuple of two named arrays. The first one is the conv input with the in
+    axes merged into a single in channel axis. Its positional axis layout is
+    [spatial_axes..., channel_axis]. The second one is the convolution kernel
+    with the in axes merged into a single in channel axis and the out axes
+    merged into a single out channel axis. Its positional axis layout is
+    [spatial_axes..., in_channel_axis, out_channel_axis].
   """
 
   lhs = inputs
