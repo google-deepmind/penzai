@@ -899,10 +899,12 @@ def _get_named_axis_back_after_conv(
 
   Restores the spatial axes and output axes to the result of the jax convolution
   operator. The spatial axes are tagged back, and the output axes are reshaped
-  to the original shape and tagged back.
-  This is necessary to restore the original shape of the output after the
-  convolution operator has been applied, since we flattened the output axes into
-  a single axis before applying the convolution.
+  to the original shape and tagged back. It supposes that the result have a
+  positional axis layout of [spatial_axes..., out_axis] with out_axis of
+  size equals to the product of the dimensions in out_axis_shape. This is
+  necessary to restore the desired shape of the output after the convolution
+  operator has been applied, since the convolution operates on positional
+  spatial axes and only outputs a single out_axis.
 
   Args:
     result: The result of the jax convolution operator.
