@@ -871,8 +871,8 @@ def _prepare_for_conv(
   lhs = inputs
   rhs = kernel
 
-  in_axis_name = "in_axis-" + "-".join(in_axis_names)
-  out_axis_name = "out_axis-" + "-".join(out_axis_names)
+  in_axis_name = named_axes.TmpPosAxisMarker()
+  out_axis_name = named_axes.TmpPosAxisMarker()
 
   # merge in axes into one in channel axis for the inputs and the kernel
   lhs = lhs.untag(*in_axis_names).flatten().tag(in_axis_name)
