@@ -21,6 +21,7 @@ import functools
 import itertools
 from typing import Any, Literal, Protocol, Sequence
 import jax
+import abc
 import jax.numpy as jnp
 from penzai.core import named_axes
 from penzai.core import shapecheck
@@ -1138,6 +1139,7 @@ class AbstractGeneralConv(layer_base.Layer):
 
     return core_layer
 
+  @abc.abstractmethod
   def _is_transposed(self) -> bool:
     ...
 
