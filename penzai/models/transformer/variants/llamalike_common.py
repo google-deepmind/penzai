@@ -84,7 +84,8 @@ class LlamalikeTransformerConfig:
     tie_embedder_and_logits: Whether to tie the weights of the input token
       embedding and output logit layers. If True, also scales down input token
       embeddings by sqrt(embedding_dim). (This is used by Gemma.)
-    rope_wavelength: Wavelength for RoPE layers.
+    rope_wavelength: Wavelength for global RoPE layers (and for local RoPE
+      layers if local_rope_wavelength is not set).
     rms_norm_eps: Epsilon for RMSNorm layers.
     attention_type: A single attention type or sequence of per-layer attention
       types. If a sequence, its length should evenly divide the number of
@@ -102,6 +103,12 @@ class LlamalikeTransformerConfig:
     parameter_dtype: Floating dtype to use for all parameters.
     activation_dtype: Floating dtype to use for activations and KV cache tables.
     use_layer_stack: Whether to stack the blocks together using a LayerStack.
+    use_qk_norm: Whether to use QK normalization.
+    global_scale_factor: Scale factor for the global RoPE layers (scale factor
+      for the local RoPE layers is set as 1.0 by default).
+    local_rope_wavelength: Wavelength for the local RoPE layers. If None, local
+      RoPE layers will use the same wavelength as global RoPE layers
+      (config.rope_wavelength).
   """
 
   num_kv_heads: int
@@ -126,6 +133,9 @@ class LlamalikeTransformerConfig:
   parameter_dtype: jax.typing.DTypeLike = jnp.float32
   activation_dtype: jax.typing.DTypeLike = jnp.float32
   use_layer_stack: bool = False
+  use_qk_norm: bool = False
+  global_scale_factor: float | None = None
+  local_rope_wavelength: float | None = None
 
 
 def build_llamalike_feedforward(
@@ -261,10 +271,22 @@ def build_llamalike_attention(
         sliding_window_size=attention_type.window_size,
         masked_out_value=masked_out_value,
     )
+    # Decide which wavelength to use for local RoPE.
+    if config.local_rope_wavelength is not None:
+      wavelength = config.local_rope_wavelength
+    else:
+      wavelength = config.rope_wavelength
+    scale_factor = 1.0
   elif isinstance(attention_type, AttentionTypeGlobalCausal):
     attn_masker = pz.nn.ApplyCausalAttentionMask(
         masked_out_value=masked_out_value,
     )
+    wavelength = config.rope_wavelength
+    # Decide which scale factor to use for global RoPE.
+    if config.global_scale_factor is not None:
+      scale_factor = config.global_scale_factor
+    else:
+      scale_factor = 1.0
   else:
     raise ValueError(f"Unsupported attention type {attention_type}")
 
@@ -290,42 +312,74 @@ def build_llamalike_attention(
       pz.nn.Softmax("kv_seq"),
   ])
 
+  # add qk norm if needed in the module of input_to_query sublayers
+  input_to_query_sublayers = [
+      pz.nn.Linear.from_config(
+          name=f"{name}/query",
+          init_base_rng=init_base_rng,
+          input_axes={"embedding": embedding_dim},
+          output_axes={
+              **common_head_axes,
+              **query_only_head_axes,
+              "projection": projection_dim,
+          },
+          dtype=config.parameter_dtype,
+      ),
+  ]
+  if config.use_qk_norm:
+    input_to_query_sublayers.append(
+        pz.nn.RMSLayerNorm.from_config(
+            name=f"{name}/query_norm",
+            init_base_rng=init_base_rng,
+            across_axes={"projection": config.projection_dim},
+            dtype=config.parameter_dtype,
+            epsilon=config.rms_norm_eps,
+        ),
+    )
+  input_to_query_sublayers.extend([
+      pz.nn.ApplyRoPE(
+          positions_input_name="token_positions",
+          embedding_axis="projection",
+          max_wavelength=wavelength,
+          scale_factor=scale_factor,
+      ),
+      pz.nn.ConstantRescale(
+          by=jnp.array(query_scaling_factor, dtype=config.activation_dtype)
+      ),
+  ])
+
+  # add qk norm if needed in the module of input_to_key sublayers
+  input_to_key_sublayers = [
+      pz.nn.Linear.from_config(
+          name=f"{name}/key",
+          init_base_rng=init_base_rng,
+          input_axes={"embedding": embedding_dim},
+          output_axes={**common_head_axes, "projection": projection_dim},
+          dtype=config.parameter_dtype,
+      ),
+  ]
+  if config.use_qk_norm:
+    input_to_key_sublayers.append(
+        pz.nn.RMSLayerNorm.from_config(
+            name=f"{name}/key_norm",
+            init_base_rng=init_base_rng,
+            across_axes={"projection": config.projection_dim},
+            dtype=config.parameter_dtype,
+            epsilon=config.rms_norm_eps,
+        ),
+    )
+  input_to_key_sublayers.append(
+      pz.nn.ApplyRoPE(
+          positions_input_name="token_positions",
+          embedding_axis="projection",
+          max_wavelength=wavelength,
+          scale_factor=scale_factor,
+      ),
+  )
+
   return pz.nn.Attention(
-      input_to_query=pz.nn.Sequential([
-          pz.nn.Linear.from_config(
-              name=f"{name}/query",
-              init_base_rng=init_base_rng,
-              input_axes={"embedding": embedding_dim},
-              output_axes={
-                  **common_head_axes,
-                  **query_only_head_axes,
-                  "projection": projection_dim,
-              },
-              dtype=config.parameter_dtype,
-          ),
-          pz.nn.ApplyRoPE(
-              positions_input_name="token_positions",
-              embedding_axis="projection",
-              max_wavelength=config.rope_wavelength,
-          ),
-          pz.nn.ConstantRescale(
-              by=jnp.array(query_scaling_factor, dtype=config.activation_dtype)
-          ),
-      ]),
-      input_to_key=pz.nn.Sequential([
-          pz.nn.Linear.from_config(
-              name=f"{name}/key",
-              init_base_rng=init_base_rng,
-              input_axes={"embedding": embedding_dim},
-              output_axes={**common_head_axes, "projection": projection_dim},
-              dtype=config.parameter_dtype,
-          ),
-          pz.nn.ApplyRoPE(
-              positions_input_name="token_positions",
-              embedding_axis="projection",
-              max_wavelength=config.rope_wavelength,
-          ),
-      ]),
+      input_to_query=pz.nn.Sequential(input_to_query_sublayers),
+      input_to_key=pz.nn.Sequential(input_to_key_sublayers),
       input_to_value=pz.nn.Sequential([
           pz.nn.Linear.from_config(
               name=f"{name}/value",
