@@ -412,6 +412,11 @@ def gpt_neox_from_huggingface_model(
       "eos_token_id",
       "_attn_implementation_autoset",
       "head_dim",
+      "is_decoder",
+      "attention_probs_dropout_prob",
+      "hidden_dropout_prob",
+      "type_vocab_size",
+      "_name_or_path",
   }
   bad_attributes = {}
   for k, v in hf_config_attributes.items():

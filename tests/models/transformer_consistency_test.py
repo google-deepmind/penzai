@@ -36,12 +36,31 @@ class TransformerConsistencyTest(parameterized.TestCase):
   )
   def test_llama_consistency(self, num_attention_heads, num_key_value_heads):
     cfg = transformers.LlamaConfig(
+        name_or_path="hf-internal-testing/tiny-random-LlamaForCausalLM",
         vocab_size=11,
         hidden_size=64,
         intermediate_size=256,
         num_hidden_layers=3,
         num_attention_heads=num_attention_heads,
         num_key_value_heads=num_key_value_heads,
+        attention_bias=False,
+        attention_dropout=0.0,
+        bos_token_id=0,
+        eos_token_id=1,
+        hidden_act="silu",
+        initializer_range=0.02,
+        max_position_embeddings=2048,
+        mlp_bias=False,
+        model_type="llama",
+        pad_token_id=-1,
+        pretraining_tp=1,
+        rms_norm_eps=1e-06,
+        rope_scaling=None,
+        rope_theta=10000.0,
+        tie_word_embeddings=False,
+        torch_dtype="float32",
+        transformers_version="4.44.2",
+        use_cache=True,
     )
 
     torch.manual_seed(0)
@@ -76,12 +95,33 @@ class TransformerConsistencyTest(parameterized.TestCase):
   )
   def test_mistral_consistency(self, num_attention_heads, num_key_value_heads):
     cfg = transformers.MistralConfig(
+        name_or_path="hf-internal-testing/tiny-random-MistralForCausalLM",
+        is_decoder=True,
         vocab_size=11,
         hidden_size=64,
         intermediate_size=256,
         num_hidden_layers=3,
         num_attention_heads=num_attention_heads,
         num_key_value_heads=num_key_value_heads,
+        attention_dropout=0.0,
+        attention_probs_dropout_prob=0.1,
+        bos_token_id=1,
+        eos_token_id=2,
+        head_dim=16,
+        hidden_act="silu",
+        hidden_dropout_prob=0.1,
+        initializer_range=0.02,
+        max_position_embeddings=512,
+        model_type="mistral",
+        pad_token_id=0,
+        rms_norm_eps=1e-06,
+        rope_theta=10000.0,
+        sliding_window=4096,
+        tie_word_embeddings=False,
+        torch_dtype="float32",
+        transformers_version="4.44.2",
+        type_vocab_size=16,
+        use_cache=True,
     )
 
     torch.manual_seed(0)
@@ -110,11 +150,35 @@ class TransformerConsistencyTest(parameterized.TestCase):
 
   def test_gpt_neox_consistency(self):
     cfg = transformers.GPTNeoXConfig(
+        name_or_path="organization-name/model-name",
+        is_decoder=True,
         vocab_size=11,
         hidden_size=64,
         intermediate_size=256,
         num_hidden_layers=3,
         num_attention_heads=4,
+        attention_probs_dropout_prob=0.1,
+        hidden_dropout_prob=0.1,
+        type_vocab_size=16,
+        hidden_act="gelu",
+        attention_bias=True,
+        attention_dropout=0.0,
+        bos_token_id=0,
+        classifier_dropout=0.1,
+        eos_token_id=0,
+        hidden_dropout=0.0,
+        initializer_range=0.02,
+        layer_norm_eps=1e-05,
+        max_position_embeddings=512,
+        model_type="gpt_neox",
+        rope_scaling=None,
+        rotary_emb_base=10000,
+        rotary_pct=0.25,
+        tie_word_embeddings=False,
+        torch_dtype="float32",
+        transformers_version="4.44.2",
+        use_cache=True,
+        use_parallel_residual=True,
     )
 
     torch.manual_seed(0)
