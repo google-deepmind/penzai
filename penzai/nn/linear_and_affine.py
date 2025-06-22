@@ -1061,7 +1061,7 @@ class AbstractGeneralConv(layer_base.Layer):
   @classmethod
   def _from_config(
       cls,
-      inplace_class: type[Conv | ConvTranspose],
+      inplace_class: type[ConvInPlace | ConvTransposeInPlace],
       name: str,
       init_base_rng: jax.Array | None,
       input_axes: dict[str, int],
@@ -1480,6 +1480,7 @@ class ConvTranspose(AbstractGeneralConv):
     )
     if isinstance(layer, AbstractGeneralConv):
       return cast(ConvTranspose, layer)
+
     return layer
 
   def _is_transposed(self):
