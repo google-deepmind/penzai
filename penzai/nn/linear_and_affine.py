@@ -19,7 +19,7 @@ import collections
 import dataclasses
 import functools
 import itertools
-from typing import Any, Literal, Protocol, Sequence
+from typing import Any, Literal, Protocol, Sequence, cast
 import jax
 import abc
 import jax.numpy as jnp
@@ -1076,7 +1076,7 @@ class AbstractGeneralConv(layer_base.Layer):
       initializer: LinearOperatorWeightInitializer = xavier_uniform_initializer,
       dtype: jax.typing.DTypeLike = jnp.float32,
       rename_outputs_if_necessary: bool = True,
-  ) -> Conv | ConvInPlace | ConvTranspose | ConvTransposeInPlace:
+  ) -> AbstractGeneralConv | ConvInPlace | ConvTransposeInPlace:
     """Constructs a ``AbstractGeneralConv`` layer from a configuration.
 
     This can be used when building a new convolution or transposed convolution
@@ -1323,7 +1323,7 @@ class Conv(AbstractGeneralConv):
       ``input_axes`` overlaps with ``output_axes``.
     """
 
-    return super()._from_config(
+    layer = super()._from_config(
         inplace_class=ConvInPlace,
         name=name,
         init_base_rng=init_base_rng,
@@ -1340,6 +1340,9 @@ class Conv(AbstractGeneralConv):
         dtype=dtype,
         rename_outputs_if_necessary=rename_outputs_if_necessary,
     )
+    if isinstance(layer, AbstractGeneralConv):
+      return cast(Conv, layer)
+    return layer
 
   def _is_transposed(self):
     return False
@@ -1458,7 +1461,7 @@ class ConvTranspose(AbstractGeneralConv):
       `ConvTransposeInPlace` layer if ``rename_outputs_if_necessary`` is True
       and ``input_axes`` overlaps with ``output_axes``.
     """
-    return super()._from_config(
+    layer = super()._from_config(
         inplace_class=ConvTransposeInPlace,
         name=name,
         init_base_rng=init_base_rng,
@@ -1475,6 +1478,9 @@ class ConvTranspose(AbstractGeneralConv):
         dtype=dtype,
         rename_outputs_if_necessary=rename_outputs_if_necessary,
     )
+    if isinstance(layer, AbstractGeneralConv):
+      return cast(ConvTranspose, layer)
+    return layer
 
   def _is_transposed(self):
     return True
