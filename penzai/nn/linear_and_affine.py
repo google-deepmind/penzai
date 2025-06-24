@@ -1191,7 +1191,7 @@ class AbstractGeneralConv(layer_base.Layer):
     return {  # pytype: disable=bad-return-type
         name: size
         for name, size in self.kernel.value.named_shape.items()
-        if name not in self.convolution_spatial_axis_names
+        if name not in self.spatial_axis_names
         and name not in self.in_axis_names
         and name not in self.out_axis_names
     }
@@ -1204,7 +1204,7 @@ class AbstractGeneralConv(layer_base.Layer):
     return {  # pytype: disable=bad-return-type
         name: size
         for name, size in self.kernel.value.named_shape.items()
-        if name in self.spatial_axes_names
+        if name in self.spatial_axis_names
     }
 
 
@@ -1342,6 +1342,7 @@ class Conv(AbstractGeneralConv):
     )
     if isinstance(layer, AbstractGeneralConv):
       return cast(Conv, layer)
+    assert isinstance(layer, ConvInPlace)
     return layer
 
   def _is_transposed(self):
@@ -1481,6 +1482,7 @@ class ConvTranspose(AbstractGeneralConv):
     if isinstance(layer, AbstractGeneralConv):
       return cast(ConvTranspose, layer)
 
+    assert isinstance(layer, ConvTransposeInPlace)
     return layer
 
   def _is_transposed(self):
