@@ -973,8 +973,10 @@ def _get_dimension_numbers(ndim) -> jax.lax.ConvDimensionNumbers:
 @struct.pytree_dataclass
 class AbstractGeneralConv(layer_base.Layer):
   kernel: parameters.ParameterLike[NamedArray]
-  strides: Sequence[int]
-  padding: str | Sequence[tuple[int, int]]
+  strides: Sequence[int] = dataclasses.field(metadata={"pytree_node": False})
+  padding: str | Sequence[tuple[int, int]] = dataclasses.field(
+      metadata={"pytree_node": False}
+  )
 
   spatial_axis_names: tuple[str, ...] = dataclasses.field(
       metadata={"pytree_node": False}
@@ -986,8 +988,12 @@ class AbstractGeneralConv(layer_base.Layer):
       metadata={"pytree_node": False}
   )
 
-  kernel_dilation: Sequence[int]
-  inputs_dilation: Sequence[int]
+  kernel_dilation: Sequence[int] = dataclasses.field(
+      metadata={"pytree_node": False}
+  )
+  inputs_dilation: Sequence[int] = dataclasses.field(
+      metadata={"pytree_node": False}
+  )
 
   def __call__(self, in_array: NamedArray, **_side_inputs) -> NamedArray:
     """Runs the Convolution operator."""
@@ -1004,7 +1010,7 @@ class AbstractGeneralConv(layer_base.Layer):
     # pytype: enable=attribute-error
 
     dimvars = shapecheck.check_structure(
-        in_array, in_struct, error_prefix=error_prefix
+        in_array, in_struct, error_prefix=error_prefix  # TODO: here
     )
 
     lhs, rhs = _prepare_for_conv(
@@ -1151,7 +1157,7 @@ class AbstractGeneralConv(layer_base.Layer):
         and name not in self.spatial_axis_names
     }
     return shapecheck.ArraySpec(
-        named_shape={**shapecheck.var("B"), **known_in_axes},
+        named_shape={**shapecheck.var("In"), **known_in_axes},
         dtype=jnp.floating,
     )
 
@@ -1162,8 +1168,9 @@ class AbstractGeneralConv(layer_base.Layer):
         if name not in self.in_axis_names
         and name not in self.spatial_axis_names
     }
+    print(f"known_out_axes: {known_out_axes}")
     return shapecheck.ArraySpec(
-        named_shape={**shapecheck.var("B"), **known_out_axes},
+        named_shape={**shapecheck.var("Out"), **known_out_axes},
         dtype=jnp.floating,
     )
 
@@ -1231,8 +1238,10 @@ class Conv(AbstractGeneralConv):
   """
 
   kernel: parameters.ParameterLike[NamedArray]
-  strides: Sequence[int]
-  padding: str | Sequence[tuple[int, int]]
+  strides: Sequence[int] = dataclasses.field(metadata={"pytree_node": False})
+  padding: str | Sequence[tuple[int, int]] = dataclasses.field(
+      metadata={"pytree_node": False}
+  )
 
   spatial_axis_names: tuple[str, ...] = dataclasses.field(
       metadata={"pytree_node": False}
@@ -1244,8 +1253,12 @@ class Conv(AbstractGeneralConv):
       metadata={"pytree_node": False}
   )
 
-  kernel_dilation: Sequence[int]
-  inputs_dilation: Sequence[int]
+  kernel_dilation: Sequence[int] = dataclasses.field(
+      metadata={"pytree_node": False}
+  )
+  inputs_dilation: Sequence[int] = dataclasses.field(
+      metadata={"pytree_node": False}
+  )
 
   @classmethod
   def from_config(
@@ -1374,8 +1387,10 @@ class ConvTranspose(AbstractGeneralConv):
   """
 
   kernel: parameters.ParameterLike[NamedArray]
-  strides: Sequence[int]
-  padding: str | Sequence[tuple[int, int]]
+  strides: Sequence[int] = dataclasses.field(metadata={"pytree_node": False})
+  padding: str | Sequence[tuple[int, int]] = dataclasses.field(
+      metadata={"pytree_node": False}
+  )
 
   spatial_axis_names: tuple[str, ...] = dataclasses.field(
       metadata={"pytree_node": False}
@@ -1387,8 +1402,12 @@ class ConvTranspose(AbstractGeneralConv):
       metadata={"pytree_node": False}
   )
 
-  kernel_dilation: Sequence[int]
-  inputs_dilation: Sequence[int]
+  kernel_dilation: Sequence[int] = dataclasses.field(
+      metadata={"pytree_node": False}
+  )
+  inputs_dilation: Sequence[int] = dataclasses.field(
+      metadata={"pytree_node": False}
+  )
 
   @classmethod
   def from_config(

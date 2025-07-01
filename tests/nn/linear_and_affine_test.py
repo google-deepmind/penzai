@@ -18,6 +18,7 @@ from absl.testing import absltest
 import chex
 import jax
 from penzai import pz
+from penzai.toolshed import jit_wrapper
 
 
 class LinearAndAffineTest(absltest.TestCase):
@@ -191,6 +192,52 @@ class LinearAndAffineTest(absltest.TestCase):
         ),
     )
 
+  def test_strided_conv_shape(self):
+    layer = pz.nn.Conv.from_config(
+        name="test",
+        init_base_rng=jax.random.key(1),
+        input_axes={"foo": 3},
+        output_axes={"foo": 5},
+        convolution_spatial_axes={"height": 3, "width": 3},
+        strides=(2, 2),
+        parallel_axes={"baz": 7},
+        parallel_broadcast_axes={"qux": 11},
+        rename_outputs_if_necessary=True,
+    )
+    result = layer(
+        pz.nx.ones({"batch": 1, "height": 10, "width": 16, "foo": 3, "baz": 7}),
+    )
+    pz.chk.check_structure(
+        result,
+        pz.chk.ArraySpec(
+            named_shape={
+                "batch": 1,
+                "height": 5,
+                "width": 8,
+                "foo": 5,
+                "baz": 7,
+                "qux": 11,
+            }
+        ),
+    )
+
+  def test_conv_jit_wrapper(self):
+    layer = jit_wrapper.Jitted(
+        pz.nn.Conv.from_config(
+            name="test",
+            init_base_rng=jax.random.key(1),
+            input_axes={"foo": 3},
+            output_axes={"foo": 5},
+            convolution_spatial_axes={"height": 3, "width": 3},
+            parallel_axes={"baz": 7},
+            parallel_broadcast_axes={"qux": 11},
+            rename_outputs_if_necessary=True,
+        )
+    )
+    layer(
+        pz.nx.ones({"batch": 1, "height": 10, "width": 15, "foo": 3, "baz": 7}),
+    )
+
   def test_conv_value(self):
     inputs = jax.random.normal(
         key=jax.random.PRNGKey(42), shape=(1, 10, 15, 3 * 7)
@@ -269,6 +316,35 @@ class LinearAndAffineTest(absltest.TestCase):
         ),
     )
 
+  def test_strided_conv_transpose_shape(self):
+    layer = pz.nn.ConvTranspose.from_config(
+        name="test",
+        init_base_rng=jax.random.key(1),
+        input_axes={"foo": 3},
+        output_axes={"foo": 5},
+        convolution_spatial_axes={"height": 3, "width": 3},
+        strides=(2, 2),
+        parallel_axes={"baz": 7},
+        parallel_broadcast_axes={"qux": 11},
+        rename_outputs_if_necessary=True,
+    )
+    result = layer(
+        pz.nx.ones({"batch": 1, "height": 10, "width": 16, "foo": 3, "baz": 7}),
+    )
+    pz.chk.check_structure(
+        result,
+        pz.chk.ArraySpec(
+            named_shape={
+                "batch": 1,
+                "height": 20,
+                "width": 32,
+                "foo": 5,
+                "baz": 7,
+                "qux": 11,
+            }
+        ),
+    )
+
   def test_conv_transpose_value(self):
     inputs = jax.random.normal(
         key=jax.random.PRNGKey(42), shape=(1, 10, 15, 3 * 7)
@@ -318,6 +394,23 @@ class LinearAndAffineTest(absltest.TestCase):
     )
 
     chex.assert_trees_all_equal(pz_outputs, outputs)
+
+  def test_conv_transposed_jit_wrapper(self):
+    layer = jit_wrapper.Jitted(
+        pz.nn.ConvTranspose.from_config(
+            name="test",
+            init_base_rng=jax.random.key(1),
+            input_axes={"foo": 3},
+            output_axes={"foo": 5},
+            convolution_spatial_axes={"height": 3, "width": 3},
+            parallel_axes={"baz": 7},
+            parallel_broadcast_axes={"qux": 11},
+            rename_outputs_if_necessary=True,
+        )
+    )
+    layer(
+        pz.nx.ones({"batch": 1, "height": 10, "width": 15, "foo": 3, "baz": 7}),
+    )
 
   def test_constant_rescale(self):
     layer = pz.nn.ConstantRescale(3.0)
