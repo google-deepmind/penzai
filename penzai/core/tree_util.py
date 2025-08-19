@@ -49,8 +49,7 @@ def tree_flatten_exactly_one_level(
   paths_and_subtrees, treedef = jax.tree_util.tree_flatten_with_path(
       tree, is_leaf=lambda subtree: subtree is not tree
   )
-  leaf_treedef = jax.tree_util.tree_structure(1)
-  if treedef == leaf_treedef:
+  if jax.tree_util.treedef_is_leaf(treedef):
     return None
 
   keys_and_subtrees = [
