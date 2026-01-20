@@ -23,6 +23,12 @@ from penzai.nn.attention import (
     Attention,
     KVCachingAttention,
 )
+from penzai.nn.geometric_attention import (
+    GeometricSparseAttention,
+    compute_block_geometry,
+    geometric_upper_bound,
+    geometric_sparse_attention,
+)
 from penzai.nn.basic_ops import (
     CastToDType,
     Elementwise,
