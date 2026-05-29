@@ -93,7 +93,7 @@ class DimVar(Mapping):
       and the inner name is the named shape of a single axis in that collection.
   """
 
-  name: str | tuple[str, str | int]
+  name: str | tuple[str, named_axes.AxisName]
 
   def __len__(self) -> int:
     return 1
@@ -148,7 +148,7 @@ class KnownDim:
     from_keypath: Optional keypath that indicates where this size was bound.
   """
 
-  name: str | tuple[str, str | int]
+  name: str | tuple[str, named_axes.AxisName]
   size: int
   from_keypath: str | None = None
 
@@ -618,7 +618,6 @@ def _named_inline_multidimvars(
     binding = solutions[key.name]
     assert isinstance(binding.value, dict)
     for subkey, subval in binding.value.items():
-      assert isinstance(subkey, str)
       if subkey in new_pattern:
         return (
             _UnsatisfiedConstraint(
@@ -972,9 +971,13 @@ def check_structure(
               )
           elif remaining_value_keys:
             # No unpack pattern, but we ran out of keys.
+            # Use list() instead of sorted() because axis names may be
+            # non-string hashables (e.g. TmpPosAxisMarker) that are not
+            # mutually orderable. OrderedSet preserves insertion order, which
+            # gives a deterministic message without requiring comparison.
             subfailures.append(
                 "  Unexpected names in value's named shape:"
-                f" {sorted(remaining_value_keys)}"
+                f" {list(remaining_value_keys)}"
             )
           if subfailures:
             failures.append((
@@ -1038,7 +1041,6 @@ def check_structure(
           ):
             found = solutions[name[0]].value[name[1]]
         else:
-          assert isinstance(name[1], str)
           if isinstance(solutions[name[0]].value, dict):
             found = solutions[name[0]].value.get(name[1])
         if found != binding.value:
@@ -1090,7 +1092,7 @@ class DimensionVariableSubstitution:
       axis name to sizes.
   """
 
-  size_variables: dict[str | tuple[str, str | int], int | DimVar]
+  size_variables: dict[str | tuple[str, named_axes.AxisName], int | DimVar]
   sequence_variables: dict[str, tuple[int | DimVar | MultiDimVar, ...]]
   mapping_variables: dict[
       str, dict[Any | MultiDimVar, int | DimVar | RemainingAxisPlaceholder]
