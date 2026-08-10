@@ -22,7 +22,7 @@
         "editor.tabSize": 2,
         "editor.formatOnSave": true,
         "editor.detectIndentation": false,
-        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.defaultFormatter": "charliermarsh.ruff",
     },
     "black-formatter.path": ["uvx", "--python=>=3.9,!=3.12.5", "pyink"],
     "pylint.enabled": true,

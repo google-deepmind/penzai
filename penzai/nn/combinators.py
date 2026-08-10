@@ -25,6 +25,7 @@ from typing import Any
 
 from penzai.core import struct
 from penzai.nn import layer as layer_base
+from penzai.nn import parameters
 
 
 @struct.pytree_dataclass
@@ -59,6 +60,54 @@ class Residual(layer_base.Layer):
     """
     delta_value = self.delta(value, **side_inputs)
     return delta_value + value
+
+
+@struct.pytree_dataclass
+class ScaledResidual(layer_base.Layer):
+  """A residual block where the skip connection is scaled by a learnable factor.
+
+  Like ``Residual``, but computes ``delta(value) + scale * value`` instead
+  of ``delta(value) + value``. Used by models that have a per-layer
+  learnable skip connection scale, such as Gemma 4.
+
+  Attributes:
+    delta: A block to run and add its output to the scaled input.
+    scale: Learnable scale factor for the skip connection.
+  """
+
+  delta: layer_base.Layer
+  scale: parameters.ParameterLike
+
+  def __call__(self, value: Any, **side_inputs: dict[Any, Any]) -> Any:
+    """Runs the sublayer, then adds back the scaled original input.
+
+    Args:
+      value: The input to the block.
+      **side_inputs: Side inputs for the block.
+
+    Returns:
+      The sum of the output of the child and the scaled input.
+    """
+    delta_value = self.delta(value, **side_inputs)
+    return delta_value + value * self.scale.value
+
+
+@struct.pytree_dataclass
+class LearnableRescale(layer_base.Layer):
+  """Multiplies its input by a learnable scalar parameter.
+
+  Mirrors `ConstantRescale` but with a learnable scalar instead of a fixed
+  constant. Used by models that scale a block's output by a learned factor,
+  such as Gemma 4's ``skip_scale``.
+
+  Attributes:
+    scale: Learnable scalar factor applied multiplicatively to the input.
+  """
+
+  scale: parameters.ParameterLike
+
+  def __call__(self, value: Any, **side_inputs: dict[Any, Any]) -> Any:
+    return value * self.scale.value
 
 
 @struct.pytree_dataclass

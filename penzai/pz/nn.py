@@ -31,6 +31,8 @@ from penzai.nn.basic_ops import (
 )
 from penzai.nn.combinators import (
     Residual,
+    ScaledResidual,
+    LearnableRescale,
     BranchAndAddTogether,
     BranchAndMultiplyTogether,
 )
@@ -38,6 +40,11 @@ from penzai.nn.dropout import (
     DisabledDropout,
     maybe_dropout,
     StochasticDropout,
+)
+from penzai.nn.mixture_of_experts import (
+    MixtureOfExperts,
+    MoETopKRouter,
+    MoEGatedExpertComputation,
 )
 from penzai.nn.embeddings import (
     EmbeddingTable,

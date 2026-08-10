@@ -98,6 +98,15 @@ class TransformerFeedForward(pz.nn.Sequential):
 
 
 @pz.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
+class TransformerMoEFeedForward(pz.nn.Sequential):
+  """Informatively-named Sequential subclass for MoE + dense feedforward."""
+
+  def treescope_color(self):
+    color = "oklch(0.785 0.103 280 / 1.0)"
+    return color, f"color-mix(in oklab, {color} 25%, white)"
+
+
+@pz.pytree_dataclass(has_implicitly_inherited_fields=True)  # pytype: disable=wrong-keyword-args  # pylint: disable=line-too-long
 class TransformerBlock(pz.nn.Sequential):
   """Informatively-named Sequential subclass for the main transformer blocks."""
 
@@ -147,4 +156,9 @@ class TransformerLM(pz.nn.Layer):
     """
     if token_positions is None:
       token_positions = pz.nx.arange("seq", tokens.named_shape["seq"])
-    return self.body(tokens, token_positions=token_positions, **side_inputs)
+    return self.body(
+        tokens,
+        token_positions=token_positions,
+        token_ids=tokens,
+        **side_inputs,
+    )

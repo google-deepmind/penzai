@@ -227,12 +227,20 @@ class ApplyRoPE(layer_base.Layer):
       include the embedding axis.
     scale_factor: The scale factor to use for the positional embeddings (used by
       Gemma3 models).
+    rope_proportion: Fraction of the head dimension (split-half pairs) that
+      receive a non-trivial rotation. The remaining pairs use a zero-frequency
+      timescale, which yields cos=1 and sin=0 (identity). Used by Gemma 4
+      partial-RoPE; defaults to 1.0 (full rotation).
   """
 
   embedding_axis: str = dataclasses.field(metadata={"pytree_node": False})
   max_wavelength: float = dataclasses.field(metadata={"pytree_node": False})
   positions_input_name: str = dataclasses.field(metadata={"pytree_node": False})
   scale_factor: float = dataclasses.field(
+      default=1.0,
+      metadata={"pytree_node": False},
+  )
+  rope_proportion: float = dataclasses.field(
       default=1.0,
       metadata={"pytree_node": False},
   )
@@ -243,8 +251,18 @@ class ApplyRoPE(layer_base.Layer):
     assert position.ndim == 0
     # Infer `head_dim` from the input shape
     [head_dim] = input_slice.shape
-    fraction = 2 * jnp.arange(0, head_dim // 2) / head_dim
-    timescale = self.max_wavelength**fraction
+    half = head_dim // 2
+    rope_angles = int(self.rope_proportion * half)
+    nope_angles = half - rope_angles
+    freq_exponents = (
+        2.0 / head_dim
+    ) * jnp.arange(0, rope_angles, dtype=jnp.float32)
+    timescale = jnp.pad(
+        self.max_wavelength**freq_exponents,
+        (0, nope_angles),
+        mode="constant",
+        constant_values=(0, jnp.inf),
+    )
     # Since we're assuming `timescale` is a vector and `position` is a scalar,
     # we don't need any axis alignment.
     sinusoid_inp = position / timescale
