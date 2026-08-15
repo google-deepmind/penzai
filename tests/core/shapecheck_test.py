@@ -94,9 +94,11 @@ class ShapecheckTest(absltest.TestCase):
   def test_simple_named(self):
     match = pz.chk.check_structure(
         value={
-            "a": pz.nx.zeros(
-                {"foo": 3, "bar": 4, "baz": 5}, dtype=jnp.float32
-            ).untag("baz"),
+            "a": (
+                pz.nx.zeros(
+                    {"foo": 3, "bar": 4, "baz": 5}, dtype=jnp.float32
+                ).untag("baz")
+            ),
         },
         pattern={
             "a": pz.chk.ArraySpec(shape=(5,), named_shape={"foo": 3, "bar": 4})
@@ -116,9 +118,11 @@ class ShapecheckTest(absltest.TestCase):
     with self.assertRaisesWithLiteralMatch(pz.chk.StructureMismatchError, err):
       pz.chk.check_structure(
           value={
-              "a": pz.nx.zeros(
-                  {"foo": 3, "bar": 4, "baz": 5}, dtype=jnp.float32
-              ).untag("baz"),
+              "a": (
+                  pz.nx.zeros(
+                      {"foo": 3, "bar": 4, "baz": 5}, dtype=jnp.float32
+                  ).untag("baz")
+              ),
               "b": pz.nx.zeros({"foo": 3, "bar": 4, "baz": 5}, dtype=jnp.int32),
               "c": pz.nx.zeros(
                   {"foo": 3, "bar": 4, "baz": 5}, dtype=jnp.float32
@@ -399,6 +403,30 @@ class ShapecheckTest(absltest.TestCase):
               ),
           },
       )
+
+  def test_named_axis_dimension_vars_support_nonstr_axis_names(self):
+    batch_axis = pz.nx.TmpPosAxisMarker()
+    match = pz.chk.check_structure(
+        value={
+            "a": pz.chk.ArraySpec(
+                named_shape={batch_axis: 3, "features": 2}, dtype=jnp.float32
+            ),
+            "b": pz.chk.ArraySpec(
+                named_shape={batch_axis: 3, "outputs": 4}, dtype=jnp.float32
+            ),
+        },
+        pattern={
+            "a": pz.chk.ArraySpec(
+                named_shape={**pz.chk.var("batch"), "features": 2},
+                dtype=jnp.float32,
+            ),
+            "b": pz.chk.ArraySpec(
+                named_shape={**pz.chk.var("batch"), "outputs": 4},
+                dtype=jnp.float32,
+            ),
+        },
+    )
+    self.assertEqual(dict(match), {"batch": {batch_axis: 3}})
 
   def test_named_axis_inconsistent_shapes(self):
     err = textwrap.dedent("""\
